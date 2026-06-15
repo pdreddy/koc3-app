@@ -216,6 +216,16 @@ table.std .pts { font-weight: 900; }
   max-height: 180px;
   overflow-y: auto;
   box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+}
+.suggest-hint {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.25rem 0.55rem 0.45rem;
 }
 .suggest-item {
   padding: 0.5rem 0.6rem;

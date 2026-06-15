@@ -104,21 +104,56 @@ function newCourt(label, type, setCount = 3) {
   };
 }
 
-function PlayerInput({ value, onChange, roster, testid }) {
+function PlayerInput({ value, onChange, roster, teamAbbr, testid }) {
   const [focus, setFocus] = useState(false);
+  const trimmedValue = value.trim();
+  const canSuggest = trimmedValue.length >= 3;
   const result = useMemo(() => matchName(value, roster), [value, roster]);
-  const showSuggest = focus && value && !result.exact && result.suggestions.length > 0;
-  const showNoMatch = focus && value && result.suggestions.length === 0;
+  const rosterSuggestions = useMemo(() => {
+    if (!canSuggest || result.exact) return [];
+    const query = trimmedValue.toLowerCase();
+    const ranked = (roster || [])
+      .map((player) => {
+        const name = player.name || '';
+        const lowerName = name.toLowerCase();
+        const firstToken = lowerName.split(/\s+/)[0] || '';
+        let rank = 3;
+        if (firstToken.startsWith(query)) rank = 0;
+        else if (lowerName.startsWith(query)) rank = 1;
+        else if (lowerName.includes(query)) rank = 2;
+        return { ...player, rank };
+      })
+      .filter(player => player.rank < 3)
+      .sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name))
+      .slice(0, 5);
+
+    const seen = new Set(ranked.map(player => player.name));
+    const fuzzy = (result.suggestions || []).filter(player => !seen.has(player.name));
+    return [...ranked, ...fuzzy].slice(0, 5);
+  }, [canSuggest, result.exact, result.suggestions, roster, trimmedValue]);
+  const showSuggest = focus && canSuggest && !result.exact && rosterSuggestions.length > 0;
+  const showNoMatch = focus && canSuggest && !result.exact && rosterSuggestions.length === 0;
   const matchedExact = result.exact;
+  const applySuggestion = (name) => {
+    onChange(name);
+    setFocus(false);
+  };
   return (
     <div style={{ position: 'relative' }}>
       <input
         className="input"
         value={value}
-        placeholder="Player name"
+        placeholder={teamAbbr ? `Type 3 letters for ${teamAbbr} roster` : 'Type 3 letters for roster'}
         onChange={e => onChange(e.target.value)}
         onFocus={() => setFocus(true)}
+        onKeyDown={(e) => {
+          if ((e.key === 'Tab' || e.key === 'Enter') && showSuggest && rosterSuggestions[0]) {
+            e.preventDefault();
+            applySuggestion(rosterSuggestions[0].name);
+          }
+        }}
         onBlur={() => setTimeout(() => setFocus(false), 180)}
+        autoComplete="off"
         data-testid={testid}
         style={{
           borderColor: matchedExact ? '#10b981' : (showNoMatch ? '#ef4444' : undefined),
@@ -133,15 +168,16 @@ function PlayerInput({ value, onChange, roster, testid }) {
       )}
       {showSuggest && (
         <div className="suggest" data-testid={`${testid}-suggest`}>
-          {result.suggestions.map((s, i) => (
+          <div className="suggest-hint">Choose a {teamAbbr || 'team'} player, or press Enter/Tab for the first match</div>
+          {rosterSuggestions.map((s, i) => (
             <div
-              key={i}
+              key={s.name || i}
               className="suggest-item"
-              onMouseDown={(e) => { e.preventDefault(); onChange(s.name); setFocus(false); }}
+              onMouseDown={(e) => { e.preventDefault(); applySuggestion(s.name); }}
               data-testid={`${testid}-suggest-${i}`}
             >
               {s.isCaptain ? '🏆 ' : ''}{s.name}
-              <span className="score">{Math.round(s.score * 100)}% match</span>
+              {typeof s.score === 'number' && <span className="score">{Math.round(s.score * 100)}% match</span>}
             </div>
           ))}
         </div>
@@ -466,6 +502,7 @@ function FormEntry({ teams, matches }) {
                   value={n}
                   onChange={(v) => updateCourt(idx, { p1: c.p1.map((x, j) => j === i ? v : x) })}
                   roster={team1.players || []}
+                  teamAbbr={team1.abbreviation}
                   testid={`court-${idx}-p1-${i}`}
                 />
               </div>
@@ -480,6 +517,7 @@ function FormEntry({ teams, matches }) {
                   value={n}
                   onChange={(v) => updateCourt(idx, { p2: c.p2.map((x, j) => j === i ? v : x) })}
                   roster={team2.players || []}
+                  teamAbbr={team2.abbreviation}
                   testid={`court-${idx}-p2-${i}`}
                 />
               </div>
