@@ -45,7 +45,7 @@ export default function Login({ teams, adminConfig }) {
   return (
     <div className="login-shell">
       <div className="login-card" data-testid="login-card">
-        <h1>🏆 KOC Season 2</h1>
+        <h1>🏆 KOC3</h1>
         <p className="sub">Captains & organizers sign in</p>
 
         <div className="login-tabs" role="tablist">

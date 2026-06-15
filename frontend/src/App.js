@@ -19,7 +19,7 @@ import Rules from './pages/Rules';
 import Schedule from './pages/Schedule';
 import Matchups from './pages/Matchups';
 import More from './pages/More';
-import Season1 from './pages/Season1';
+import Season2 from './pages/Season2';
 
 function Shell() {
   const location = useLocation();
@@ -110,7 +110,7 @@ function Shell() {
         <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />
         <Route path="/matchups" element={<Matchups matches={matches} teams={teams} />} />
         <Route path="/history" element={<History matches={matches} teams={teams} />} />
-        <Route path="/season1" element={<Season1 />} />
+        <Route path="/season2" element={<Season2 />} />
         <Route path="/rules" element={<Rules />} />
         <Route path="/more" element={<More />} />
         <Route path="/login" element={<Login teams={teams} adminConfig={adminConfig} />} />

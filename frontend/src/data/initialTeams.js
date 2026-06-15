@@ -29,7 +29,7 @@ export function buildInitialTeams() {
       id,
       name: t.name,
       abbreviation: t.abbreviation,
-      password: `KOC${t.abbreviation}#2`,
+      password: `KOC${t.abbreviation}#3`,
       gradient: idx + 1,
       group: idx < 8 ? 'A' : 'B',
       players: [
@@ -44,7 +44,7 @@ export function buildInitialTeams() {
       id,
       name: t.name,
       abbreviation: t.abbreviation,
-      password: `KOC${t.abbreviation}#2`,
+      password: `KOC${t.abbreviation}#3`,
       gradient: idx + 10,
       group: 'B',
       players: [

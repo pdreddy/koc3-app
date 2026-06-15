@@ -5,7 +5,7 @@ export default function Rules() {
     <main className="container">
       <div className="page-title">
         <h1>Tournament Rules</h1>
-        <p>Format & scoring rules for KOC Season 2</p>
+        <p>Format & scoring rules for KOC3</p>
       </div>
 
       <div className="card">
