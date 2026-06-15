@@ -319,8 +319,18 @@ function getRosterSuggestions(query, roster) {
   return [...ranked, ...fuzzy].slice(0, 5);
 }
 
-function getQuickNameContext(text, cursor, parsed) {
-  if (!parsed.team1 || !parsed.team2 || cursor == null) return null;
+function getAllRosterPlayers(teams) {
+  return Object.values(teams || {}).flatMap(team =>
+    (team.players || []).map(player => ({
+      ...player,
+      teamAbbr: team.abbreviation,
+      teamName: team.name
+    }))
+  );
+}
+
+function getQuickNameContext(text, cursor, parsed, teams) {
+  if (cursor == null) return null;
   const lineStart = text.lastIndexOf('\n', Math.max(0, cursor - 1)) + 1;
   const lineEndAt = text.indexOf('\n', cursor);
   const lineEnd = lineEndAt === -1 ? text.length : lineEndAt;
@@ -340,9 +350,10 @@ function getQuickNameContext(text, cursor, parsed) {
   const leadingSpace = rawToken.match(/^\s*/)?.[0] || '';
   const query = rawToken.trimStart();
   const replaceStart = lineStart + sideStart + tokenStartInSide + leadingSpace.length;
-  const suggestions = getRosterSuggestions(query, team.players || []);
+  const roster = team?.players || getAllRosterPlayers(teams);
+  const suggestions = getRosterSuggestions(query, roster);
   if (query.trim().length < 3 || suggestions.length === 0) return null;
-  return { query, suggestions, teamAbbr: team.abbreviation, replaceStart, replaceEnd: cursor };
+  return { query, suggestions, teamAbbr: team?.abbreviation || 'all teams', replaceStart, replaceEnd: cursor };
 }
 
 export default function ScoreEntry({ teams, matches }) {
@@ -636,7 +647,7 @@ function QuickEntry({ teams }) {
   const canNormalize = text.trim() && normalizedText !== text;
   const applyTemplate = () => { setText(quickTemplate); setError(''); setSuccess(''); };
   const applyNormalize = () => { setText(normalizedText); setError(''); setSuccess(''); };
-  const quickNameContext = useMemo(() => getQuickNameContext(text, cursor, parsed), [text, cursor, parsed]);
+  const quickNameContext = useMemo(() => getQuickNameContext(text, cursor, parsed, teams), [text, cursor, parsed, teams]);
   const updateCursorFromTextarea = (element) => setCursor(element.selectionStart || 0);
   const applyQuickSuggestion = (name) => {
     if (!quickNameContext) return;
@@ -787,6 +798,7 @@ Final: KC won 3-2`;
                       data-testid={`quick-name-suggest-${i}`}
                     >
                       {s.isCaptain ? '🏆 ' : ''}{s.name}
+                      {s.teamAbbr && <span className="score">{s.teamAbbr}</span>}
                       {typeof s.score === 'number' && <span className="score">{Math.round(s.score * 100)}% match</span>}
                     </div>
                   ))}
