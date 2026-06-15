@@ -66,7 +66,7 @@ function PlayerInput({ value, onChange, roster, testid }) {
   );
 }
 
-function SetRow({ idx, set, onChange }) {
+function SetRow({ idx, set, onChange, disabled }) {
   return (
     <div className="set-input">
       <span className="label">Set {idx + 1}</span>
@@ -75,6 +75,9 @@ function SetRow({ idx, set, onChange }) {
         type="number"
         inputMode="numeric"
         value={set.a}
+        min="0"
+        max="7"
+        disabled={disabled}
         onChange={e => onChange({ ...set, a: e.target.value })}
         placeholder="0"
         data-testid={`set-${idx}-a`}
@@ -85,6 +88,9 @@ function SetRow({ idx, set, onChange }) {
         type="number"
         inputMode="numeric"
         value={set.b}
+        min="0"
+        max="7"
+        disabled={disabled}
         onChange={e => onChange({ ...set, b: e.target.value })}
         placeholder="0"
         data-testid={`set-${idx}-b`}
@@ -97,6 +103,8 @@ function SetRow({ idx, set, onChange }) {
             type="number"
             inputMode="numeric"
             value={set.tieA}
+            min="0"
+            disabled={disabled}
             onChange={e => onChange({ ...set, tieA: e.target.value })}
             placeholder="0"
             data-testid={`set-${idx}-tieA`}
@@ -107,6 +115,8 @@ function SetRow({ idx, set, onChange }) {
             type="number"
             inputMode="numeric"
             value={set.tieB}
+            min="0"
+            disabled={disabled}
             onChange={e => onChange({ ...set, tieB: e.target.value })}
             placeholder="0"
             data-testid={`set-${idx}-tieB`}
@@ -137,6 +147,33 @@ function computeCourt(c) {
   }
   const winnerTeamNum = s1 > s2 ? 1 : (s2 > s1 ? 2 : null);
   return { g1, g2, s1, s2, sets, winnerTeamNum };
+}
+
+
+function courtHasEntry(c) {
+  return [...c.p1, ...c.p2].some(n => (n || '').trim()) || c.sets.some(s => s.a !== '' || s.b !== '' || s.tieA !== '' || s.tieB !== '');
+}
+
+function getDuplicatePlayers(courts) {
+  const seen = new Map();
+  const duplicates = new Set();
+  courts.forEach(c => {
+    [...c.p1, ...c.p2].forEach(name => {
+      const key = (name || '').trim().toLowerCase();
+      if (!key) return;
+      if (seen.has(key)) duplicates.add((name || '').trim());
+      seen.set(key, true);
+    });
+  });
+  return Array.from(duplicates);
+}
+
+function courtCompletion(c) {
+  if (!courtHasEntry(c)) return { status: 'empty', message: 'Not started' };
+  const r = computeCourt(c);
+  if (r.sets.length === 0) return { status: 'warning', message: 'Add set scores' };
+  if (r.winnerTeamNum === null) return { status: 'warning', message: 'Needs clear winner' };
+  return { status: 'ready', message: `Ready · ${r.s1}-${r.s2} sets · ${r.g1}-${r.g2} games` };
 }
 
 export default function ScoreEntry({ teams, matches }) {
@@ -209,9 +246,16 @@ function FormEntry({ teams, matches }) {
 
     // Validate all player names exist
     const validationErrors = [];
+    const duplicatePlayers = getDuplicatePlayers(courts);
+    duplicatePlayers.forEach(n => validationErrors.push(`Player entered more than once: ${n}`));
+
     const lines = courts.map((c, idx) => {
       const r = computeCourt(c);
-      if (r.sets.length === 0) return null; // skip empty courts
+      if (!courtHasEntry(c)) return null; // skip untouched courts
+      if (r.sets.length === 0) {
+        validationErrors.push(`${c.label}: add at least one set score or clear the court`);
+        return null;
+      }
       const checkSide = (names, team, side) => {
         return names.map((n, i) => {
           const trimmed = (n || '').trim();
@@ -324,9 +368,11 @@ function FormEntry({ teams, matches }) {
         </div>
       </div>
 
-      {team1 && team2 && courts.map((c, idx) => (
-        <div className="match-line" key={idx}>
-          <h3>{c.label} <span className="tag">{c.type}</span></h3>
+      {team1 && team2 && courts.map((c, idx) => {
+        const status = courtCompletion(c);
+        return (
+        <div className={`match-line court-card ${status.status}`} key={idx}>
+          <h3>{c.label} <span className="tag">{c.type}</span> <span className={`tag status ${status.status}`}>{status.message}</span></h3>
 
           <div style={{ marginBottom: '.4rem' }}>
             <div className="field-label">{team1.abbreviation} player{c.type === 'doubles' ? 's' : ''}</div>
@@ -359,11 +405,12 @@ function FormEntry({ teams, matches }) {
           <div className="field-label">Sets ({team1.abbreviation} – {team2.abbreviation})</div>
           {c.sets.map((s, i) => (
             <div key={i} data-testid={`court-${idx}-set-${i}-row`}>
-              <SetRow idx={i} set={s} onChange={(ns) => updateCourt(idx, { sets: c.sets.map((x, j) => j === i ? ns : x) })} />
+              <SetRow idx={i} set={s} disabled={i > 0 && c.sets[i - 1].a === '' && c.sets[i - 1].b === ''} onChange={(ns) => updateCourt(idx, { sets: c.sets.map((x, j) => j === i ? ns : x) })} />
             </div>
           ))}
         </div>
-      ))}
+        );
+      })}
 
       {team1 && team2 && (
         <div className="card">

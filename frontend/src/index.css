@@ -368,3 +368,12 @@ table.std .pts { font-weight: 900; }
   .groups-grid .team-header h2 { font-size: 0.74rem; }
   .groups-grid .player-name { font-size: 0.72rem; }
 }
+
+.court-card.ready { border-left: 4px solid var(--success); }
+.court-card.warning { border-left: 4px solid var(--warn); }
+.court-card.empty { border-left: 4px solid var(--ring); }
+.tag.status { margin-left: 0.35rem; background: #f1f5f9; color: #475569; }
+.tag.status.ready { background: #d1fae5; color: #065f46; }
+.tag.status.warning { background: #fef3c7; color: #92400e; }
+.tag.status.empty { background: #f8fafc; color: #64748b; }
+.set-input input:disabled { background: #f8fafc; color: #94a3b8; cursor: not-allowed; }
