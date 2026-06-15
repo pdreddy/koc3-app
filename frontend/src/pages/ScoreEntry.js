@@ -6,24 +6,50 @@ import { matchName } from '../utils/nameMatch';
 import { parseQuickScore } from '../utils/quickScoreParser';
 
 const COURT_TEMPLATES = [
-  { label: 'Singles 1', type: 'singles' },
-  { label: 'Doubles 1', type: 'doubles' },
-  { label: 'Doubles 2', type: 'doubles' }
+  { label: 'Singles 1', type: 'singles', setCount: 5 },
+  { label: 'Singles 2', type: 'singles', setCount: 5 },
+  { label: 'Singles 3', type: 'singles', setCount: 5 },
+  { label: 'Doubles 1', type: 'doubles', setCount: 3 },
+  { label: 'Doubles 1 Reverse', type: 'doubles', setCount: 3 },
+  { label: 'Doubles 2', type: 'doubles', setCount: 3 },
+  { label: 'Doubles 2 Reverse', type: 'doubles', setCount: 3 }
 ];
 
 
 function getQuickTemplate(teams) {
   const list = Object.values(teams || {});
-  const t1 = list.find(t => t.abbreviation === 'SK') || list[0];
-  const t2 = list.find(t => t.abbreviation === 'RR') || list.find(t => t.id !== t1?.id) || list[1];
+  const t1 = list.find(t => t.abbreviation === 'KC') || list[0];
+  const t2 = list.find(t => t.abbreviation === 'ML') || list.find(t => t.id !== t1?.id) || list[1];
   const p1 = t1?.players || [];
   const p2 = t2?.players || [];
   const name = (players, idx, fallback) => players[idx]?.name || fallback;
   const a = t1?.abbreviation || 'TEAM1';
   const b = t2?.abbreviation || 'TEAM2';
-  return `${a} vs ${b}\nS: ${name(p1, 0, 'Player A')} vs ${name(p2, 0, 'Player B')} 4-2,4-1 (won) ${a}\nD1: ${name(p1, 1, 'Player C')}/${name(p1, 2, 'Player D')} vs ${name(p2, 1, 'Player E')}/${name(p2, 2, 'Player F')} 4-3(7-5),1-4,4-2 (won) ${a}\nD2: ${name(p1, 3, 'Player G')}/${name(p1, 4, 'Player H')} vs ${name(p2, 3, 'Player I')}/${name(p2, 4, 'Player J')} 2-4,4-2,4-3(10-8) (won) ${b}`;
-}
+  return `${a} vs ${b}
 
+S1: ${name(p1, 0, 'Singles A1')} vs ${name(p2, 0, 'Singles B1')}
+4-3, 4-2, 0-4, 4-2 (won) ${a}
+
+S2: ${name(p1, 1, 'Singles A2')} vs ${name(p2, 1, 'Singles B2')}
+0-4, 0-4, 0-4 (won) ${b}
+
+S3: ${name(p1, 2, 'Singles A3')} vs ${name(p2, 2, 'Singles B3')}
+4-2, 4-0, 4-0 (won) ${a}
+
+D1: ${name(p1, 3, 'Doubles A1')}/${name(p1, 4, 'Doubles A2')} vs ${name(p2, 3, 'Doubles B1')}/${name(p2, 4, 'Doubles B2')}
+4-3, 1-4, 1-0 (won) ${a}
+
+D1: ${name(p1, 3, 'Doubles A1')}/${name(p1, 4, 'Doubles A2')} vs ${name(p2, 5, 'Doubles B3')}/${name(p2, 6, 'Doubles B4')}
+3-4, 1-4 (won) ${b}
+
+D2: ${name(p1, 5, 'Doubles A3')}/${name(p1, 6, 'Doubles A4')} vs ${name(p2, 5, 'Doubles B3')}/${name(p2, 6, 'Doubles B4')}
+0-4, 2-4 (won) ${b}
+
+D2: ${name(p1, 5, 'Doubles A3')}/${name(p1, 6, 'Doubles A4')} vs ${name(p2, 3, 'Doubles B1')}/${name(p2, 4, 'Doubles B2')}
+4-1, 4-2 (won) ${a}
+
+Final: ${a} won 4-3`;
+}
 function normalizeQuickText(text, teams) {
   const abbrs = new Set(Object.values(teams || {}).map(t => t.abbreviation?.toUpperCase()).filter(Boolean));
   const lines = (text || '').split('\n').map(line => {
@@ -33,7 +59,8 @@ function normalizeQuickText(text, teams) {
     out = out.replace(/^(singles?)\s*[:.-]?\s*/i, 'S: ');
     out = out.replace(/^doubles\s*(\d)?\s*[:.-]?\s*/i, (_, n) => `D${n || ''}: `);
     out = out.replace(/^d(\d)\s+/i, 'D$1: ');
-    out = out.replace(/^s\s+/i, 'S: ');
+    out = out.replace(/^s(\d)\s+/i, 'S$1: ');
+    out = out.replace(/^s\s+/i, 'S1: ');
     out = out.replace(/\b([a-z]{2,4}|t\d{2})\b/g, token => {
       const upper = token.toUpperCase();
       return abbrs.has(upper) ? upper : token;
@@ -52,8 +79,8 @@ function getQuickGuidance(text, parsed, teams) {
   if (!raw) {
     return [
       'Start with TEAM1 vs TEAM2 using team abbreviations.',
-      'Each court should be: S: Player vs Player scores (won) TEAM.',
-      'Use D1/D2 for doubles and separate partners with /.'
+      'Singles use S1, S2, S3 and can be best-of-5 sets.',
+      'Doubles use D1/D1 reverse and D2/D2 reverse; separate partners with /.'
     ];
   }
   const tips = [];
@@ -61,7 +88,8 @@ function getQuickGuidance(text, parsed, teams) {
   if (lines[0] && !/^\w+\s+vs\.?\s+\w+$/i.test(lines[0])) tips.push(`First line format: ${teamAbbrs[0] || 'SK'} vs ${teamAbbrs[1] || 'RR'}`);
   lines.slice(1).forEach((line, idx) => {
     const lineNo = idx + 2;
-    if (!/^(S|D\d?|Singles|Doubles\s*\d?)\s*:/i.test(line)) tips.push(`Line ${lineNo}: add court label like S:, D1:, or D2:.`);
+    if (/^final\s*:/i.test(line) || /^[\d\s,()-]+\(won\)/i.test(line)) return;
+    if (!/^(S\d?|D\d?|Singles\s*\d?|Doubles\s*\d?)\s*:/i.test(line)) tips.push(`Line ${lineNo}: add court label like S1:, S2:, S3:, D1:, or D2:.`);
     if (!/\s+vs\.?\s+/i.test(line)) tips.push(`Line ${lineNo}: include "vs" between players.`);
     if (!/\d+-\d+/.test(line)) tips.push(`Line ${lineNo}: add set scores like 4-2,4-1.`);
     if (!/\(won\)\s*\w+/i.test(line)) tips.push(`Line ${lineNo}: end with (won) ${parsed.team1?.abbreviation || teamAbbrs[0] || 'TEAM'}.`);
@@ -71,12 +99,12 @@ function getQuickGuidance(text, parsed, teams) {
   return Array.from(new Set(tips)).slice(0, 6);
 }
 
-function newCourt(label, type) {
+function newCourt(label, type, setCount = 3) {
   return {
     label, type,
     p1: type === 'singles' ? [''] : ['', ''],
     p2: type === 'singles' ? [''] : ['', ''],
-    sets: [{ a: '', b: '', tieA: '', tieB: '' }, { a: '', b: '', tieA: '', tieB: '' }, { a: '', b: '', tieA: '', tieB: '' }]
+    sets: Array.from({ length: setCount }, () => ({ a: '', b: '', tieA: '', tieB: '' }))
   };
 }
 
@@ -269,7 +297,7 @@ function FormEntry({ teams, matches }) {
 
   const [team1Id, setTeam1Id] = useState(myTeam?.id || '');
   const [team2Id, setTeam2Id] = useState('');
-  const [courts, setCourts] = useState(() => COURT_TEMPLATES.map(t => newCourt(t.label, t.type)));
+  const [courts, setCourts] = useState(() => COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [saving, setSaving] = useState(false);
@@ -381,7 +409,7 @@ function FormEntry({ teams, matches }) {
       await ensureAuth();
       await push(ref(db, PATHS.matches), record);
       setSuccess(`✅ Saved: ${team1.name} vs ${team2.name} — Winner: ${winner}`);
-      setCourts(COURT_TEMPLATES.map(t => newCourt(t.label, t.type)));
+      setCourts(COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
     } catch (e) {
       setError('Save failed: ' + e.message);
     } finally {
@@ -580,15 +608,17 @@ function QuickEntry({ teams }) {
 
   const placeholder = `Paste match results here...
 
-Example formats (all work):
-SK vs RR
-S: Kanak vs Srini 4-0,4-1,4-1 (won) SK
-D1: KP/Fayaz vs Vasu/Sandeep 2-4, 4-0, 3-4(6-10) (won) RR
-D2: Madhu/Uma V vs Yogesh/Kalam 4-2, 1-4, 3-4(6-10) (won) RR
-
-Or with scores on next line:
-S: Kanak vs Srini
-4-0,4-1,4-1 (won) SK`;
+KOC3 format:
+KC vs ML
+S1: Srini vs Bharath
+4-3, 4-2, 0-4, 4-2 (won) KC
+S2: Anshul vs Nagarjuna
+0-4, 0-4, 0-4 (won) ML
+D1: Dinkar / Satya vs Rajasekar Karru / Mohan
+4-3, 1-4, 1-0 (won) KC
+D1: Dinkar / Satya vs Anil / Raja
+3-4, 1-4 (won) ML
+Final: KC won 4-3`;
 
   let totG1 = 0, totG2 = 0, tw1 = 0, tw2 = 0;
   results.forEach(r => {
@@ -629,8 +659,8 @@ S: Kanak vs Srini
           <aside className="format-coach" data-testid="quick-format-coach">
             <h3>Format coach</h3>
             <code>{'{TEAM1} vs {TEAM2}'}</code>
-            <code>S: Player vs Player 4-2,4-1 (won) TEAM1</code>
-            <code>D1: P1/P2 vs P3/P4 4-3(7-5),1-4,4-2 (won) TEAM2</code>
+            <code>S1: Player vs Player 4-2,4-1,4-0 (won) TEAM1</code>
+            <code>D1: P1/P2 vs P3/P4 4-3,1-4,1-0 (won) TEAM2</code>
             <div className="divider" />
             {guidance.map((tip, i) => <p key={i} className="coach-tip">💡 {tip}</p>)}
           </aside>

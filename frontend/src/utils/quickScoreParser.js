@@ -53,10 +53,12 @@ export function parseQuickScore(text, teams) {
   const mergedLines = [];
   for (let i = startLine; i < rawLines.length; i++) {
     const line = rawLines[i];
-    const startsWithType = /^(S|D\d?|Singles|Doubles\s*\d?)[\s:]/i.test(line);
+    const startsWithType = /^(S\d?|D\d?|Singles\s*\d?|Doubles\s*\d?)[\s:]/i.test(line);
     const isScoreOnly = /^[\d\-(),\s]+\(won\)/i.test(line);
     if (isScoreOnly && mergedLines.length > 0) {
       mergedLines[mergedLines.length - 1] += ' ' + line;
+    } else if (/^final\s*:/i.test(line)) {
+      // Final line is a human-readable match summary; courts already determine the saved winner.
     } else if (startsWithType || /vs/i.test(line)) {
       mergedLines.push(line);
     }
@@ -109,7 +111,7 @@ export function parseQuickScore(text, teams) {
 }
 
 function parseLine(line, team1, team2, team1Abbr, team2Abbr, abbrLookup) {
-  const typeMatch = line.match(/^(S(?:ingles)?|D(?:oubles)?\s*(\d)?)[\s:]+/i);
+  const typeMatch = line.match(/^(S(?:ingles)?\s*(\d)?|D(?:oubles)?\s*(\d)?)[\s:]+/i);
   let remainder = line;
   let isDoubles = true;
   let courtNum = null;
@@ -141,7 +143,7 @@ function parseLine(line, team1, team2, team1Abbr, team2Abbr, abbrLookup) {
   const rightSide = remainder.slice(vsMatch.index + vsMatch[0].length).trim();
   const leftPlayers = leftSide.split('/').map(p => p.trim()).filter(Boolean);
 
-  const scoreStartMatch = rightSide.match(/\s+(\d+-\d+)/);
+  const scoreStartMatch = rightSide.match(/\s+(\d+\s*-\s*\d+)/);
   if (!scoreStartMatch) throw new Error('Could not find scores (e.g., 4-0)');
 
   const rightPlayersStr = rightSide.slice(0, scoreStartMatch.index).trim();
@@ -182,7 +184,7 @@ function parseLine(line, team1, team2, team1Abbr, team2Abbr, abbrLookup) {
 
 function parseScores(scoresStr) {
   const out = [];
-  const re = /(\d+)-(\d+)(?:\((\d+)-(\d+)\))?/g;
+  const re = /(\d+)\s*-\s*(\d+)(?:\((\d+)\s*-\s*(\d+)\))?/g;
   let m;
   while ((m = re.exec(scoresStr)) !== null) {
     const set = { left: parseInt(m[1], 10), right: parseInt(m[2], 10) };
