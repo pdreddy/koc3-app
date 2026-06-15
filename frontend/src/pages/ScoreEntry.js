@@ -49,17 +49,18 @@ function normalizeQuickText(text, teams) {
     let out = line.trim().replace(/\s+/g, ' ');
     out = out.replace(/\bvs\.?\b/ig, 'vs');
     out = out.replace(/\(\s*won\s*\)/ig, '(won)');
-    out = out.replace(/^(singles?)\s*[:.-]?\s*/i, 'S: ');
+    out = out.replace(/^(singles?)\s*[:.-]?\s*/i, 'S1: ');
     out = out.replace(/^doubles\s*(\d)?\s*[:.-]?\s*/i, (_, n) => `D${n || ''}: `);
     out = out.replace(/^d(\d)\s+/i, 'D$1: ');
     out = out.replace(/^s(\d)\s+/i, 'S$1: ');
     out = out.replace(/^s\s+/i, 'S1: ');
+    out = out.replace(/^S:\s*(S\d\s*:)/i, '$1');
     out = out.replace(/\b([a-z]{2,4}|t\d{2})\b/g, token => {
       const upper = token.toUpperCase();
       return abbrs.has(upper) ? upper : token;
     });
-    if (out && /^.+\svs\s.+/i.test(out) && !/^(S|D\d?)\s*:/i.test(out) && !/^\w+\s+vs\s+\w+$/i.test(out)) {
-      out = `S: ${out}`;
+    if (out && /^.+\svs\s.+/i.test(out) && !/^(S\d?|D\d?)\s*:/i.test(out) && !/^\w+\s+vs\s+\w+$/i.test(out)) {
+      out = `S1: ${out}`;
     }
     return out;
   });
@@ -81,11 +82,13 @@ function getQuickGuidance(text, parsed, teams) {
   if (lines[0] && !/^\w+\s+vs\.?\s+\w+$/i.test(lines[0])) tips.push(`First line format: ${teamAbbrs[0] || 'SK'} vs ${teamAbbrs[1] || 'RR'}`);
   lines.slice(1).forEach((line, idx) => {
     const lineNo = idx + 2;
+    const nextLine = lines[idx + 2] || '';
+    const hasScoreContinuation = /^[\d\s,()-]+\(won\)/i.test(nextLine);
     if (/^final\s*:/i.test(line) || /^[\d\s,()-]+\(won\)/i.test(line)) return;
     if (!/^(S\d?|D\d?|Singles\s*\d?|Doubles\s*\d?)\s*:/i.test(line)) tips.push(`Line ${lineNo}: add court label like S1:, D1:, or D2:.`);
     if (!/\s+vs\.?\s+/i.test(line)) tips.push(`Line ${lineNo}: include "vs" between players.`);
-    if (!/\d+-\d+/.test(line)) tips.push(`Line ${lineNo}: add set scores like 4-2,4-1.`);
-    if (!/\(won\)\s*\w+/i.test(line)) tips.push(`Line ${lineNo}: end with (won) ${parsed.team1?.abbreviation || teamAbbrs[0] || 'TEAM'}.`);
+    if (!hasScoreContinuation && !/\d+-\d+/.test(line)) tips.push(`Line ${lineNo}: add set scores like 4-2,4-1.`);
+    if (!hasScoreContinuation && !/\(won\)\s*\w+/i.test(line)) tips.push(`Line ${lineNo}: end with (won) ${parsed.team1?.abbreviation || teamAbbrs[0] || 'TEAM'}.`);
   });
   if (parsed.corrections?.length) parsed.corrections.forEach(c => tips.push(c));
   if (parsed.errors?.length && tips.length === 0) tips.push('Follow the sample format below, then use Auto-format to clean spacing and labels.');

@@ -123,6 +123,8 @@ function parseLine(line, team1, team2, team1Abbr, team2Abbr, abbrLookup) {
     const numMatch = typeStr.match(/\d/);
     if (numMatch) { courtNum = numMatch[0]; labelNum = true; }
     remainder = line.slice(typeMatch[0].length).trim();
+    // Be forgiving if Auto-format or pasted text left a nested court label, e.g. "S: S1: Name vs Name".
+    remainder = remainder.replace(/^(S\d?|D\d?)\s*:\s*/i, '');
   }
 
   const wonMatch = remainder.match(/\(won\)\s*(\w+)\s*\.?\s*$/i);
