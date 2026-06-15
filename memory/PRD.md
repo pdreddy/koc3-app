@@ -23,24 +23,33 @@ Convert https://github.com/pdreddy/koc-season-2.git (static HTML + Firebase RTDB
 
 ## Implemented (2026-01)
 - [x] React PWA scaffolding (CRA + service worker + manifest + iOS/Android icons)
-- [x] Firebase RTDB integration with anonymous auth bootstrap
-- [x] Auto-seeding of 16 teams (9 real KOC + 7 placeholders Team 10–16) and admin password on first run
-- [x] Public pages: Teams, Standings, Match History, Rules
+- [x] Firebase RTDB integration with anonymous auth bootstrap + group-field migration
+- [x] Auto-seeding of 16 teams split into Group A / Group B (8 each) + admin password on first run
+- [x] Public pages: Teams (grouped), Standings (two group tables), Schedule, Matchups, Match History, Rules, More
 - [x] Login page with Team/Admin tabs + guest browse
-- [x] Score Entry with PlayerInput component (live fuzzy match dropdown using Levenshtein + token-prefix boost)
-- [x] Validation prevents save when any player name doesn't match team roster; aggregated error messages
-- [x] Admin dashboard: Teams editor (rename/abbr/players/captain/password), Settings (admin password), Passwords (visible list of all 16 team passwords)
+- [x] Score Entry with TWO modes:
+  - **Form** — guided court-by-court entry with PlayerInput live fuzzy match (✓/✗ + suggestion dropdown)
+  - **⚡ Quick Paste** — legacy text-paste parser (e.g., `SK vs RR\nS: Kanak vs Yogesh 4-0,4-1,4-1 (won) SK`) with auto-correct on near-matches and per-line preview
+- [x] Validation prevents save when any player name doesn't match team roster (both modes); aggregated error messages
+- [x] Admin dashboard: Teams editor (rename/abbr/group/players/captain/password), Settings (admin password + clear-all-matches), Passwords (visible list of all 16 team passwords)
 - [x] Match deletion & clear-all (admin only)
+- [x] Group A / Group B split:
+  - Teams page sections by group
+  - Standings page renders two separate tables (top-2 of each group qualify for semifinals)
+  - Admin can move a team between groups
+  - Intra-group matches only count toward that group's standings
 - [x] Mobile-first layout: sticky header, fixed 5-tab bottom-nav, safe-area-inset support
 - [x] localStorage session persistence
-- [x] Schedule page (9-week round-robin + Thanksgiving break + Playoffs) with team filter — added 2026-01
-- [x] Matchups page (Player Stats / Singles Cap / Doubles partnerships) with caps tracking — added 2026-01
-- [x] "More" page (Match History + Rules + role-aware Login/Score/Admin/Logout) — added 2026-01
-- [x] Tested 31/31 end-to-end flows across two testing iterations
+- [x] Schedule page (9-week round-robin + Thanksgiving break + Playoffs) with team filter
+- [x] Matchups page (Player Stats / Singles Cap / Doubles partnerships) with caps tracking
+- [x] Tested 79/80 end-to-end scenarios across three testing iterations (1 flaky timing test self-verified manually)
 
 ## Backlog / Future (P1/P2)
-- P2: Move Schedule into Firebase so admin can edit fixtures live (currently hard-coded for the 9 original teams).
-- P2: Tighten Firebase RTDB security rules + working anonymous auth (preview container currently blocks `identitytoolkit.googleapis.com`, but RTDB writes succeed because rules are open).
+- P2: Store team IDs (not just names) in match records so that renaming a team after matches were played doesn't break historical standings.
+- P2: Move Schedule into Firebase so admin can edit fixtures and rebuild fixtures for the Group A / Group B split (current schedule is the legacy 9-team round-robin).
+- P2: Tighten Firebase RTDB security rules + working anonymous auth (preview container blocks `identitytoolkit.googleapis.com`, but RTDB writes succeed because rules are open).
+- P3: Refactor 556-line ScoreEntry.js into Form + QuickEntry separate modules.
+- P3: Per-court ❌ annotation in Quick Paste preview when only some lines have name errors.
 - P2: Session TTL for shared captain devices.
 - P2: Hash team/admin passwords (currently plaintext in RTDB).
 - P2: Push notifications for new results.
