@@ -31,13 +31,15 @@ Convert https://github.com/pdreddy/koc-season-2.git (static HTML + Firebase RTDB
 - [x] Validation prevents save when any player name doesn't match team roster; aggregated error messages
 - [x] Admin dashboard: Teams editor (rename/abbr/players/captain/password), Settings (admin password), Passwords (visible list of all 16 team passwords)
 - [x] Match deletion & clear-all (admin only)
-- [x] Mobile-first layout: sticky header, bottom-nav (5 tabs adapting to role), safe-area-inset support
+- [x] Mobile-first layout: sticky header, fixed 5-tab bottom-nav, safe-area-inset support
 - [x] localStorage session persistence
-- [x] Tested 17/17 end-to-end flows via testing agent
+- [x] Schedule page (9-week round-robin + Thanksgiving break + Playoffs) with team filter — added 2026-01
+- [x] Matchups page (Player Stats / Singles Cap / Doubles partnerships) with caps tracking — added 2026-01
+- [x] "More" page (Match History + Rules + role-aware Login/Score/Admin/Logout) — added 2026-01
+- [x] Tested 31/31 end-to-end flows across two testing iterations
 
 ## Backlog / Future (P1/P2)
-- P1: Schedule page (round-robin fixtures) — currently omitted; can be regenerated from legacy `legacy/schedule.html` if needed.
-- P1: Matchups/Player Stats page — head-to-head player stats (was in legacy `playerstats.html`).
+- P2: Move Schedule into Firebase so admin can edit fixtures live (currently hard-coded for the 9 original teams).
 - P2: Tighten Firebase RTDB security rules + working anonymous auth (preview container currently blocks `identitytoolkit.googleapis.com`, but RTDB writes succeed because rules are open).
 - P2: Session TTL for shared captain devices.
 - P2: Hash team/admin passwords (currently plaintext in RTDB).
