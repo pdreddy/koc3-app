@@ -332,3 +332,39 @@ table.std .pts { font-weight: 900; }
   .page-title h1 { font-size: 1.15rem; }
   .btn { padding: 0.7rem 0.8rem; }
 }
+
+/* Side-by-side Group A | Group B */
+.groups-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  align-items: start;
+}
+.group-col-title {
+  color: #fff;
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+  text-shadow: 0 1px 4px rgba(0,0,0,.25);
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+.groups-grid .card { padding: 0.6rem; }
+.groups-grid .card h2 { font-size: 0.88rem; margin-bottom: 0.4rem; }
+.groups-grid table.std { font-size: 0.7rem; }
+.groups-grid table.std thead th { padding: 0.4rem 0.25rem; font-size: 0.65rem; }
+.groups-grid table.std tbody td { padding: 0.4rem 0.25rem; }
+.groups-grid .team-card { box-shadow: 0 1px 6px rgba(0,0,0,.08); }
+.groups-grid .team-header { padding: 0.55rem 0.7rem; }
+.groups-grid .team-header h2 { font-size: 0.82rem; line-height: 1.1; }
+.groups-grid .team-header .abbr { padding: 0.12rem 0.4rem; font-size: 0.65rem; }
+.groups-grid .player-row { padding: 0.35rem 0.4rem; gap: 0.4rem; }
+.groups-grid .player-row .player-badge { width: 18px; height: 18px; font-size: 0.6rem; }
+.groups-grid .player-name { font-size: 0.78rem; line-height: 1.2; }
+.groups-grid .teams-list { gap: 0.5rem; }
+
+/* Allow horizontal-scroll fallback on extreme narrow screens */
+@media (max-width: 360px) {
+  .groups-grid { gap: 0.4rem; }
+  .groups-grid .team-header h2 { font-size: 0.74rem; }
+  .groups-grid .player-name { font-size: 0.72rem; }
+}

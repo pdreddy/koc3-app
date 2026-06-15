@@ -42,39 +42,34 @@ export default function Teams({ teams, loaded }) {
 
   const toggle = (id) => setOpen(o => ({ ...o, [id]: o[id] === undefined ? false : !o[id] }));
 
+  const renderColumn = (label, teamsList, testid) => (
+    <div data-testid={testid}>
+      <h2 className="group-col-title" data-testid={`teams-group-${label.toLowerCase()}-header`}>
+        {label === 'A' ? '🅰️' : '🅱️'} Group {label}
+      </h2>
+      <div className="teams-list">
+        {teamsList.map(t => (
+          <TeamCard
+            key={t.id}
+            t={t}
+            isOpen={open[t.id] === undefined ? true : open[t.id]}
+            onToggle={() => toggle(t.id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <main className="container">
       <div className="page-title">
         <h1>Tournament Teams</h1>
-        <p>{list.length} teams · 2 groups of 8 · 7 players each</p>
+        <p>{list.length} teams · 2 groups of 8 · Tap a card to toggle roster</p>
       </div>
 
-      <h2 style={{ color: '#fff', marginBottom: '.6rem', fontSize: '1.05rem', textShadow: '0 1px 4px rgba(0,0,0,.25)' }} data-testid="teams-group-a-header">
-        🅰️ Group A
-      </h2>
-      <div className="teams-list" data-testid="teams-list-a" style={{ marginBottom: '1rem' }}>
-        {groupA.map(t => (
-          <TeamCard
-            key={t.id}
-            t={t}
-            isOpen={open[t.id] === undefined ? true : open[t.id]}
-            onToggle={() => toggle(t.id)}
-          />
-        ))}
-      </div>
-
-      <h2 style={{ color: '#fff', marginBottom: '.6rem', fontSize: '1.05rem', textShadow: '0 1px 4px rgba(0,0,0,.25)' }} data-testid="teams-group-b-header">
-        🅱️ Group B
-      </h2>
-      <div className="teams-list" data-testid="teams-list-b">
-        {groupB.map(t => (
-          <TeamCard
-            key={t.id}
-            t={t}
-            isOpen={open[t.id] === undefined ? true : open[t.id]}
-            onToggle={() => toggle(t.id)}
-          />
-        ))}
+      <div className="groups-grid">
+        {renderColumn('A', groupA, 'teams-list-a')}
+        {renderColumn('B', groupB, 'teams-list-b')}
       </div>
     </main>
   );

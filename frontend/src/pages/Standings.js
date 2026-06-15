@@ -1,25 +1,29 @@
 import React from 'react';
+import { resolveMatchTeams, matchWinnerId } from '../utils/matchTeams';
 
-function statsForGroup(teamsInGroup, matches) {
-  const teamNames = new Set(teamsInGroup.map(t => t.name));
+function statsForGroup(teamsInGroup, matches, allTeams) {
+  const groupIds = new Set(teamsInGroup.map(t => t.id));
   const stats = {};
   teamsInGroup.forEach(t => {
-    stats[t.name] = {
-      team: t.name, abbr: t.abbreviation,
+    stats[t.id] = {
+      id: t.id, team: t.name, abbr: t.abbreviation,
       matches: 0, wins: 0, losses: 0,
       setsFor: 0, setsAgainst: 0,
       gamesFor: 0, gamesAgainst: 0, points: 0
     };
   });
   for (const m of matches || []) {
-    if (!teamNames.has(m.t1) || !teamNames.has(m.t2)) continue; // only intra-group matches
-    stats[m.t1].matches++; stats[m.t2].matches++;
-    stats[m.t1].gamesFor += Number(m.g1) || 0; stats[m.t1].gamesAgainst += Number(m.g2) || 0;
-    stats[m.t2].gamesFor += Number(m.g2) || 0; stats[m.t2].gamesAgainst += Number(m.g1) || 0;
-    stats[m.t1].setsFor += Number(m.s1) || 0; stats[m.t1].setsAgainst += Number(m.s2) || 0;
-    stats[m.t2].setsFor += Number(m.s2) || 0; stats[m.t2].setsAgainst += Number(m.s1) || 0;
-    if (m.win === m.t1) { stats[m.t1].wins++; stats[m.t2].losses++; stats[m.t1].points++; }
-    else if (m.win === m.t2) { stats[m.t2].wins++; stats[m.t1].losses++; stats[m.t2].points++; }
+    const { team1, team2 } = resolveMatchTeams(m, allTeams);
+    if (!team1 || !team2) continue;
+    if (!groupIds.has(team1.id) || !groupIds.has(team2.id)) continue;
+    const winId = matchWinnerId(m, allTeams);
+    stats[team1.id].matches++; stats[team2.id].matches++;
+    stats[team1.id].gamesFor += Number(m.g1) || 0; stats[team1.id].gamesAgainst += Number(m.g2) || 0;
+    stats[team2.id].gamesFor += Number(m.g2) || 0; stats[team2.id].gamesAgainst += Number(m.g1) || 0;
+    stats[team1.id].setsFor += Number(m.s1) || 0; stats[team1.id].setsAgainst += Number(m.s2) || 0;
+    stats[team2.id].setsFor += Number(m.s2) || 0; stats[team2.id].setsAgainst += Number(m.s1) || 0;
+    if (winId === team1.id) { stats[team1.id].wins++; stats[team2.id].losses++; stats[team1.id].points++; }
+    else if (winId === team2.id) { stats[team2.id].wins++; stats[team1.id].losses++; stats[team2.id].points++; }
   }
   return Object.values(stats).map(s => ({
     ...s,
@@ -52,7 +56,7 @@ function GroupTable({ label, rows, qualifyTop }) {
           <tbody>
             {rows.length === 0 && <tr><td colSpan="8" className="center muted">No teams in this group</td></tr>}
             {rows.map((r, i) => (
-              <tr key={r.team} className={i < qualifyTop ? 'q' : ''} data-testid={`standings-${label}-row-${r.abbr}`}>
+              <tr key={r.id} className={i < qualifyTop ? 'q' : ''} data-testid={`standings-${label}-row-${r.abbr}`}>
                 <td className="rank">{i + 1}</td>
                 <td><strong>{r.abbr}</strong></td>
                 <td>{r.matches}</td>
@@ -75,8 +79,8 @@ export default function Standings({ teams, matches }) {
   const groupA = list.filter(t => (t.group || 'A') === 'A').sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
   const groupB = list.filter(t => t.group === 'B').sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
 
-  const rowsA = statsForGroup(groupA, matches);
-  const rowsB = statsForGroup(groupB, matches);
+  const rowsA = statsForGroup(groupA, matches, teams);
+  const rowsB = statsForGroup(groupB, matches, teams);
 
   return (
     <main className="container">
@@ -84,8 +88,10 @@ export default function Standings({ teams, matches }) {
         <h1>Standings</h1>
         <p>Two groups of 8 · Top 2 from each group qualify for semifinals</p>
       </div>
-      <GroupTable label="A" rows={rowsA} qualifyTop={2} />
-      <GroupTable label="B" rows={rowsB} qualifyTop={2} />
+      <div className="groups-grid">
+        <GroupTable label="A" rows={rowsA} qualifyTop={2} />
+        <GroupTable label="B" rows={rowsB} qualifyTop={2} />
+      </div>
       <p className="hint center">Sort: Pts → Set Diff → Sets Won → Game Diff → Games Won</p>
     </main>
   );

@@ -256,6 +256,9 @@ function FormEntry({ teams, matches }) {
     if (!winner) { setError('Match is tied on courts won. Please verify scores.'); return; }
 
     const record = {
+      t1Id: team1.id,
+      t2Id: team2.id,
+      winnerId: totals.w1 > totals.w2 ? team1.id : team2.id,
       t1: team1.name,
       t2: team2.name,
       t1Abbr: team1.abbreviation,
@@ -434,6 +437,8 @@ function QuickEntry({ teams }) {
     if (!winner) { setError('Match is tied on courts won. Please verify scores.'); return; }
 
     const record = {
+      t1Id: team1.id, t2Id: team2.id,
+      winnerId: w1 > w2 ? team1.id : team2.id,
       t1: team1.name, t2: team2.name,
       t1Abbr: team1.abbreviation, t2Abbr: team2.abbreviation,
       g1: totalG1, g2: totalG2,

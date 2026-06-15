@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { resolveMatchTeams } from '../utils/matchTeams';
 
 // Compute player statistics from matches
 function computeStats(matches, teams) {
@@ -16,6 +17,9 @@ function computeStats(matches, teams) {
   matches.forEach((match) => {
     if (!match.lines) return;
     const matchId = match.id;
+    const { team1: m1, team2: m2 } = resolveMatchTeams(match, teams);
+    const t1Name = m1 ? m1.name : (match.t1 || 'Unknown');
+    const t2Name = m2 ? m2.name : (match.t2 || 'Unknown');
 
     match.lines.forEach(line => {
       const t1 = line.players?.team1 || [];
@@ -30,7 +34,7 @@ function computeStats(matches, teams) {
             courtsWon: 0, courtsLost: 0,
             matchesPlayed: new Set(),
             singlesCount: 0, doublesCount: 0,
-            team: playerTeamMap[p] || (t1.includes(p) ? match.t1 : match.t2) || 'Unknown'
+            team: playerTeamMap[p] || (t1.includes(p) ? t1Name : t2Name) || 'Unknown'
           };
         }
         players[p].matchesPlayed.add(matchId);
@@ -46,7 +50,7 @@ function computeStats(matches, teams) {
           if (!doubles[key]) {
             doubles[key] = {
               w: 0, l: 0, matchesPlayed: new Set(),
-              teams: team.map(p => playerTeamMap[p] || (idx === 0 ? match.t1 : match.t2) || 'Unknown')
+              teams: team.map(p => playerTeamMap[p] || (idx === 0 ? t1Name : t2Name) || 'Unknown')
             };
           }
           doubles[key].matchesPlayed.add(matchId);
