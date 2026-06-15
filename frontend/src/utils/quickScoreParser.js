@@ -5,6 +5,7 @@ import { matchName } from './nameMatch';
 export function parseQuickScore(text, teams) {
   const results = [];
   const errors = [];
+  const corrections = [];
 
   const abbrLookup = new Map();
   Object.values(teams || {}).forEach(t => {
@@ -12,7 +13,7 @@ export function parseQuickScore(text, teams) {
   });
 
   const rawLines = (text || '').trim().split('\n').map(l => l.trim()).filter(Boolean);
-  if (rawLines.length === 0) return { results: [], errors: [], team1: null, team2: null };
+  if (rawLines.length === 0) return { results: [], errors: [], corrections: [], team1: null, team2: null };
 
   let team1 = null, team2 = null;
   let startLine = 0;
@@ -40,10 +41,10 @@ export function parseQuickScore(text, teams) {
     if (list.length >= 2) { team1 = abbrLookup.get(list[0]); team2 = abbrLookup.get(list[1]); }
     if (!team1 || !team2) {
       errors.push('First line should be: TEAM1 vs TEAM2 (e.g., SK vs RR)');
-      return { results: [], errors, team1: null, team2: null };
+      return { results: [], errors, corrections, team1: null, team2: null };
     }
   }
-  if (!team1 || !team2) return { results: [], errors, team1: null, team2: null };
+  if (!team1 || !team2) return { results: [], errors, corrections, team1: null, team2: null };
 
   const t1Abbr = team1.abbreviation.toUpperCase();
   const t2Abbr = team2.abbreviation.toUpperCase();
@@ -85,8 +86,15 @@ export function parseQuickScore(text, teams) {
         }
         const r = matchName(trimmed, team.players || []);
         if (r.exact) return r.matched.name;
-        if (r.matched) return r.matched.name; // auto-fix high confidence (>=0.92)
-        errors.push(`${parsed.label}: "${trimmed}" not found in ${team.name}`);
+        if (r.matched) {
+          corrections.push(`${parsed.label}: auto-corrected "${trimmed}" to "${r.matched.name}"`);
+          return r.matched.name;
+        }
+        if (r.suggestions.length > 0) {
+          errors.push(`${parsed.label}: "${trimmed}" not found in ${team.name}. Did you mean ${r.suggestions.slice(0, 3).map(s => `"${s.name}"`).join(', ')}?`);
+        } else {
+          errors.push(`${parsed.label}: "${trimmed}" not found in ${team.name}`);
+        }
         return trimmed;
       });
       parsed.players.team1 = validate(parsed.players.team1, team1);
@@ -97,7 +105,7 @@ export function parseQuickScore(text, teams) {
       errors.push(`Line ${i + 1 + startLine}: ${err.message}`);
     }
   }
-  return { results, errors, team1, team2 };
+  return { results, errors, corrections, team1, team2 };
 }
 
 function parseLine(line, team1, team2, team1Abbr, team2Abbr, abbrLookup) {

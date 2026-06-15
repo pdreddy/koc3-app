@@ -11,6 +11,66 @@ const COURT_TEMPLATES = [
   { label: 'Doubles 2', type: 'doubles' }
 ];
 
+
+function getQuickTemplate(teams) {
+  const list = Object.values(teams || {});
+  const t1 = list.find(t => t.abbreviation === 'SK') || list[0];
+  const t2 = list.find(t => t.abbreviation === 'RR') || list.find(t => t.id !== t1?.id) || list[1];
+  const p1 = t1?.players || [];
+  const p2 = t2?.players || [];
+  const name = (players, idx, fallback) => players[idx]?.name || fallback;
+  const a = t1?.abbreviation || 'TEAM1';
+  const b = t2?.abbreviation || 'TEAM2';
+  return `${a} vs ${b}\nS: ${name(p1, 0, 'Player A')} vs ${name(p2, 0, 'Player B')} 4-2,4-1 (won) ${a}\nD1: ${name(p1, 1, 'Player C')}/${name(p1, 2, 'Player D')} vs ${name(p2, 1, 'Player E')}/${name(p2, 2, 'Player F')} 4-3(7-5),1-4,4-2 (won) ${a}\nD2: ${name(p1, 3, 'Player G')}/${name(p1, 4, 'Player H')} vs ${name(p2, 3, 'Player I')}/${name(p2, 4, 'Player J')} 2-4,4-2,4-3(10-8) (won) ${b}`;
+}
+
+function normalizeQuickText(text, teams) {
+  const abbrs = new Set(Object.values(teams || {}).map(t => t.abbreviation?.toUpperCase()).filter(Boolean));
+  const lines = (text || '').split('\n').map(line => {
+    let out = line.trim().replace(/\s+/g, ' ');
+    out = out.replace(/\bvs\.?\b/ig, 'vs');
+    out = out.replace(/\(\s*won\s*\)/ig, '(won)');
+    out = out.replace(/^(singles?)\s*[:.-]?\s*/i, 'S: ');
+    out = out.replace(/^doubles\s*(\d)?\s*[:.-]?\s*/i, (_, n) => `D${n || ''}: `);
+    out = out.replace(/^d(\d)\s+/i, 'D$1: ');
+    out = out.replace(/^s\s+/i, 'S: ');
+    out = out.replace(/\b([a-z]{2,4}|t\d{2})\b/g, token => {
+      const upper = token.toUpperCase();
+      return abbrs.has(upper) ? upper : token;
+    });
+    if (out && /^.+\svs\s.+/i.test(out) && !/^(S|D\d?)\s*:/i.test(out) && !/^\w+\s+vs\s+\w+$/i.test(out)) {
+      out = `S: ${out}`;
+    }
+    return out;
+  });
+  return lines.join('\n');
+}
+
+function getQuickGuidance(text, parsed, teams) {
+  const raw = (text || '').trim();
+  const teamAbbrs = Object.values(teams || {}).map(t => t.abbreviation).filter(Boolean);
+  if (!raw) {
+    return [
+      'Start with TEAM1 vs TEAM2 using team abbreviations.',
+      'Each court should be: S: Player vs Player scores (won) TEAM.',
+      'Use D1/D2 for doubles and separate partners with /.'
+    ];
+  }
+  const tips = [];
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines[0] && !/^\w+\s+vs\.?\s+\w+$/i.test(lines[0])) tips.push(`First line format: ${teamAbbrs[0] || 'SK'} vs ${teamAbbrs[1] || 'RR'}`);
+  lines.slice(1).forEach((line, idx) => {
+    const lineNo = idx + 2;
+    if (!/^(S|D\d?|Singles|Doubles\s*\d?)\s*:/i.test(line)) tips.push(`Line ${lineNo}: add court label like S:, D1:, or D2:.`);
+    if (!/\s+vs\.?\s+/i.test(line)) tips.push(`Line ${lineNo}: include "vs" between players.`);
+    if (!/\d+-\d+/.test(line)) tips.push(`Line ${lineNo}: add set scores like 4-2,4-1.`);
+    if (!/\(won\)\s*\w+/i.test(line)) tips.push(`Line ${lineNo}: end with (won) ${parsed.team1?.abbreviation || teamAbbrs[0] || 'TEAM'}.`);
+  });
+  if (parsed.corrections?.length) parsed.corrections.forEach(c => tips.push(c));
+  if (parsed.errors?.length && tips.length === 0) tips.push('Follow the sample format below, then use Auto-format to clean spacing and labels.');
+  return Array.from(new Set(tips)).slice(0, 6);
+}
+
 function newCourt(label, type) {
   return {
     label, type,
@@ -449,6 +509,12 @@ function QuickEntry({ teams }) {
   const [saving, setSaving] = useState(false);
 
   const parsed = useMemo(() => parseQuickScore(text, teams), [text, teams]);
+  const quickTemplate = useMemo(() => getQuickTemplate(teams), [teams]);
+  const guidance = useMemo(() => getQuickGuidance(text, parsed, teams), [text, parsed, teams]);
+  const normalizedText = useMemo(() => normalizeQuickText(text, teams), [text, teams]);
+  const canNormalize = text.trim() && normalizedText !== text;
+  const applyTemplate = () => { setText(quickTemplate); setError(''); setSuccess(''); };
+  const applyNormalize = () => { setText(normalizedText); setError(''); setSuccess(''); };
 
   const handleSubmit = async () => {
     setError(''); setSuccess('');
@@ -536,19 +602,39 @@ S: Kanak vs Srini
       {error && <div className="error-box" data-testid="quick-error" style={{ whiteSpace: 'pre-line' }}>{error}</div>}
       {success && <div className="success-box" data-testid="quick-success">{success}</div>}
 
-      <div className="card">
-        <h2>⚡ Quick Score Entry</h2>
-        <textarea
-          className="textarea"
-          style={{ minHeight: 220, fontFamily: 'monospace', fontSize: '.85rem' }}
-          value={text}
-          onChange={e => setText(e.target.value)}
-          placeholder={placeholder}
-          data-testid="quick-textarea"
-        />
-        <p className="hint">
-          Team abbrs: {Object.values(teams || {}).map(t => t.abbreviation).join(', ')}
-        </p>
+      <div className="card quick-entry-card">
+        <div className="quick-entry-head">
+          <div>
+            <h2>⚡ Quick Score Entry</h2>
+            <p className="hint">Paste messy scores, then use Auto-format and the live coach to fix the format.</p>
+          </div>
+          <div className="quick-actions">
+            <button className="btn ghost small" onClick={applyTemplate} type="button" data-testid="quick-template-btn">Use example</button>
+            <button className="btn small" onClick={applyNormalize} disabled={!canNormalize} type="button" data-testid="quick-normalize-btn">Auto-format</button>
+          </div>
+        </div>
+        <div className="quick-layout">
+          <div>
+            <textarea
+              className="textarea quick-textarea"
+              value={text}
+              onChange={e => setText(e.target.value)}
+              placeholder={placeholder}
+              data-testid="quick-textarea"
+            />
+            <p className="hint">
+              Team abbrs: {Object.values(teams || {}).map(t => t.abbreviation).join(', ')}
+            </p>
+          </div>
+          <aside className="format-coach" data-testid="quick-format-coach">
+            <h3>Format coach</h3>
+            <code>{'{TEAM1} vs {TEAM2}'}</code>
+            <code>S: Player vs Player 4-2,4-1 (won) TEAM1</code>
+            <code>D1: P1/P2 vs P3/P4 4-3(7-5),1-4,4-2 (won) TEAM2</code>
+            <div className="divider" />
+            {guidance.map((tip, i) => <p key={i} className="coach-tip">💡 {tip}</p>)}
+          </aside>
+        </div>
       </div>
 
       {text.trim() && (
@@ -557,6 +643,11 @@ S: Kanak vs Srini
           {errors.length > 0 && (
             <div className="error-box" style={{ whiteSpace: 'pre-line' }}>
               {errors.map(e => `❌ ${e}`).join('\n')}
+            </div>
+          )}
+          {parsed.corrections?.length > 0 && (
+            <div className="success-box" style={{ whiteSpace: 'pre-line' }} data-testid="quick-corrections">
+              {parsed.corrections.map(c => `✨ ${c}`).join('\n')}
             </div>
           )}
           {team1 && team2 && results.length > 0 && (
