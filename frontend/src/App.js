@@ -36,6 +36,20 @@ function Shell() {
         const tSnap = await get(ref(db, PATHS.teams));
         if (!tSnap.exists()) {
           await set(ref(db, PATHS.teams), buildInitialTeams());
+        } else {
+          // Migration: backfill `group` for existing teams
+          const existing = tSnap.val() || {};
+          const updates = {};
+          const sortedIds = Object.keys(existing).sort((a, b) => (existing[a].gradient || 0) - (existing[b].gradient || 0));
+          sortedIds.forEach((tid, idx) => {
+            if (!existing[tid].group) {
+              updates[`${tid}/group`] = idx < 8 ? 'A' : 'B';
+            }
+          });
+          if (Object.keys(updates).length > 0) {
+            const { update } = await import('firebase/database');
+            await update(ref(db, PATHS.teams), updates);
+          }
         }
         const aSnap = await get(ref(db, PATHS.admin));
         if (!aSnap.exists()) {

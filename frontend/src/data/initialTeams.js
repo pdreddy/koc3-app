@@ -31,6 +31,7 @@ export function buildInitialTeams() {
       abbreviation: t.abbreviation,
       password: `KOC${t.abbreviation}#2`,
       gradient: idx + 1,
+      group: idx < 8 ? 'A' : 'B',
       players: [
         { name: t.captain, isCaptain: true },
         ...t.roster.map(n => ({ name: n, isCaptain: false }))
@@ -45,6 +46,7 @@ export function buildInitialTeams() {
       abbreviation: t.abbreviation,
       password: `KOC${t.abbreviation}#2`,
       gradient: idx + 10,
+      group: 'B',
       players: [
         { name: 'Captain', isCaptain: true },
         ...Array.from({ length: 6 }, (_, i) => ({ name: `Player ${i + 2}`, isCaptain: false }))

@@ -6,6 +6,7 @@ function TeamEditor({ team }) {
   const [name, setName] = useState(team.name);
   const [abbr, setAbbr] = useState(team.abbreviation);
   const [password, setPassword] = useState(team.password || '');
+  const [group, setGroup] = useState(team.group || 'A');
   const [players, setPlayers] = useState(team.players || []);
   const [savedMsg, setSavedMsg] = useState('');
   const [showPwd, setShowPwd] = useState(false);
@@ -19,6 +20,7 @@ function TeamEditor({ team }) {
       name: name.trim(),
       abbreviation: abbr.trim().toUpperCase(),
       password: password.trim(),
+      group,
       players: players.filter(p => (p.name || '').trim()).map(p => ({ name: p.name.trim(), isCaptain: !!p.isCaptain }))
     };
     try {
@@ -49,6 +51,18 @@ function TeamEditor({ team }) {
       <div className="field">
         <div className="field-label">Abbreviation</div>
         <input className="input" value={abbr} onChange={e => setAbbr(e.target.value.toUpperCase())} maxLength={6} data-testid={`admin-team-${team.abbreviation}-abbr`} />
+      </div>
+      <div className="field">
+        <div className="field-label">Group</div>
+        <select
+          className="select"
+          value={group}
+          onChange={e => setGroup(e.target.value)}
+          data-testid={`admin-team-${team.abbreviation}-group`}
+        >
+          <option value="A">Group A</option>
+          <option value="B">Group B</option>
+        </select>
       </div>
       <div className="field">
         <div className="field-label">Team Password</div>

@@ -3,6 +3,7 @@ import { push, ref } from 'firebase/database';
 import { db, PATHS, ensureAuth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { matchName } from '../utils/nameMatch';
+import { parseQuickScore } from '../utils/quickScoreParser';
 
 const COURT_TEMPLATES = [
   { label: 'Singles 1', type: 'singles' },
@@ -139,6 +140,31 @@ function computeCourt(c) {
 }
 
 export default function ScoreEntry({ teams, matches }) {
+  const [mode, setMode] = useState('form');
+  return (
+    <main className="container">
+      <div className="page-title">
+        <h1>Enter Score</h1>
+        <p>Quick paste or fill the form — both validate names against rosters</p>
+      </div>
+      <div className="tabs">
+        <button
+          className={`tab ${mode === 'form' ? 'active' : ''}`}
+          onClick={() => setMode('form')}
+          data-testid="score-tab-form"
+        >📝 Form</button>
+        <button
+          className={`tab ${mode === 'paste' ? 'active' : ''}`}
+          onClick={() => setMode('paste')}
+          data-testid="score-tab-paste"
+        >⚡ Quick Paste</button>
+      </div>
+      {mode === 'form' ? <FormEntry teams={teams} matches={matches} /> : <QuickEntry teams={teams} />}
+    </main>
+  );
+}
+
+function FormEntry({ teams, matches }) {
   const { session } = useAuth();
   const teamList = Object.values(teams || {});
   const myTeam = session.role === 'team' ? teams[session.teamId] : null;
@@ -257,11 +283,8 @@ export default function ScoreEntry({ teams, matches }) {
   };
 
   return (
-    <main className="container">
-      <div className="page-title">
-        <h1>Enter Score</h1>
-        <p>{myTeam ? `Captain: ${myTeam.name}` : 'Admin score entry'}</p>
-      </div>
+    <>
+      {myTeam && <p className="hint" style={{ marginBottom: '.7rem' }}>Captain: {myTeam.name}</p>}
 
       {error && <div className="error-box" data-testid="score-error" style={{ whiteSpace: 'pre-line' }}>{error}</div>}
       {success && <div className="success-box" data-testid="score-success">{success}</div>}
@@ -362,6 +385,172 @@ export default function ScoreEntry({ teams, matches }) {
           </button>
         </div>
       )}
-    </main>
+    </>
+  );
+}
+
+// ==================== QUICK PASTE ENTRY ====================
+
+function QuickEntry({ teams }) {
+  const { session } = useAuth();
+  const [text, setText] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const parsed = useMemo(() => parseQuickScore(text, teams), [text, teams]);
+
+  const handleSubmit = async () => {
+    setError(''); setSuccess('');
+    const { results, errors, team1, team2 } = parsed;
+    if (!team1 || !team2) { setError(errors.join('\n') || 'Could not detect teams.'); return; }
+    if (errors.length > 0) { setError(errors.join('\n')); return; }
+    if (results.length === 0) { setError('No valid courts parsed.'); return; }
+
+    // Team-captain restriction
+    if (session.role === 'team' && team1.id !== session.teamId && team2.id !== session.teamId) {
+      setError('Your team must be involved in the match.');
+      return;
+    }
+
+    let totalG1 = 0, totalG2 = 0, totalS1 = 0, totalS2 = 0, w1 = 0, w2 = 0;
+    const lines = results.map(r => {
+      totalG1 += r.g1; totalG2 += r.g2;
+      totalS1 += r.sets1; totalS2 += r.sets2;
+      if (r.winnerTeamNum === 1) w1++;
+      else if (r.winnerTeamNum === 2) w2++;
+      return {
+        label: r.label,
+        type: r.type,
+        g1: r.g1, g2: r.g2,
+        sets: r.sets,
+        setWins: { team1: r.sets1, team2: r.sets2 },
+        players: r.players,
+        winner: r.winnerTeamNum === 1 ? team1.name : (r.winnerTeamNum === 2 ? team2.name : null)
+      };
+    });
+
+    const winner = w1 > w2 ? team1.name : (w2 > w1 ? team2.name : null);
+    if (!winner) { setError('Match is tied on courts won. Please verify scores.'); return; }
+
+    const record = {
+      t1: team1.name, t2: team2.name,
+      t1Abbr: team1.abbreviation, t2Abbr: team2.abbreviation,
+      g1: totalG1, g2: totalG2,
+      s1: totalS1, s2: totalS2,
+      courtsWon1: w1, courtsWon2: w2,
+      win: winner,
+      ts: Date.now(),
+      enteredBy: session.role === 'team' ? session.teamName : 'Admin',
+      lines
+    };
+
+    try {
+      setSaving(true);
+      await ensureAuth();
+      await push(ref(db, PATHS.matches), record);
+      setSuccess(`✅ Saved: ${team1.name} vs ${team2.name} — Winner: ${winner}`);
+      setText('');
+    } catch (e) {
+      setError('Save failed: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const { results, errors, team1, team2 } = parsed;
+
+  const placeholder = `Paste match results here...
+
+Example formats (all work):
+SK vs RR
+S: Kanak vs Srini 4-0,4-1,4-1 (won) SK
+D1: KP/Fayaz vs Vasu/Sandeep 2-4, 4-0, 3-4(6-10) (won) RR
+D2: Madhu/Uma V vs Yogesh/Kalam 4-2, 1-4, 3-4(6-10) (won) RR
+
+Or with scores on next line:
+S: Kanak vs Srini
+4-0,4-1,4-1 (won) SK`;
+
+  let totG1 = 0, totG2 = 0, tw1 = 0, tw2 = 0;
+  results.forEach(r => {
+    totG1 += r.g1; totG2 += r.g2;
+    if (r.winnerTeamNum === 1) tw1++;
+    else if (r.winnerTeamNum === 2) tw2++;
+  });
+
+  return (
+    <>
+      {error && <div className="error-box" data-testid="quick-error" style={{ whiteSpace: 'pre-line' }}>{error}</div>}
+      {success && <div className="success-box" data-testid="quick-success">{success}</div>}
+
+      <div className="card">
+        <h2>⚡ Quick Score Entry</h2>
+        <textarea
+          className="textarea"
+          style={{ minHeight: 220, fontFamily: 'monospace', fontSize: '.85rem' }}
+          value={text}
+          onChange={e => setText(e.target.value)}
+          placeholder={placeholder}
+          data-testid="quick-textarea"
+        />
+        <p className="hint">
+          Team abbrs: {Object.values(teams || {}).map(t => t.abbreviation).join(', ')}
+        </p>
+      </div>
+
+      {text.trim() && (
+        <div className="card" data-testid="quick-preview">
+          <h2>📋 Preview</h2>
+          {errors.length > 0 && (
+            <div className="error-box" style={{ whiteSpace: 'pre-line' }}>
+              {errors.map(e => `❌ ${e}`).join('\n')}
+            </div>
+          )}
+          {team1 && team2 && results.length > 0 && (
+            <>
+              <div className="match-line" style={{ background: '#d1fae5', borderLeft: '4px solid #10b981' }}>
+                <strong>📊 {team1.name} {totG1}–{totG2} {team2.name}</strong>
+                <div className="muted">Courts won: {tw1}-{tw2} → {tw1 > tw2 ? team1.name : (tw2 > tw1 ? team2.name : 'TIE')}</div>
+              </div>
+              {results.map((r, i) => {
+                const winnerAbbr = r.winnerTeamNum === 1 ? team1.abbreviation : team2.abbreviation;
+                const setsDisplay = r.sets.map(s => {
+                  let str = `${s.team1}-${s.team2}`;
+                  if (s.tieBreak) str += `(${s.tieBreak.team1}-${s.tieBreak.team2})`;
+                  return str;
+                }).join(', ');
+                return (
+                  <div className="match-line" key={i}>
+                    ✅ <strong>{r.label}:</strong> {r.players.team1.join('/')} vs {r.players.team2.join('/')}
+                    <div className="muted" style={{ marginTop: '.25rem' }}>
+                      {setsDisplay} (games {r.g1}-{r.g2}, won {winnerAbbr})
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          )}
+        </div>
+      )}
+
+      {text.trim() && team1 && team2 && results.length > 0 && errors.length === 0 && (
+        <button
+          className="btn success full"
+          onClick={handleSubmit}
+          disabled={saving}
+          data-testid="quick-submit-btn"
+        >
+          {saving ? 'Saving...' : 'Save Match Result'}
+        </button>
+      )}
+
+      <button
+        className="btn ghost full"
+        style={{ marginTop: '.5rem' }}
+        onClick={() => { setText(''); setError(''); setSuccess(''); }}
+        data-testid="quick-clear-btn"
+      >Clear Input</button>
+    </>
   );
 }
