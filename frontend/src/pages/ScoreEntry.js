@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { push, ref } from 'firebase/database';
 import { db, PATHS, ensureAuth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -296,6 +296,55 @@ function courtCompletion(c) {
   return { status: 'ready', message: `Ready · ${r.s1}-${r.s2} sets · ${r.g1}-${r.g2} games` };
 }
 
+function getRosterSuggestions(query, roster) {
+  if (!query || query.trim().length < 3) return [];
+  const normalizedQuery = query.trim().toLowerCase();
+  const ranked = (roster || [])
+    .map((player) => {
+      const name = player.name || '';
+      const lowerName = name.toLowerCase();
+      const firstToken = lowerName.split(/\s+/)[0] || '';
+      let rank = 3;
+      if (firstToken.startsWith(normalizedQuery)) rank = 0;
+      else if (lowerName.startsWith(normalizedQuery)) rank = 1;
+      else if (lowerName.includes(normalizedQuery)) rank = 2;
+      return { ...player, rank };
+    })
+    .filter(player => player.rank < 3)
+    .sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name))
+    .slice(0, 5);
+
+  const seen = new Set(ranked.map(player => player.name));
+  const fuzzy = matchName(query, roster).suggestions.filter(player => !seen.has(player.name));
+  return [...ranked, ...fuzzy].slice(0, 5);
+}
+
+function getQuickNameContext(text, cursor, parsed) {
+  if (!parsed.team1 || !parsed.team2 || cursor == null) return null;
+  const lineStart = text.lastIndexOf('\n', Math.max(0, cursor - 1)) + 1;
+  const lineEndAt = text.indexOf('\n', cursor);
+  const lineEnd = lineEndAt === -1 ? text.length : lineEndAt;
+  const line = text.slice(lineStart, lineEnd);
+  const beforeCursor = text.slice(lineStart, cursor);
+  const lowerLine = line.trim().toLowerCase();
+  if (!line.trim() || lowerLine.startsWith('final:') || /^[\d\s,()-]+\(won\)/i.test(line.trim())) return null;
+  const vsMatch = line.match(/\bvs\.?\b/i);
+  const vsIndex = vsMatch?.index ?? -1;
+  const isTeam2Side = vsMatch && beforeCursor.length > vsIndex;
+  const team = isTeam2Side ? parsed.team2 : parsed.team1;
+  const sideStart = isTeam2Side ? vsIndex + vsMatch[0].length : 0;
+  const sideBeforeCursor = beforeCursor.slice(sideStart);
+  const lastDelimiter = Math.max(sideBeforeCursor.lastIndexOf(':'), sideBeforeCursor.lastIndexOf('/'));
+  const tokenStartInSide = lastDelimiter + 1;
+  const rawToken = sideBeforeCursor.slice(tokenStartInSide);
+  const leadingSpace = rawToken.match(/^\s*/)?.[0] || '';
+  const query = rawToken.trimStart();
+  const replaceStart = lineStart + sideStart + tokenStartInSide + leadingSpace.length;
+  const suggestions = getRosterSuggestions(query, team.players || []);
+  if (query.trim().length < 3 || suggestions.length === 0) return null;
+  return { query, suggestions, teamAbbr: team.abbreviation, replaceStart, replaceEnd: cursor };
+}
+
 export default function ScoreEntry({ teams, matches }) {
   const [mode, setMode] = useState('form');
   return (
@@ -573,7 +622,9 @@ function FormEntry({ teams, matches }) {
 
 function QuickEntry({ teams }) {
   const { session } = useAuth();
+  const textareaRef = useRef(null);
   const [text, setText] = useState('');
+  const [cursor, setCursor] = useState(0);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [saving, setSaving] = useState(false);
@@ -585,6 +636,21 @@ function QuickEntry({ teams }) {
   const canNormalize = text.trim() && normalizedText !== text;
   const applyTemplate = () => { setText(quickTemplate); setError(''); setSuccess(''); };
   const applyNormalize = () => { setText(normalizedText); setError(''); setSuccess(''); };
+  const quickNameContext = useMemo(() => getQuickNameContext(text, cursor, parsed), [text, cursor, parsed]);
+  const updateCursorFromTextarea = (element) => setCursor(element.selectionStart || 0);
+  const applyQuickSuggestion = (name) => {
+    if (!quickNameContext) return;
+    const nextText = `${text.slice(0, quickNameContext.replaceStart)}${name}${text.slice(quickNameContext.replaceEnd)}`;
+    const nextCursor = quickNameContext.replaceStart + name.length;
+    setText(nextText);
+    setCursor(nextCursor);
+    requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(nextCursor, nextCursor);
+      }
+    });
+  };
 
   const handleSubmit = async () => {
     setError(''); setSuccess('');
@@ -689,13 +755,44 @@ Final: KC won 3-2`;
         </div>
         <div className="quick-layout">
           <div>
-            <textarea
-              className="textarea quick-textarea"
-              value={text}
-              onChange={e => setText(e.target.value)}
-              placeholder={placeholder}
-              data-testid="quick-textarea"
-            />
+            <div className="quick-textarea-wrap">
+              <textarea
+                ref={textareaRef}
+                className="textarea quick-textarea"
+                value={text}
+                onChange={e => {
+                  setText(e.target.value);
+                  updateCursorFromTextarea(e.target);
+                }}
+                onClick={e => updateCursorFromTextarea(e.target)}
+                onKeyUp={e => updateCursorFromTextarea(e.target)}
+                onSelect={e => updateCursorFromTextarea(e.target)}
+                onKeyDown={(e) => {
+                  if ((e.key === 'Tab' || e.key === 'Enter') && quickNameContext?.suggestions?.[0]) {
+                    e.preventDefault();
+                    applyQuickSuggestion(quickNameContext.suggestions[0].name);
+                  }
+                }}
+                placeholder={placeholder}
+                data-testid="quick-textarea"
+              />
+              {quickNameContext && (
+                <div className="suggest quick-suggest" data-testid="quick-name-suggest">
+                  <div className="suggest-hint">Choose a {quickNameContext.teamAbbr} player, or press Enter/Tab for the first match</div>
+                  {quickNameContext.suggestions.map((s, i) => (
+                    <div
+                      key={s.name || i}
+                      className="suggest-item"
+                      onMouseDown={(e) => { e.preventDefault(); applyQuickSuggestion(s.name); }}
+                      data-testid={`quick-name-suggest-${i}`}
+                    >
+                      {s.isCaptain ? '🏆 ' : ''}{s.name}
+                      {typeof s.score === 'number' && <span className="score">{Math.round(s.score * 100)}% match</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <p className="hint">
               Team abbrs: {Object.values(teams || {}).map(t => t.abbreviation).join(', ')}
             </p>
