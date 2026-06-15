@@ -4,6 +4,7 @@ import { onValue, ref, set, get } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { buildInitialTeams, DEFAULT_ADMIN_PASSWORD } from './data/initialTeams';
+import { buildScheduleFor8x2, firstSundayOnOrAfter } from './utils/roundRobin';
 
 import BottomNav from './components/BottomNav';
 import AppHeader from './components/Header';
@@ -18,6 +19,7 @@ import Rules from './pages/Rules';
 import Schedule from './pages/Schedule';
 import Matchups from './pages/Matchups';
 import More from './pages/More';
+import Season1 from './pages/Season1';
 
 function Shell() {
   const location = useLocation();
@@ -25,6 +27,7 @@ function Shell() {
   const [teams, setTeams] = useState({});
   const [matches, setMatches] = useState([]);
   const [adminConfig, setAdminConfig] = useState({ password: '' });
+  const [schedule, setSchedule] = useState({});
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -34,16 +37,20 @@ function Shell() {
       try {
         await ensureAuth();
         const tSnap = await get(ref(db, PATHS.teams));
+        let teamsData;
         if (!tSnap.exists()) {
-          await set(ref(db, PATHS.teams), buildInitialTeams());
+          teamsData = buildInitialTeams();
+          await set(ref(db, PATHS.teams), teamsData);
         } else {
+          teamsData = tSnap.val() || {};
           // Migration: backfill `group` for existing teams
-          const existing = tSnap.val() || {};
           const updates = {};
-          const sortedIds = Object.keys(existing).sort((a, b) => (existing[a].gradient || 0) - (existing[b].gradient || 0));
+          const sortedIds = Object.keys(teamsData).sort((a, b) => (teamsData[a].gradient || 0) - (teamsData[b].gradient || 0));
           sortedIds.forEach((tid, idx) => {
-            if (!existing[tid].group) {
-              updates[`${tid}/group`] = idx < 8 ? 'A' : 'B';
+            if (!teamsData[tid].group) {
+              const g = idx < 8 ? 'A' : 'B';
+              updates[`${tid}/group`] = g;
+              teamsData[tid].group = g;
             }
           });
           if (Object.keys(updates).length > 0) {
@@ -51,9 +58,23 @@ function Shell() {
             await update(ref(db, PATHS.teams), updates);
           }
         }
+
         const aSnap = await get(ref(db, PATHS.admin));
         if (!aSnap.exists()) {
           await set(ref(db, PATHS.admin), { password: DEFAULT_ADMIN_PASSWORD });
+        }
+
+        // Seed schedule on first run
+        const sSnap = await get(ref(db, PATHS.schedule));
+        if (!sSnap.exists()) {
+          const list = Object.values(teamsData);
+          const groupA = list.filter(t => (t.group || 'A') === 'A').sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
+          const groupB = list.filter(t => t.group === 'B').sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
+          if (groupA.length === 8 && groupB.length === 8) {
+            const startSunday = firstSundayOnOrAfter(new Date(2026, 5, 30)); // June = month 5
+            const fixtures = buildScheduleFor8x2(groupA, groupB, startSunday);
+            await set(ref(db, PATHS.schedule), fixtures);
+          }
         }
       } catch (e) {
         console.error('Seed failed', e);
@@ -73,7 +94,10 @@ function Shell() {
     const unsubA = onValue(ref(db, PATHS.admin), (snap) => {
       setAdminConfig(snap.val() || { password: '' });
     });
-    return () => { unsubT(); unsubM(); unsubA(); };
+    const unsubS = onValue(ref(db, PATHS.schedule), (snap) => {
+      setSchedule(snap.val() || {});
+    });
+    return () => { unsubT(); unsubM(); unsubA(); unsubS(); };
   }, []);
 
   return (
@@ -82,10 +106,11 @@ function Shell() {
       <Routes>
         <Route path="/" element={<Navigate to="/teams" replace />} />
         <Route path="/teams" element={<Teams teams={teams} loaded={loaded} />} />
-        <Route path="/schedule" element={<Schedule />} />
+        <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} />} />
         <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />
         <Route path="/matchups" element={<Matchups matches={matches} teams={teams} />} />
         <Route path="/history" element={<History matches={matches} teams={teams} />} />
+        <Route path="/season1" element={<Season1 />} />
         <Route path="/rules" element={<Rules />} />
         <Route path="/more" element={<More />} />
         <Route path="/login" element={<Login teams={teams} adminConfig={adminConfig} />} />
@@ -96,7 +121,7 @@ function Shell() {
         } />
         <Route path="/admin" element={
           <ProtectedAdmin>
-            <Admin teams={teams} adminConfig={adminConfig} matches={matches} />
+            <Admin teams={teams} adminConfig={adminConfig} matches={matches} schedule={schedule} />
           </ProtectedAdmin>
         } />
         <Route path="*" element={<Navigate to="/teams" replace />} />

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { ref, set, update, remove } from 'firebase/database';
+import { ref, set, update, remove, push } from 'firebase/database';
 import { db, PATHS } from '../firebase';
+import { buildScheduleFor8x2, firstSundayOnOrAfter } from '../utils/roundRobin';
 
 function TeamEditor({ team }) {
   const [name, setName] = useState(team.name);
@@ -114,7 +115,160 @@ function TeamEditor({ team }) {
   );
 }
 
-export default function Admin({ teams, adminConfig, matches }) {
+function ScheduleEditor({ schedule, teams }) {
+  const [editing, setEditing] = useState({}); // matchId -> draft
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const teamList = Object.values(teams || {}).sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
+  const matchList = Object.values(schedule || {});
+
+  // Group by round
+  const rounds = {};
+  matchList.forEach(m => {
+    const key = `${m.round}-${m.date}`;
+    if (!rounds[key]) rounds[key] = { round: m.round, date: m.date, items: [] };
+    rounds[key].items.push(m);
+  });
+  const roundList = Object.values(rounds).sort((a, b) => (a.round - b.round) || a.date.localeCompare(b.date));
+
+  const setDraft = (id, patch) => {
+    setEditing(prev => ({ ...prev, [id]: { ...(prev[id] || {}), ...patch } }));
+  };
+
+  const saveMatch = async (m) => {
+    const draft = editing[m.id] || {};
+    const updates = {};
+    ['date', 'time', 'team1Id', 'team2Id', 'status', 'group', 'round'].forEach(k => {
+      if (draft[k] !== undefined && draft[k] !== m[k]) updates[k] = draft[k];
+    });
+    if (Object.keys(updates).length === 0) { setMsg('Nothing to save'); return; }
+    try {
+      setBusy(true);
+      await update(ref(db, `${PATHS.schedule}/${m.id}`), updates);
+      setMsg(`✅ Saved ${m.id}`);
+      setEditing(prev => { const c = { ...prev }; delete c[m.id]; return c; });
+      setTimeout(() => setMsg(''), 1500);
+    } catch (e) {
+      setMsg('Save failed: ' + e.message);
+    } finally { setBusy(false); }
+  };
+
+  const deleteMatch = async (m) => {
+    if (!window.confirm(`Delete fixture ${m.id}?`)) return;
+    try { await remove(ref(db, `${PATHS.schedule}/${m.id}`)); } catch (e) { alert(e.message); }
+  };
+
+  const addMatch = async () => {
+    if (teamList.length < 2) return;
+    const newM = {
+      group: 'A',
+      round: 1,
+      date: new Date().toISOString().slice(0, 10),
+      time: '5:00 PM',
+      team1Id: teamList[0].id,
+      team2Id: teamList[1].id,
+      status: 'scheduled'
+    };
+    try {
+      const r = await push(ref(db, PATHS.schedule), newM);
+      // Patch with its own key as `id`
+      await update(ref(db, `${PATHS.schedule}/${r.key}`), { id: r.key });
+      setMsg('✅ Added fixture');
+      setTimeout(() => setMsg(''), 1500);
+    } catch (e) { setMsg('Add failed: ' + e.message); }
+  };
+
+  const regenerate = async () => {
+    if (!window.confirm('Regenerate the entire schedule from scratch? Existing fixtures will be replaced.')) return;
+    const list = Object.values(teams);
+    const groupA = list.filter(t => (t.group || 'A') === 'A').sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
+    const groupB = list.filter(t => t.group === 'B').sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
+    if (groupA.length !== 8 || groupB.length !== 8) { setMsg('Need exactly 8 teams in each group.'); return; }
+    try {
+      setBusy(true);
+      const start = firstSundayOnOrAfter(new Date(2026, 5, 30));
+      const fixtures = buildScheduleFor8x2(groupA, groupB, start);
+      await set(ref(db, PATHS.schedule), fixtures);
+      setMsg('✅ Schedule regenerated');
+      setTimeout(() => setMsg(''), 1500);
+    } catch (e) {
+      setMsg('Regenerate failed: ' + e.message);
+    } finally { setBusy(false); }
+  };
+
+  const clearAll = async () => {
+    if (!window.confirm('Delete ALL fixtures? Cannot be undone.')) return;
+    try { await remove(ref(db, PATHS.schedule)); } catch (e) { alert(e.message); }
+  };
+
+  return (
+    <div data-testid="schedule-editor">
+      {msg && <div className={msg.startsWith('✅') ? 'success-box' : 'error-box'}>{msg}</div>}
+
+      <div className="card">
+        <h2>Schedule Tools</h2>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.4rem' }}>
+          <button className="btn small" onClick={regenerate} disabled={busy} data-testid="admin-schedule-regenerate">🔁 Regenerate (Jun 30 + Sundays)</button>
+          <button className="btn small ghost" onClick={addMatch} data-testid="admin-schedule-add">＋ Add Fixture</button>
+          <button className="btn small danger" onClick={clearAll} data-testid="admin-schedule-clear">🗑 Clear All</button>
+        </div>
+        <p className="hint" style={{ marginTop: '.5rem' }}>{matchList.length} fixtures · auto-seeds 56 matches (Group A & B round-robin) starting first Sunday on/after June 30.</p>
+      </div>
+
+      {roundList.length === 0 && (
+        <div className="card center muted" data-testid="admin-schedule-empty">No fixtures yet. Click "Regenerate" to seed.</div>
+      )}
+
+      {roundList.map(r => (
+        <div className="card" key={`${r.round}-${r.date}`} data-testid={`admin-schedule-round-${r.round}`}>
+          <h2>Round {r.round} · {r.date}</h2>
+          {r.items
+            .sort((a, b) => a.group.localeCompare(b.group) || a.time.localeCompare(b.time))
+            .map(m => {
+              const draft = editing[m.id] || {};
+              const get = (k) => draft[k] !== undefined ? draft[k] : m[k];
+              return (
+                <div key={m.id} style={{ background: '#f8fafc', borderRadius: 8, padding: '.55rem', marginBottom: '.45rem', borderLeft: `3px solid ${m.group === 'A' ? '#2563eb' : '#d97706'}` }} data-testid={`admin-fixture-${m.id}`}>
+                  <div style={{ display: 'flex', gap: '.35rem', marginBottom: '.35rem' }}>
+                    <select className="select" value={get('group')} onChange={e => setDraft(m.id, { group: e.target.value })} data-testid={`admin-fixture-${m.id}-group`} style={{ flex: '0 0 80px' }}>
+                      <option value="A">A</option>
+                      <option value="B">B</option>
+                    </select>
+                    <input className="input" type="number" min="1" max="20" value={get('round')} onChange={e => setDraft(m.id, { round: Number(e.target.value) })} data-testid={`admin-fixture-${m.id}-round`} style={{ flex: '0 0 70px' }} />
+                    <input className="input" type="date" value={get('date')} onChange={e => setDraft(m.id, { date: e.target.value })} data-testid={`admin-fixture-${m.id}-date`} style={{ flex: 1 }} />
+                  </div>
+                  <div style={{ display: 'flex', gap: '.35rem', marginBottom: '.35rem' }}>
+                    <input className="input" value={get('time')} onChange={e => setDraft(m.id, { time: e.target.value })} placeholder="Time" data-testid={`admin-fixture-${m.id}-time`} style={{ flex: 1 }} />
+                    <select className="select" value={get('status')} onChange={e => setDraft(m.id, { status: e.target.value })} data-testid={`admin-fixture-${m.id}-status`} style={{ flex: 1 }}>
+                      <option value="scheduled">scheduled</option>
+                      <option value="completed">completed</option>
+                      <option value="cancelled">cancelled</option>
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', gap: '.35rem', marginBottom: '.35rem' }}>
+                    <select className="select" value={get('team1Id')} onChange={e => setDraft(m.id, { team1Id: e.target.value })} data-testid={`admin-fixture-${m.id}-t1`} style={{ flex: 1 }}>
+                      {teamList.map(t => <option key={t.id} value={t.id}>{t.abbreviation} · {t.name}</option>)}
+                    </select>
+                    <span style={{ alignSelf: 'center', fontWeight: 800, color: 'var(--muted)' }}>vs</span>
+                    <select className="select" value={get('team2Id')} onChange={e => setDraft(m.id, { team2Id: e.target.value })} data-testid={`admin-fixture-${m.id}-t2`} style={{ flex: 1 }}>
+                      {teamList.map(t => <option key={t.id} value={t.id}>{t.abbreviation} · {t.name}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', gap: '.35rem' }}>
+                    <button className="btn small success" onClick={() => saveMatch(m)} disabled={busy} data-testid={`admin-fixture-${m.id}-save`}>Save</button>
+                    <button className="btn small danger" onClick={() => deleteMatch(m)} data-testid={`admin-fixture-${m.id}-del`}>Delete</button>
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function Admin({ teams, adminConfig, matches, schedule }) {
   const [tab, setTab] = useState('teams');
   const [newAdminPwd, setNewAdminPwd] = useState('');
   const [adminMsg, setAdminMsg] = useState('');
@@ -151,6 +305,7 @@ export default function Admin({ teams, adminConfig, matches }) {
 
       <div className="tabs">
         <button className={`tab ${tab === 'teams' ? 'active' : ''}`} onClick={() => setTab('teams')} data-testid="admin-tab-teams">Teams</button>
+        <button className={`tab ${tab === 'schedule' ? 'active' : ''}`} onClick={() => setTab('schedule')} data-testid="admin-tab-schedule">Schedule</button>
         <button className={`tab ${tab === 'settings' ? 'active' : ''}`} onClick={() => setTab('settings')} data-testid="admin-tab-settings">Settings</button>
         <button className={`tab ${tab === 'passwords' ? 'active' : ''}`} onClick={() => setTab('passwords')} data-testid="admin-tab-passwords">Passwords</button>
       </div>
@@ -160,6 +315,8 @@ export default function Admin({ teams, adminConfig, matches }) {
           {teamList.map(t => <TeamEditor key={t.id} team={t} />)}
         </>
       )}
+
+      {tab === 'schedule' && <ScheduleEditor schedule={schedule} teams={teams} />}
 
       {tab === 'passwords' && (
         <div className="card">

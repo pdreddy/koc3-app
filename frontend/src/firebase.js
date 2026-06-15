@@ -28,7 +28,9 @@ export function ensureAuth() {
 
 // Firebase RTDB paths
 export const PATHS = {
-  teams: 'koc_s2/teams',     // 16 teams: { name, abbreviation, players: [{name, isCaptain}], password, gradient }
-  matches: 'koc_s2/matches', // match results
-  admin: 'koc_s2/admin'      // { password }
+  teams: 'koc_s2/teams',         // 16 teams
+  matches: 'koc_s2/matches',     // S2 match results
+  admin: 'koc_s2/admin',         // { password }
+  schedule: 'koc_s2/schedule',   // S2 fixtures
+  season1: 'KOC2DBPONEW'         // Season 1 archive (read-only)
 };

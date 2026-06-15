@@ -25,31 +25,27 @@ Convert https://github.com/pdreddy/koc-season-2.git (static HTML + Firebase RTDB
 - [x] React PWA scaffolding (CRA + service worker + manifest + iOS/Android icons)
 - [x] Firebase RTDB integration with anonymous auth bootstrap + group-field migration
 - [x] Auto-seeding of 16 teams split into Group A / Group B (8 each) + admin password on first run
-- [x] Public pages: Teams (grouped), Standings (two group tables), Schedule, Matchups, Match History, Rules, More
+- [x] Public pages: Teams (grouped), Standings (two group tables), Schedule, Matchups, Match History, Rules, Season 1 Archive, More
 - [x] Login page with Team/Admin tabs + guest browse
-- [x] Score Entry with TWO modes:
-  - **Form** — guided court-by-court entry with PlayerInput live fuzzy match (✓/✗ + suggestion dropdown)
-  - **⚡ Quick Paste** — legacy text-paste parser (e.g., `SK vs RR\nS: Kanak vs Yogesh 4-0,4-1,4-1 (won) SK`) with auto-correct on near-matches and per-line preview
-- [x] Validation prevents save when any player name doesn't match team roster (both modes); aggregated error messages
-- [x] Admin dashboard: Teams editor (rename/abbr/group/players/captain/password), Settings (admin password + clear-all-matches), Passwords (visible list of all 16 team passwords)
+- [x] Score Entry with TWO modes (Form + Quick Paste); both validate names against rosters with fuzzy match
+- [x] Validation prevents save when any player name doesn't match team roster; aggregated error messages
+- [x] Admin dashboard: Teams editor, **Schedule editor** (per-fixture group/round/date/time/teams/status with Regenerate/Add/Clear-all tools), Settings (admin password + clear-all-matches), Passwords
 - [x] Match deletion & clear-all (admin only)
-- [x] Group A / Group B split:
-  - Teams page sections by group
-  - Standings page renders two separate tables (top-2 of each group qualify for semifinals)
-  - Admin can move a team between groups
-  - Intra-group matches only count toward that group's standings
+- [x] Group A / Group B split (intra-group standings only); admin can move teams between groups
+- [x] Side-by-side Group A | Group B layout on Teams & Standings pages
+- [x] Match records store team IDs (`t1Id`/`t2Id`/`winnerId`) → renames don't break history (via `src/utils/matchTeams.js`)
+- [x] **Schedule moved to Firebase** (`koc_s2/schedule`) — auto-seeded round-robin: 56 fixtures (2 groups × 7 rounds × 4 matches), Sundays starting July 5, 2026 (first Sunday on/after June 30, 2026). Admin-editable per match.
+- [x] **Season 1 Archive page** (`/season1`) reads read-only from Firebase path `KOC2DBPONEW` — shows final standings (gold/silver/bronze medals top 3) and full match history with details
+- [x] Matchups page (Player Stats / Singles Cap / Doubles partnerships) with caps tracking
 - [x] Mobile-first layout: sticky header, fixed 5-tab bottom-nav, safe-area-inset support
 - [x] localStorage session persistence
-- [x] Schedule page (9-week round-robin + Thanksgiving break + Playoffs) with team filter
-- [x] Matchups page (Player Stats / Singles Cap / Doubles partnerships) with caps tracking
-- [x] Tested 79/80 end-to-end scenarios across three testing iterations (1 flaky timing test self-verified manually)
 
 ## Backlog / Future (P1/P2)
-- P2: Store team IDs (not just names) in match records so that renaming a team after matches were played doesn't break historical standings.
-- P2: Move Schedule into Firebase so admin can edit fixtures and rebuild fixtures for the Group A / Group B split (current schedule is the legacy 9-team round-robin).
-- P2: Tighten Firebase RTDB security rules + working anonymous auth (preview container blocks `identitytoolkit.googleapis.com`, but RTDB writes succeed because rules are open).
+- P2: Tighten Firebase RTDB security rules + enable anonymous auth for production.
+- P2: Hash team/admin passwords (currently plaintext in RTDB).
 - P3: Refactor 556-line ScoreEntry.js into Form + QuickEntry separate modules.
-- P3: Per-court ❌ annotation in Quick Paste preview when only some lines have name errors.
+- P3: Push notifications for new results / match-day reminders.
+- P3: CSV export of standings / per-team stats.
 - P2: Session TTL for shared captain devices.
 - P2: Hash team/admin passwords (currently plaintext in RTDB).
 - P2: Push notifications for new results.

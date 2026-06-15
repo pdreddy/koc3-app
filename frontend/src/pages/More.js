@@ -7,6 +7,7 @@ export default function More() {
 
   const items = [
     { to: '/history', icon: '📜', label: 'Match History', desc: 'View past results', testid: 'more-history' },
+    { to: '/season1', icon: '🏆', label: 'Season 1 Archive', desc: 'Last season standings & matches', testid: 'more-season1' },
     { to: '/rules', icon: '📋', label: 'Rules', desc: 'Format, scoring & tiebreakers', testid: 'more-rules' }
   ];
 

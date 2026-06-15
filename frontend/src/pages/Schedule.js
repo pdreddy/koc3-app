@@ -1,136 +1,133 @@
 import React, { useMemo, useState } from 'react';
-import { scheduleData, playoffs } from '../data/scheduleData';
 
-function allTeams() {
-  const set = new Set();
-  scheduleData.forEach(w => {
-    if (w.break) return;
-    (w.matches || []).forEach(m => m.teams.forEach(t => set.add(t)));
-    if (w.bye) set.add(w.bye);
-  });
-  return Array.from(set).sort();
+function formatDate(iso) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-export default function Schedule() {
-  const [filter, setFilter] = useState('all');
-  const teams = useMemo(allTeams, []);
+function MatchRow({ m, t1, t2, isCompleted }) {
+  return (
+    <div data-testid={`schedule-match-${m.id}`} style={{
+      display: 'flex', gap: '.5rem', alignItems: 'center',
+      background: isCompleted ? '#ecfdf5' : '#f8fafc',
+      borderLeft: `3px solid ${isCompleted ? '#10b981' : (m.group === 'A' ? '#2563eb' : '#d97706')}`,
+      borderRadius: 8, padding: '.55rem .65rem'
+    }}>
+      <div style={{
+        background: '#fff', borderRadius: 6, padding: '.25rem .4rem',
+        minWidth: 60, textAlign: 'center',
+        color: m.group === 'A' ? '#2563eb' : '#d97706',
+        fontWeight: 900, fontSize: '.72rem', lineHeight: 1.2
+      }}>
+        <div>SUN</div>
+        <div style={{ color: 'var(--ink)', fontSize: '.7rem', marginTop: 1 }}>{m.time}</div>
+      </div>
+      <div style={{ flex: 1, fontSize: '.82rem', lineHeight: 1.3 }}>
+        <div style={{ fontWeight: 800 }}>{t1 ? `${t1.name}` : '?'} <span className="muted" style={{ fontWeight: 600, fontSize: '.72rem' }}>({t1?.abbreviation || '?'})</span></div>
+        <div className="muted" style={{ fontWeight: 800, fontSize: '.7rem', margin: '.05rem 0' }}>vs</div>
+        <div style={{ fontWeight: 800 }}>{t2 ? `${t2.name}` : '?'} <span className="muted" style={{ fontWeight: 600, fontSize: '.72rem' }}>({t2?.abbreviation || '?'})</span></div>
+      </div>
+      {isCompleted && <span className="tag win" style={{ fontSize: '.65rem' }}>✓</span>}
+    </div>
+  );
+}
+
+export default function Schedule({ teams, schedule }) {
+  const [filterTeam, setFilterTeam] = useState('all');
+  const [filterGroup, setFilterGroup] = useState('all');
+
+  const matchList = useMemo(() => Object.values(schedule || {}), [schedule]);
+
+  const teamOptions = useMemo(() =>
+    Object.values(teams || {}).sort((a, b) => (a.gradient || 0) - (b.gradient || 0))
+  , [teams]);
+
+  // Group by round
+  const rounds = useMemo(() => {
+    const map = {};
+    matchList.forEach(m => {
+      const key = `${m.round}-${m.date}`;
+      if (!map[key]) map[key] = { round: m.round, date: m.date, items: [] };
+      map[key].items.push(m);
+    });
+    return Object.values(map).sort((a, b) => (a.round - b.round) || a.date.localeCompare(b.date));
+  }, [matchList]);
+
+  if (matchList.length === 0) {
+    return (
+      <main className="container">
+        <div className="page-title">
+          <h1>Schedule</h1>
+          <p>Fixtures load from Firebase — auto-seeded on first launch.</p>
+        </div>
+        <div className="card center muted" data-testid="schedule-empty">No schedule yet. Sign in as admin to build one.</div>
+      </main>
+    );
+  }
 
   return (
     <main className="container">
       <div className="page-title">
         <h1>Schedule</h1>
-        <p>9 weeks · Round-robin · Fri/Sat matches</p>
+        <p>7 rounds · 4 matches per group on Sundays</p>
       </div>
 
       <div className="card">
-        <div className="field">
-          <div className="field-label">Filter by team</div>
-          <select
-            className="select"
-            value={filter}
-            onChange={e => setFilter(e.target.value)}
-            data-testid="schedule-team-filter"
-          >
-            <option value="all">All Teams</option>
-            {teams.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
+        <div style={{ display: 'flex', gap: '.5rem' }}>
+          <div style={{ flex: 1 }}>
+            <div className="field-label">Group</div>
+            <select className="select" value={filterGroup} onChange={e => setFilterGroup(e.target.value)} data-testid="schedule-group-filter">
+              <option value="all">All</option>
+              <option value="A">Group A</option>
+              <option value="B">Group B</option>
+            </select>
+          </div>
+          <div style={{ flex: 2 }}>
+            <div className="field-label">Team</div>
+            <select className="select" value={filterTeam} onChange={e => setFilterTeam(e.target.value)} data-testid="schedule-team-filter">
+              <option value="all">All Teams</option>
+              {teamOptions.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </div>
         </div>
-        {filter !== 'all' && (
-          <button className="btn small ghost" onClick={() => setFilter('all')} data-testid="schedule-clear-filter">
-            Clear filter
-          </button>
-        )}
       </div>
 
-      {scheduleData.map((w, i) => {
-        if (w.break) {
-          return (
-            <div className="card" key={i} style={{ background: 'linear-gradient(135deg,#fed7d7,#feb2b2)', color: '#742a2a', textAlign: 'center' }} data-testid={`schedule-break-${i}`}>
-              <div style={{ fontSize: '2rem' }}>{w.icon}</div>
-              <strong>{w.text}</strong>
-              <div style={{ marginTop: '.25rem' }}>{w.dates}</div>
-            </div>
-          );
-        }
-
-        const visibleMatches = (w.matches || []).filter(m => filter === 'all' || m.teams.includes(filter));
-        const showBye = filter === 'all' || filter === w.bye;
-        if (filter !== 'all' && visibleMatches.length === 0 && !showBye) return null;
+      {rounds.map((r) => {
+        const visible = r.items.filter(m => {
+          if (filterGroup !== 'all' && m.group !== filterGroup) return false;
+          if (filterTeam !== 'all' && m.team1Id !== filterTeam && m.team2Id !== filterTeam) return false;
+          return true;
+        }).sort((a, b) => (a.group.localeCompare(b.group)) || a.time.localeCompare(b.time));
+        if (visible.length === 0) return null;
 
         return (
-          <div className="card" key={i} data-testid={`schedule-week-${w.week}`}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.6rem', paddingBottom: '.5rem', borderBottom: '2px solid var(--ring)' }}>
-              <span className="tag" style={{ background: 'linear-gradient(135deg,var(--bg1),var(--bg2))', color: '#fff', padding: '.3rem .7rem', fontSize: '.78rem' }}>Week {w.week}</span>
-              <span className="muted" style={{ fontWeight: 700, fontSize: '.85rem' }}>{w.dates}</span>
+          <div className="card" key={`${r.round}-${r.date}`} data-testid={`schedule-round-${r.round}`}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.55rem', paddingBottom: '.4rem', borderBottom: '2px solid var(--ring)' }}>
+              <span className="tag" style={{ background: 'linear-gradient(135deg,var(--bg1),var(--bg2))', color: '#fff', padding: '.25rem .6rem', fontSize: '.72rem' }}>Round {r.round}</span>
+              <span className="muted" style={{ fontWeight: 700, fontSize: '.82rem' }}>{formatDate(r.date)}</span>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '.5rem' }}>
-              {visibleMatches.map((m, idx) => {
-                const dayColor = m.day === 'FRI' ? '#2563eb' : '#d97706';
-                return (
-                  <div key={idx} data-testid={`schedule-match-${w.week}-${idx}`} style={{
-                    display: 'flex', gap: '.6rem', alignItems: 'center',
-                    background: '#f8fafc', borderLeft: `4px solid ${dayColor}`,
-                    borderRadius: 10, padding: '.6rem'
-                  }}>
-                    <div style={{
-                      background: '#fff', borderRadius: 8, padding: '.4rem .55rem',
-                      minWidth: 56, textAlign: 'center', color: dayColor,
-                      fontWeight: 900, fontSize: '.82rem'
-                    }}>
-                      <div>{m.day}</div>
-                      <div style={{ color: 'var(--ink)', fontSize: '.78rem', marginTop: 2 }}>{m.time}</div>
-                    </div>
-                    <div style={{ flex: 1, fontSize: '.88rem' }}>
-                      <div style={{ fontWeight: 800 }}>{m.teams[0]} <span className="muted" style={{ fontWeight: 600 }}>({m.captains[0]})</span></div>
-                      <div className="muted" style={{ fontWeight: 800, textAlign: 'center', fontSize: '.75rem' }}>vs</div>
-                      <div style={{ fontWeight: 800 }}>{m.teams[1]} <span className="muted" style={{ fontWeight: 600 }}>({m.captains[1]})</span></div>
-                    </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '.4rem' }}>
+              {visible.map(m => (
+                <div key={m.id}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', margin: '.1rem 0 .2rem' }}>
+                    <span className="tag" style={{
+                      fontSize: '.65rem',
+                      background: m.group === 'A' ? '#dbeafe' : '#fed7aa',
+                      color: m.group === 'A' ? '#1e3a8a' : '#9a3412'
+                    }}>Group {m.group}</span>
+                    {m.status === 'completed' && <span className="tag win" style={{ fontSize: '.65rem' }}>Played</span>}
+                    {m.status === 'cancelled' && <span className="tag lose" style={{ fontSize: '.65rem' }}>Cancelled</span>}
                   </div>
-                );
-              })}
+                  <MatchRow m={m} t1={teams[m.team1Id]} t2={teams[m.team2Id]} isCompleted={m.status === 'completed'} />
+                </div>
+              ))}
             </div>
-
-            {showBye && w.bye && (
-              <div style={{
-                marginTop: '.6rem', padding: '.55rem .8rem',
-                background: 'linear-gradient(135deg,#fef5e7,#fdeaa8)',
-                border: '2px solid #f6e05e', borderRadius: 10,
-                color: '#744210', fontWeight: 800, textAlign: 'center', fontSize: '.88rem'
-              }} data-testid={`schedule-bye-${w.week}`}>
-                🛌 Bye: {w.bye}
-              </div>
-            )}
           </div>
         );
       })}
-
-      <div className="card">
-        <h2 style={{ textAlign: 'center', background: 'linear-gradient(135deg,var(--bg1),var(--bg2))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', fontWeight: 900 }}>
-          🏆 Playoffs
-        </h2>
-        <div style={{ display: 'grid', gap: '.6rem' }}>
-          {playoffs.map((p, i) => (
-            <div key={i} data-testid={`playoff-${i}`} style={{
-              background: '#f8fafc', border: '2px solid var(--ring)',
-              borderRadius: 12, padding: '.8rem'
-            }}>
-              <div style={{
-                background: p.final ? 'linear-gradient(135deg,#d69e2e,#b7791f)' : 'linear-gradient(135deg,var(--bg1),var(--bg2))',
-                color: '#fff', borderRadius: 8, padding: '.45rem .65rem',
-                fontWeight: 900, textAlign: 'center', marginBottom: '.4rem', fontSize: '.9rem'
-              }}>{p.name}</div>
-              <div className="muted center" style={{ fontWeight: 800, fontSize: '.85rem' }}>{p.date}</div>
-              <div className="center" style={{ fontWeight: 900, margin: '.35rem 0', fontSize: '.95rem' }}>{p.match}</div>
-              <div style={{ display: 'flex', gap: '.35rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                {p.tags.map(([cls, text], j) => (
-                  <span key={j} className={`tag ${cls === 'w' ? 'win' : cls === 'l' ? 'tie' : 'lose'}`}>{text}</span>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
     </main>
   );
 }
