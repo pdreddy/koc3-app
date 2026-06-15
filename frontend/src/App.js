@@ -15,6 +15,9 @@ import Login from './pages/Login';
 import Admin from './pages/Admin';
 import ScoreEntry from './pages/ScoreEntry';
 import Rules from './pages/Rules';
+import Schedule from './pages/Schedule';
+import Matchups from './pages/Matchups';
+import More from './pages/More';
 
 function Shell() {
   const location = useLocation();
@@ -27,7 +30,6 @@ function Shell() {
   useEffect(() => {
     ensureAuth();
 
-    // Seed data if missing
     (async () => {
       try {
         await ensureAuth();
@@ -66,9 +68,12 @@ function Shell() {
       <Routes>
         <Route path="/" element={<Navigate to="/teams" replace />} />
         <Route path="/teams" element={<Teams teams={teams} loaded={loaded} />} />
+        <Route path="/schedule" element={<Schedule />} />
         <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />
+        <Route path="/matchups" element={<Matchups matches={matches} teams={teams} />} />
         <Route path="/history" element={<History matches={matches} teams={teams} />} />
         <Route path="/rules" element={<Rules />} />
+        <Route path="/more" element={<More />} />
         <Route path="/login" element={<Login teams={teams} adminConfig={adminConfig} />} />
         <Route path="/score" element={
           <ProtectedTeam>
