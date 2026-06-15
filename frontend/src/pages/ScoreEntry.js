@@ -456,9 +456,9 @@ function FormEntry({ teams, matches }) {
       {error && <div className="error-box" data-testid="score-error" style={{ whiteSpace: 'pre-line' }}>{error}</div>}
       {success && <div className="success-box" data-testid="score-success">{success}</div>}
 
-      <div className="card">
-        <h2>🆚 Teams</h2>
-        <div className="row">
+      <div className="card score-teams-card">
+        <h2>Match teams</h2>
+        <div className="row score-teams-row">
           <div>
             <div className="field-label">Your team</div>
             <select
@@ -491,13 +491,18 @@ function FormEntry({ teams, matches }) {
       {team1 && team2 && courts.map((c, idx) => {
         const status = courtCompletion(c);
         return (
-        <div className={`match-line court-card ${status.status}`} key={idx}>
-          <h3>{c.label} <span className="tag">{c.type}</span> <span className={`tag status ${status.status}`}>{status.message}</span></h3>
+        <div className={`match-line court-card classic ${status.status}`} key={idx}>
+          <div className="court-card-head">
+            <h3>{c.label}</h3>
+            <span className="tag">{c.type}</span>
+            <span className={`tag status ${status.status}`}>{status.message}</span>
+          </div>
 
-          <div style={{ marginBottom: '.4rem' }}>
+          <div className="score-entry-grid">
+          <div className="player-entry-col">
             <div className="field-label">{team1.abbreviation} player{c.type === 'doubles' ? 's' : ''}</div>
             {c.p1.map((n, i) => (
-              <div style={{ marginBottom: '.4rem' }} key={i}>
+              <div className="compact-field" key={i}>
                 <PlayerInput
                   value={n}
                   onChange={(v) => updateCourt(idx, { p1: c.p1.map((x, j) => j === i ? v : x) })}
@@ -509,10 +514,10 @@ function FormEntry({ teams, matches }) {
             ))}
           </div>
 
-          <div style={{ marginBottom: '.4rem' }}>
+          <div className="player-entry-col">
             <div className="field-label">{team2.abbreviation} player{c.type === 'doubles' ? 's' : ''}</div>
             {c.p2.map((n, i) => (
-              <div style={{ marginBottom: '.4rem' }} key={i}>
+              <div className="compact-field" key={i}>
                 <PlayerInput
                   value={n}
                   onChange={(v) => updateCourt(idx, { p2: c.p2.map((x, j) => j === i ? v : x) })}
@@ -524,12 +529,15 @@ function FormEntry({ teams, matches }) {
             ))}
           </div>
 
+          <div className="sets-entry-col">
           <div className="field-label">Sets ({team1.abbreviation} – {team2.abbreviation})</div>
           {c.sets.map((s, i) => (
             <div key={i} data-testid={`court-${idx}-set-${i}-row`}>
               <SetRow idx={i} set={s} disabled={i > 0 && c.sets[i - 1].a === '' && c.sets[i - 1].b === ''} onChange={(ns) => updateCourt(idx, { sets: c.sets.map((x, j) => j === i ? ns : x) })} />
             </div>
           ))}
+          </div>
+          </div>
         </div>
         );
       })}

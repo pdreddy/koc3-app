@@ -244,6 +244,59 @@ table.std .pts { font-weight: 900; }
   margin-bottom: 0.6rem;
 }
 .match-line h3 { font-size: 0.88rem; margin-bottom: 0.5rem; color: var(--bg1); }
+.score-teams-card { padding: 0.75rem; }
+.score-teams-card h2 {
+  color: #334155;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.score-teams-row .select {
+  min-height: 38px;
+  padding: 0.5rem 0.65rem;
+}
+.court-card.classic {
+  background: #fff;
+  border-left: 4px solid #64748b;
+  box-shadow: 0 1px 5px rgba(15,23,42,0.06);
+  padding: 0.55rem 0.65rem;
+}
+.court-card.classic.ready { border-left-color: var(--success); }
+.court-card.classic.warning { border-left-color: var(--warn); }
+.court-card.classic.empty { border-left-color: #94a3b8; }
+.court-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding-bottom: 0.4rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+.court-card-head h3 {
+  flex: 1;
+  margin: 0;
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+.score-entry-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  align-items: start;
+}
+.compact-field { margin-bottom: 0.3rem; }
+.court-card.classic .input {
+  min-height: 36px;
+  padding: 0.45rem 0.55rem;
+  border-width: 1px;
+  border-radius: 7px;
+  font-size: 0.9rem;
+}
+.court-card.classic .field-label {
+  font-size: 0.68rem;
+  margin-bottom: 0.22rem;
+}
 .row { display: flex; gap: 0.5rem; align-items: center; }
 .row > * { flex: 1; }
 .row .vs { flex: 0 0 auto; font-weight: 800; color: var(--muted); padding: 0 0.2rem; }
@@ -253,6 +306,12 @@ table.std .pts { font-weight: 900; }
 }
 .set-input input { width: 56px; text-align: center; }
 .set-input .label { font-size: 0.72rem; color: var(--muted); font-weight: 700; width: 38px; }
+.court-card.classic .set-input {
+  gap: 0.22rem;
+  margin-bottom: 0.28rem;
+}
+.court-card.classic .set-input input { width: 42px; }
+.court-card.classic .set-input .label { width: 32px; font-size: 0.68rem; }
 
 .tag {
   display: inline-block;
@@ -266,6 +325,25 @@ table.std .pts { font-weight: 900; }
 .tag.win { background: #d1fae5; color: #065f46; }
 .tag.lose { background: #fee2e2; color: #991b1b; }
 .tag.tie { background: #fef3c7; color: #92400e; }
+.tag.status { font-size: 0.64rem; padding: 0.16rem 0.45rem; }
+
+@media (max-width: 640px) {
+  .score-entry-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .sets-entry-col {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 430px) {
+  .score-entry-grid {
+    grid-template-columns: 1fr;
+  }
+  .sets-entry-col {
+    grid-column: auto;
+  }
+}
 
 .match-hist {
   background: #fff;
