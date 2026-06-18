@@ -20,6 +20,7 @@ import Schedule from './pages/Schedule';
 import Matchups from './pages/Matchups';
 import More from './pages/More';
 import Season2 from './pages/Season2';
+import PtlRatings from './pages/PtlRatings';
 
 function Shell() {
   const location = useLocation();
@@ -109,6 +110,7 @@ function Shell() {
         <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} />} />
         <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />
         <Route path="/matchups" element={<Matchups matches={matches} teams={teams} />} />
+        <Route path="/ptl" element={<PtlRatings matches={matches} teams={teams} />} />
         <Route path="/history" element={<History matches={matches} teams={teams} />} />
         <Route path="/season2" element={<Season2 />} />
         <Route path="/rules" element={<Rules />} />

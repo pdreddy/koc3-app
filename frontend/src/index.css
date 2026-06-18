@@ -417,9 +417,60 @@ table.std .pts { font-weight: 900; }
 .players-edit { display: flex; flex-direction: column; gap: 0.4rem; }
 .players-edit .row-edit { display: flex; gap: 0.4rem; align-items: center; }
 .players-edit .row-edit input { flex: 1; }
+.players-edit .row-edit .player-utr-input { flex: 0 0 82px; text-align: center; }
 .players-edit .row-edit .del { background: transparent; border: none; color: var(--danger); font-size: 1.1rem; padding: 0 0.3rem; }
 .cap-badge { font-size: 0.7rem; font-weight: 800; color: #92400e; background: #fef3c7; padding: 0.15rem 0.4rem; border-radius: 999px; cursor: pointer; }
 .cap-badge.active { background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; }
+
+.ptl-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+.ptl-hero-stat {
+  min-width: 150px;
+  padding: 0.75rem;
+  border-radius: 16px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--bg1), var(--bg2));
+  box-shadow: 0 10px 22px rgba(37,99,235,0.22);
+}
+.ptl-hero-stat span,
+.ptl-hero-stat small,
+.ptl-kicker {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.82;
+}
+.ptl-hero-stat strong {
+  display: block;
+  margin: 0.15rem 0;
+  font-size: 1rem;
+}
+.ptl-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 0.8rem;
+}
+.ptl-info-card p { color: var(--muted); font-size: 0.9rem; line-height: 1.45; }
+.ptl-kicker { color: var(--bg1); opacity: 1; margin-bottom: 0.25rem; }
+.ptl-metric {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  background: linear-gradient(180deg, #eff6ff, #f5f3ff);
+}
+.ptl-metric span,
+.ptl-metric small { color: var(--muted); font-size: 0.78rem; font-weight: 800; }
+.ptl-metric strong { font-size: 2rem; color: var(--bg1); }
+.ptl-rating-value { color: #0f766e; font-size: 1rem; }
+.ptl-table th,
+.ptl-table td { white-space: nowrap; }
 
 @media (max-width: 380px) {
   .app-header .brand strong { font-size: 0.9rem; }
@@ -476,6 +527,21 @@ table.std .pts { font-weight: 900; }
   .groups-grid table.std thead th,
   .groups-grid table.std tbody td {
     padding: 0.48rem 0.28rem;
+  }
+  .ptl-hero,
+  .ptl-summary {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ptl-hero-stat {
+    min-width: 0;
+  }
+  .players-edit .row-edit {
+    flex-wrap: wrap;
+  }
+  .players-edit .row-edit .player-utr-input {
+    flex: 0 0 78px;
   }
 }
 

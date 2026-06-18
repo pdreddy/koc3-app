@@ -33,8 +33,8 @@ export function buildInitialTeams() {
       gradient: idx + 1,
       group: idx < 8 ? 'A' : 'B',
       players: [
-        { name: t.captain, isCaptain: true },
-        ...t.roster.map(n => ({ name: n, isCaptain: false }))
+        { name: t.captain, isCaptain: true, utr: '' },
+        ...t.roster.map(n => ({ name: n, isCaptain: false, utr: '' }))
       ]
     };
   });
@@ -48,8 +48,8 @@ export function buildInitialTeams() {
       gradient: idx + 10,
       group: 'B',
       players: [
-        { name: 'Captain', isCaptain: true },
-        ...Array.from({ length: 6 }, (_, i) => ({ name: `Player ${i + 2}`, isCaptain: false }))
+        { name: 'Captain', isCaptain: true, utr: '' },
+        ...Array.from({ length: 6 }, (_, i) => ({ name: `Player ${i + 2}`, isCaptain: false, utr: '' }))
       ]
     };
   });
