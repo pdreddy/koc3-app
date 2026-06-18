@@ -1,6 +1,7 @@
 import { resolveMatchTeams } from './matchTeams';
+import { findUtrRating } from '../data/utrRatings';
 
-const DEFAULT_BASE_RATING = 7.0;
+const DEFAULT_BASE_RATING = 3.5;
 const MIN_RATING = 1.0;
 const MAX_RATING = 16.5;
 
@@ -12,10 +13,17 @@ function normalizeName(name) {
   return String(name || '').trim().toLowerCase();
 }
 
-function playerUtr(player) {
-  const raw = player?.utr ?? player?.currentUtr ?? player?.rating ?? '';
+function numericRating(raw) {
   const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function playerUtr(player, type) {
+  const lookup = findUtrRating(player?.name);
+  if (type === 'singles') {
+    return numericRating(player?.singlesUtr) ?? numericRating(player?.utr) ?? lookup?.singlesUtr ?? null;
+  }
+  return numericRating(player?.doublesUtr) ?? numericRating(player?.utr) ?? lookup?.doublesUtr ?? null;
 }
 
 function expectedWinChance(rating, opponentRating) {
@@ -34,13 +42,16 @@ function buildPlayerIndex(teams) {
     (team.players || []).forEach(player => {
       const key = normalizeName(player.name);
       if (!key) return;
-      const utr = playerUtr(player);
+      const singlesUtr = playerUtr(player, 'singles');
+      const doublesUtr = playerUtr(player, 'doubles');
       players[key] = {
         name: player.name,
         team: team.name,
         teamAbbr: team.abbreviation,
-        currentUtr: utr,
-        ptlRating: utr || DEFAULT_BASE_RATING,
+        currentSinglesUtr: singlesUtr,
+        currentDoublesUtr: doublesUtr,
+        ptlSinglesRating: singlesUtr || DEFAULT_BASE_RATING,
+        ptlDoublesRating: doublesUtr || DEFAULT_BASE_RATING,
         courts: 0,
         wins: 0,
         losses: 0,
@@ -58,12 +69,15 @@ function buildPlayerIndex(teams) {
 function ensurePlayer(players, name, team) {
   const key = normalizeName(name);
   if (!players[key]) {
+    const lookup = findUtrRating(name);
     players[key] = {
       name,
       team: team?.name || 'Unknown',
       teamAbbr: team?.abbreviation || '?',
-      currentUtr: null,
-      ptlRating: DEFAULT_BASE_RATING,
+      currentSinglesUtr: lookup?.singlesUtr ?? null,
+      currentDoublesUtr: lookup?.doublesUtr ?? null,
+      ptlSinglesRating: lookup?.singlesUtr || DEFAULT_BASE_RATING,
+      ptlDoublesRating: lookup?.doublesUtr || DEFAULT_BASE_RATING,
       courts: 0,
       wins: 0,
       losses: 0,
@@ -80,18 +94,21 @@ function ensurePlayer(players, name, team) {
 function applyCourtRating(players, playerNames, opponentNames, context) {
   const playerRecords = playerNames.map(name => ensurePlayer(players, name, context.team));
   const opponentRecords = opponentNames.map(name => ensurePlayer(players, name, context.opponentTeam));
-  const opponentAverage = opponentRecords.reduce((sum, p) => sum + p.ptlRating, 0) / Math.max(1, opponentRecords.length);
+  const ratingKey = context.type === 'singles' ? 'ptlSinglesRating' : 'ptlDoublesRating';
+  const deltaKey = context.type === 'singles' ? 'singlesRatingDelta' : 'doublesRatingDelta';
+  const opponentAverage = opponentRecords.reduce((sum, p) => sum + p[ratingKey], 0) / Math.max(1, opponentRecords.length);
 
   playerRecords.forEach(player => {
-    const before = player.ptlRating;
+    const before = player[ratingKey];
     const expected = expectedWinChance(before, opponentAverage);
     const actual = ptlScoreForCourt(context);
     const confidence = Math.min(player.courts, 12);
     const kFactor = 0.34 - confidence * 0.012;
     const delta = clamp((actual - expected) * kFactor, -0.22, 0.22);
 
-    player.ptlRating = clamp(before + delta, MIN_RATING, MAX_RATING);
+    player[ratingKey] = clamp(before + delta, MIN_RATING, MAX_RATING);
     player.ratingDelta += delta;
+    player[deltaKey] = (player[deltaKey] || 0) + delta;
     player.courts += 1;
     if (context.won) player.wins += 1;
     else player.losses += 1;
@@ -141,8 +158,12 @@ export function buildPtlRatings(teams, matches) {
       ...player,
       winPct: player.courts ? Math.round((player.wins / player.courts) * 100) : 0,
       gameDiff: player.gamesFor - player.gamesAgainst,
-      ptlRating: Number(player.ptlRating.toFixed(2)),
-      ratingDelta: Number(player.ratingDelta.toFixed(2))
+      ptlSinglesRating: Number(player.ptlSinglesRating.toFixed(2)),
+      ptlDoublesRating: Number(player.ptlDoublesRating.toFixed(2)),
+      ptlRating: Number((((player.ptlSinglesRating || DEFAULT_BASE_RATING) + (player.ptlDoublesRating || DEFAULT_BASE_RATING)) / 2).toFixed(2)),
+      ratingDelta: Number(player.ratingDelta.toFixed(2)),
+      singlesRatingDelta: Number((player.singlesRatingDelta || 0).toFixed(2)),
+      doublesRatingDelta: Number((player.doublesRatingDelta || 0).toFixed(2))
     }))
     .sort((a, b) => b.ptlRating - a.ptlRating || b.wins - a.wins || a.name.localeCompare(b.name));
 }

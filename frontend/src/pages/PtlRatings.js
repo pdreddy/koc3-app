@@ -38,10 +38,9 @@ export default function PtlRatings({ teams, matches, previousMatches = [] }) {
           <span className="ptl-kicker">Algorithm</span>
           <h2>How PTL works</h2>
           <p>
-            PTL starts from the player&apos;s current UTR when available, otherwise from 7.00.
-            Each KOC court updates the rating based on opponent strength, win/loss, and game margin.
-            Doubles compares each player against the average rating of the opposing pair. Previous
-            season matches are pulled from /KOC2DBPONEW and processed before KOC3 matches.
+            PTL starts singles and doubles separately from the UTR table when available, otherwise from 3.50.
+            Singles courts update only the singles PTL; doubles courts update only the doubles PTL using
+            the average rating of the opposing pair. Previous season matches are pulled from /KOC2DBPONEW.
           </p>
         </div>
         <div className="card ptl-metric">
@@ -68,9 +67,11 @@ export default function PtlRatings({ teams, matches, previousMatches = [] }) {
                 <th>#</th>
                 <th>Player</th>
                 <th>Team</th>
-                <th>Current UTR</th>
-                <th>PTL KOC</th>
-                <th>Δ</th>
+                <th>UTR S</th>
+                <th>PTL S</th>
+                <th>UTR D</th>
+                <th>PTL D</th>
+                <th>Δ S/D</th>
                 <th>W-L</th>
                 <th>Win%</th>
                 <th>S/D</th>
@@ -78,7 +79,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [] }) {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 && <tr><td colSpan="10" className="center muted">No players found</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan="12" className="center muted">No players found</td></tr>}
               {filtered.map((player, idx) => {
                 const deltaClass = player.ratingDelta > 0 ? 'win' : player.ratingDelta < 0 ? 'lose' : 'tie';
                 return (
@@ -86,9 +87,11 @@ export default function PtlRatings({ teams, matches, previousMatches = [] }) {
                     <td className="rank">{idx + 1}</td>
                     <td><strong>{player.name}</strong></td>
                     <td><span className="tag">{player.teamAbbr}</span></td>
-                    <td>{formatRating(player.currentUtr)}</td>
-                    <td><strong className="ptl-rating-value">{formatRating(player.ptlRating)}</strong></td>
-                    <td><span className={`tag ${deltaClass}`}>{player.ratingDelta > 0 ? '+' : ''}{formatRating(player.ratingDelta)}</span></td>
+                    <td>{formatRating(player.currentSinglesUtr)}</td>
+                    <td><strong className="ptl-rating-value">{formatRating(player.ptlSinglesRating)}</strong></td>
+                    <td>{formatRating(player.currentDoublesUtr)}</td>
+                    <td><strong className="ptl-rating-value">{formatRating(player.ptlDoublesRating)}</strong></td>
+                    <td><span className={`tag ${deltaClass}`}>{player.singlesRatingDelta > 0 ? '+' : ''}{formatRating(player.singlesRatingDelta)}/{player.doublesRatingDelta > 0 ? '+' : ''}{formatRating(player.doublesRatingDelta)}</span></td>
                     <td>{player.wins}-{player.losses}</td>
                     <td>{player.winPct}%</td>
                     <td>{player.singles}/{player.doubles}</td>
@@ -99,7 +102,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [] }) {
             </tbody>
           </table>
         </div>
-        <p className="hint">PTL = Prosper Tennis League rating. It is KOC-only performance, not an official UTR.</p>
+        <p className="hint">PTL = Prosper Tennis League rating. UTR S/D come from the provided lookup table; PTL S/D are KOC-only singles and doubles performance ratings.</p>
       </div>
     </main>
   );
