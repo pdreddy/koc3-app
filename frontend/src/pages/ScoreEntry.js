@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { push, ref } from 'firebase/database';
 import { db, PATHS, ensureAuth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -6,35 +6,154 @@ import { matchName } from '../utils/nameMatch';
 import { parseQuickScore } from '../utils/quickScoreParser';
 
 const COURT_TEMPLATES = [
-  { label: 'Singles 1', type: 'singles' },
-  { label: 'Doubles 1', type: 'doubles' },
-  { label: 'Doubles 2', type: 'doubles' }
+  { label: 'Singles', type: 'singles', setCount: 5 },
+  { label: 'Doubles 1', type: 'doubles', setCount: 3 },
+  { label: 'Doubles 1 Reverse', type: 'doubles', setCount: 3 },
+  { label: 'Doubles 2', type: 'doubles', setCount: 3 },
+  { label: 'Doubles 2 Reverse', type: 'doubles', setCount: 3 }
 ];
 
-function newCourt(label, type) {
+
+function getQuickTemplate(teams) {
+  const list = Object.values(teams || {});
+  const t1 = list.find(t => t.abbreviation === 'KC') || list[0];
+  const t2 = list.find(t => t.abbreviation === 'ML') || list.find(t => t.id !== t1?.id) || list[1];
+  const p1 = t1?.players || [];
+  const p2 = t2?.players || [];
+  const name = (players, idx, fallback) => players[idx]?.name || fallback;
+  const a = t1?.abbreviation || 'TEAM1';
+  const b = t2?.abbreviation || 'TEAM2';
+  return `${a} vs ${b}
+
+S1: ${name(p1, 0, 'Singles A1')} vs ${name(p2, 0, 'Singles B1')}
+4-3, 4-2, 0-4, 4-2 (won) ${a}
+
+D1: ${name(p1, 1, 'A Pair 1')}/${name(p1, 2, 'A Pair 2')} vs ${name(p2, 1, 'B Pair 1')}/${name(p2, 2, 'B Pair 2')}
+4-3, 1-4, 1-0 (won) ${a}
+
+D1: ${name(p1, 1, 'A Pair 1')}/${name(p1, 2, 'A Pair 2')} vs ${name(p2, 3, 'B Pair 3')}/${name(p2, 4, 'B Pair 4')}
+3-4, 1-4 (won) ${b}
+
+D2: ${name(p1, 3, 'A Pair 3')}/${name(p1, 4, 'A Pair 4')} vs ${name(p2, 3, 'B Pair 3')}/${name(p2, 4, 'B Pair 4')}
+0-4, 2-4 (won) ${b}
+
+D2: ${name(p1, 3, 'A Pair 3')}/${name(p1, 4, 'A Pair 4')} vs ${name(p2, 1, 'B Pair 1')}/${name(p2, 2, 'B Pair 2')}
+4-1, 4-2 (won) ${a}
+
+Final: ${a} won 3-2`;
+}
+
+function normalizeQuickText(text, teams) {
+  const abbrs = new Set(Object.values(teams || {}).map(t => t.abbreviation?.toUpperCase()).filter(Boolean));
+  const lines = (text || '').split('\n').map(line => {
+    let out = line.trim().replace(/\s+/g, ' ');
+    out = out.replace(/\bvs\.?\b/ig, 'vs');
+    out = out.replace(/\(\s*won\s*\)/ig, '(won)');
+    out = out.replace(/^(singles?)\s*[:.-]?\s*/i, 'S1: ');
+    out = out.replace(/^doubles\s*(\d)?\s*[:.-]?\s*/i, (_, n) => `D${n || ''}: `);
+    out = out.replace(/^d(\d)\s+/i, 'D$1: ');
+    out = out.replace(/^s(\d)\s+/i, 'S$1: ');
+    out = out.replace(/^s\s+/i, 'S1: ');
+    out = out.replace(/^S:\s*(S\d\s*:)/i, '$1');
+    out = out.replace(/\b([a-z]{2,4}|t\d{2})\b/g, token => {
+      const upper = token.toUpperCase();
+      return abbrs.has(upper) ? upper : token;
+    });
+    if (out && /^.+\svs\s.+/i.test(out) && !/^(S\d?|D\d?)\s*:/i.test(out) && !/^\w+\s+vs\s+\w+$/i.test(out)) {
+      out = `S1: ${out}`;
+    }
+    return out;
+  });
+  return lines.join('\n');
+}
+
+function getQuickGuidance(text, parsed, teams) {
+  const raw = (text || '').trim();
+  const teamAbbrs = Object.values(teams || {}).map(t => t.abbreviation).filter(Boolean);
+  if (!raw) {
+    return [
+      'Start with TEAM1 vs TEAM2 using team abbreviations.',
+      'Singles use S1 and can be best-of-5 sets.',
+      'Doubles use D1/D1 reverse and D2/D2 reverse; pair 1 and pair 2 play both opponent pairs.'
+    ];
+  }
+  const tips = [];
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines[0] && !/^\w+\s+vs\.?\s+\w+$/i.test(lines[0])) tips.push(`First line format: ${teamAbbrs[0] || 'SK'} vs ${teamAbbrs[1] || 'RR'}`);
+  lines.slice(1).forEach((line, idx) => {
+    const lineNo = idx + 2;
+    const nextLine = lines[idx + 2] || '';
+    const hasScoreContinuation = /^[\d\s,()-]+\(won\)/i.test(nextLine);
+    if (/^final\s*:/i.test(line) || /^[\d\s,()-]+\(won\)/i.test(line)) return;
+    if (!/^(S\d?|D\d?|Singles\s*\d?|Doubles\s*\d?)\s*:/i.test(line)) tips.push(`Line ${lineNo}: add court label like S1:, D1:, or D2:.`);
+    if (!/\s+vs\.?\s+/i.test(line)) tips.push(`Line ${lineNo}: include "vs" between players.`);
+    if (!hasScoreContinuation && !/\d+-\d+/.test(line)) tips.push(`Line ${lineNo}: add set scores like 4-2,4-1.`);
+    if (!hasScoreContinuation && !/\(won\)\s*\w+/i.test(line)) tips.push(`Line ${lineNo}: end with (won) ${parsed.team1?.abbreviation || teamAbbrs[0] || 'TEAM'}.`);
+  });
+  if (parsed.corrections?.length) parsed.corrections.forEach(c => tips.push(c));
+  if (parsed.errors?.length && tips.length === 0) tips.push('Follow the sample format below, then use Auto-format to clean spacing and labels.');
+  return Array.from(new Set(tips)).slice(0, 6);
+}
+
+function newCourt(label, type, setCount = 3) {
   return {
     label, type,
     p1: type === 'singles' ? [''] : ['', ''],
     p2: type === 'singles' ? [''] : ['', ''],
-    sets: [{ a: '', b: '', tieA: '', tieB: '' }, { a: '', b: '', tieA: '', tieB: '' }, { a: '', b: '', tieA: '', tieB: '' }]
+    sets: Array.from({ length: setCount }, () => ({ a: '', b: '', tieA: '', tieB: '' }))
   };
 }
 
-function PlayerInput({ value, onChange, roster, testid }) {
+function PlayerInput({ value, onChange, roster, teamAbbr, testid }) {
   const [focus, setFocus] = useState(false);
+  const trimmedValue = value.trim();
+  const canSuggest = trimmedValue.length >= 3;
   const result = useMemo(() => matchName(value, roster), [value, roster]);
-  const showSuggest = focus && value && !result.exact && result.suggestions.length > 0;
-  const showNoMatch = focus && value && result.suggestions.length === 0;
+  const rosterSuggestions = useMemo(() => {
+    if (!canSuggest || result.exact) return [];
+    const query = trimmedValue.toLowerCase();
+    const ranked = (roster || [])
+      .map((player) => {
+        const name = player.name || '';
+        const lowerName = name.toLowerCase();
+        const firstToken = lowerName.split(/\s+/)[0] || '';
+        let rank = 3;
+        if (firstToken.startsWith(query)) rank = 0;
+        else if (lowerName.startsWith(query)) rank = 1;
+        else if (lowerName.includes(query)) rank = 2;
+        return { ...player, rank };
+      })
+      .filter(player => player.rank < 3)
+      .sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name))
+      .slice(0, 5);
+
+    const seen = new Set(ranked.map(player => player.name));
+    const fuzzy = (result.suggestions || []).filter(player => !seen.has(player.name));
+    return [...ranked, ...fuzzy].slice(0, 5);
+  }, [canSuggest, result.exact, result.suggestions, roster, trimmedValue]);
+  const showSuggest = focus && canSuggest && !result.exact && rosterSuggestions.length > 0;
+  const showNoMatch = focus && canSuggest && !result.exact && rosterSuggestions.length === 0;
   const matchedExact = result.exact;
+  const applySuggestion = (name) => {
+    onChange(name);
+    setFocus(false);
+  };
   return (
     <div style={{ position: 'relative' }}>
       <input
         className="input"
         value={value}
-        placeholder="Player name"
-        onChange={e => onChange(e.target.value)}
+        placeholder={teamAbbr ? `Type 3 letters for ${teamAbbr} roster` : 'Type 3 letters for roster'}
+        onChange={e => onChange(autoCompleteUniqueRosterName(e.target.value, roster))}
         onFocus={() => setFocus(true)}
+        onKeyDown={(e) => {
+          if ((e.key === 'Tab' || e.key === 'Enter') && showSuggest && rosterSuggestions[0]) {
+            e.preventDefault();
+            applySuggestion(rosterSuggestions[0].name);
+          }
+        }}
         onBlur={() => setTimeout(() => setFocus(false), 180)}
+        autoComplete="off"
         data-testid={testid}
         style={{
           borderColor: matchedExact ? '#10b981' : (showNoMatch ? '#ef4444' : undefined),
@@ -49,15 +168,16 @@ function PlayerInput({ value, onChange, roster, testid }) {
       )}
       {showSuggest && (
         <div className="suggest" data-testid={`${testid}-suggest`}>
-          {result.suggestions.map((s, i) => (
+          <div className="suggest-hint">Choose a {teamAbbr || 'team'} player, or press Enter/Tab for the first match</div>
+          {rosterSuggestions.map((s, i) => (
             <div
-              key={i}
+              key={s.name || i}
               className="suggest-item"
-              onMouseDown={(e) => { e.preventDefault(); onChange(s.name); setFocus(false); }}
+              onMouseDown={(e) => { e.preventDefault(); applySuggestion(s.name); }}
               data-testid={`${testid}-suggest-${i}`}
             >
               {s.isCaptain ? '🏆 ' : ''}{s.name}
-              <span className="score">{Math.round(s.score * 100)}% match</span>
+              {typeof s.score === 'number' && <span className="score">{Math.round(s.score * 100)}% match</span>}
             </div>
           ))}
         </div>
@@ -66,7 +186,7 @@ function PlayerInput({ value, onChange, roster, testid }) {
   );
 }
 
-function SetRow({ idx, set, onChange }) {
+function SetRow({ idx, set, onChange, disabled }) {
   return (
     <div className="set-input">
       <span className="label">Set {idx + 1}</span>
@@ -75,6 +195,9 @@ function SetRow({ idx, set, onChange }) {
         type="number"
         inputMode="numeric"
         value={set.a}
+        min="0"
+        max="7"
+        disabled={disabled}
         onChange={e => onChange({ ...set, a: e.target.value })}
         placeholder="0"
         data-testid={`set-${idx}-a`}
@@ -85,6 +208,9 @@ function SetRow({ idx, set, onChange }) {
         type="number"
         inputMode="numeric"
         value={set.b}
+        min="0"
+        max="7"
+        disabled={disabled}
         onChange={e => onChange({ ...set, b: e.target.value })}
         placeholder="0"
         data-testid={`set-${idx}-b`}
@@ -97,6 +223,8 @@ function SetRow({ idx, set, onChange }) {
             type="number"
             inputMode="numeric"
             value={set.tieA}
+            min="0"
+            disabled={disabled}
             onChange={e => onChange({ ...set, tieA: e.target.value })}
             placeholder="0"
             data-testid={`set-${idx}-tieA`}
@@ -107,6 +235,8 @@ function SetRow({ idx, set, onChange }) {
             type="number"
             inputMode="numeric"
             value={set.tieB}
+            min="0"
+            disabled={disabled}
             onChange={e => onChange({ ...set, tieB: e.target.value })}
             placeholder="0"
             data-testid={`set-${idx}-tieB`}
@@ -137,6 +267,106 @@ function computeCourt(c) {
   }
   const winnerTeamNum = s1 > s2 ? 1 : (s2 > s1 ? 2 : null);
   return { g1, g2, s1, s2, sets, winnerTeamNum };
+}
+
+
+function courtHasEntry(c) {
+  return [...c.p1, ...c.p2].some(n => (n || '').trim()) || c.sets.some(s => s.a !== '' || s.b !== '' || s.tieA !== '' || s.tieB !== '');
+}
+
+function getDuplicatePlayers(courts) {
+  const seen = new Map();
+  const duplicates = new Set();
+  courts.forEach(c => {
+    [...c.p1, ...c.p2].forEach(name => {
+      const key = (name || '').trim().toLowerCase();
+      if (!key) return;
+      if (seen.has(key)) duplicates.add((name || '').trim());
+      seen.set(key, true);
+    });
+  });
+  return Array.from(duplicates);
+}
+
+function courtCompletion(c) {
+  if (!courtHasEntry(c)) return { status: 'empty', message: 'Not started' };
+  const r = computeCourt(c);
+  if (r.sets.length === 0) return { status: 'warning', message: 'Add set scores' };
+  if (r.winnerTeamNum === null) return { status: 'warning', message: 'Needs clear winner' };
+  return { status: 'ready', message: `Ready · ${r.s1}-${r.s2} sets · ${r.g1}-${r.g2} games` };
+}
+
+function getRosterSuggestions(query, roster) {
+  if (!query || query.trim().length < 3) return [];
+  const normalizedQuery = query.trim().toLowerCase();
+  const ranked = (roster || [])
+    .map((player) => {
+      const name = player.name || '';
+      const lowerName = name.toLowerCase();
+      const firstToken = lowerName.split(/\s+/)[0] || '';
+      let rank = 3;
+      if (firstToken.startsWith(normalizedQuery)) rank = 0;
+      else if (lowerName.startsWith(normalizedQuery)) rank = 1;
+      else if (lowerName.includes(normalizedQuery)) rank = 2;
+      return { ...player, rank };
+    })
+    .filter(player => player.rank < 3)
+    .sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name))
+    .slice(0, 5);
+
+  const seen = new Set(ranked.map(player => player.name));
+  const fuzzy = matchName(query, roster).suggestions.filter(player => !seen.has(player.name));
+  return [...ranked, ...fuzzy].slice(0, 5);
+}
+
+function autoCompleteUniqueRosterName(value, roster) {
+  const query = (value || '').trim();
+  if (query.length < 3 || /\s$/.test(value)) return value;
+  const normalizedQuery = query.toLowerCase();
+  const prefixMatches = (roster || []).filter(player => {
+    const name = player.name || '';
+    const lowerName = name.toLowerCase();
+    const firstToken = lowerName.split(/\s+/)[0] || '';
+    return firstToken.startsWith(normalizedQuery) || lowerName.startsWith(normalizedQuery);
+  });
+  return prefixMatches.length === 1 ? prefixMatches[0].name : value;
+}
+
+function getAllRosterPlayers(teams) {
+  return Object.values(teams || {}).flatMap(team =>
+    (team.players || []).map(player => ({
+      ...player,
+      teamAbbr: team.abbreviation,
+      teamName: team.name
+    }))
+  );
+}
+
+function getQuickNameContext(text, cursor, parsed, teams) {
+  if (cursor == null) return null;
+  const lineStart = text.lastIndexOf('\n', Math.max(0, cursor - 1)) + 1;
+  const lineEndAt = text.indexOf('\n', cursor);
+  const lineEnd = lineEndAt === -1 ? text.length : lineEndAt;
+  const line = text.slice(lineStart, lineEnd);
+  const beforeCursor = text.slice(lineStart, cursor);
+  const lowerLine = line.trim().toLowerCase();
+  if (!line.trim() || lowerLine.startsWith('final:') || /^[\d\s,()-]+\(won\)/i.test(line.trim())) return null;
+  const vsMatch = line.match(/\bvs\.?\b/i);
+  const vsIndex = vsMatch?.index ?? -1;
+  const isTeam2Side = vsMatch && beforeCursor.length > vsIndex;
+  const team = isTeam2Side ? parsed.team2 : parsed.team1;
+  const sideStart = isTeam2Side ? vsIndex + vsMatch[0].length : 0;
+  const sideBeforeCursor = beforeCursor.slice(sideStart);
+  const lastDelimiter = Math.max(sideBeforeCursor.lastIndexOf(':'), sideBeforeCursor.lastIndexOf('/'));
+  const tokenStartInSide = lastDelimiter + 1;
+  const rawToken = sideBeforeCursor.slice(tokenStartInSide);
+  const leadingSpace = rawToken.match(/^\s*/)?.[0] || '';
+  const query = rawToken.trimStart();
+  const replaceStart = lineStart + sideStart + tokenStartInSide + leadingSpace.length;
+  const roster = team?.players || getAllRosterPlayers(teams);
+  const suggestions = getRosterSuggestions(query, roster);
+  if (query.trim().length < 3 || suggestions.length === 0) return null;
+  return { query, suggestions, teamAbbr: team?.abbreviation || 'all teams', replaceStart, replaceEnd: cursor };
 }
 
 export default function ScoreEntry({ teams, matches }) {
@@ -172,7 +402,7 @@ function FormEntry({ teams, matches }) {
 
   const [team1Id, setTeam1Id] = useState(myTeam?.id || '');
   const [team2Id, setTeam2Id] = useState('');
-  const [courts, setCourts] = useState(() => COURT_TEMPLATES.map(t => newCourt(t.label, t.type)));
+  const [courts, setCourts] = useState(() => COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [saving, setSaving] = useState(false);
@@ -209,9 +439,16 @@ function FormEntry({ teams, matches }) {
 
     // Validate all player names exist
     const validationErrors = [];
+    const duplicatePlayers = getDuplicatePlayers(courts);
+    duplicatePlayers.forEach(n => validationErrors.push(`Player entered more than once: ${n}`));
+
     const lines = courts.map((c, idx) => {
       const r = computeCourt(c);
-      if (r.sets.length === 0) return null; // skip empty courts
+      if (!courtHasEntry(c)) return null; // skip untouched courts
+      if (r.sets.length === 0) {
+        validationErrors.push(`${c.label}: add at least one set score or clear the court`);
+        return null;
+      }
       const checkSide = (names, team, side) => {
         return names.map((n, i) => {
           const trimmed = (n || '').trim();
@@ -277,7 +514,7 @@ function FormEntry({ teams, matches }) {
       await ensureAuth();
       await push(ref(db, PATHS.matches), record);
       setSuccess(`✅ Saved: ${team1.name} vs ${team2.name} — Winner: ${winner}`);
-      setCourts(COURT_TEMPLATES.map(t => newCourt(t.label, t.type)));
+      setCourts(COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
     } catch (e) {
       setError('Save failed: ' + e.message);
     } finally {
@@ -292,9 +529,9 @@ function FormEntry({ teams, matches }) {
       {error && <div className="error-box" data-testid="score-error" style={{ whiteSpace: 'pre-line' }}>{error}</div>}
       {success && <div className="success-box" data-testid="score-success">{success}</div>}
 
-      <div className="card">
-        <h2>🆚 Teams</h2>
-        <div className="row">
+      <div className="card score-teams-card">
+        <h2>Match teams</h2>
+        <div className="row score-teams-row">
           <div>
             <div className="field-label">Your team</div>
             <select
@@ -324,46 +561,59 @@ function FormEntry({ teams, matches }) {
         </div>
       </div>
 
-      {team1 && team2 && courts.map((c, idx) => (
-        <div className="match-line" key={idx}>
-          <h3>{c.label} <span className="tag">{c.type}</span></h3>
+      {team1 && team2 && courts.map((c, idx) => {
+        const status = courtCompletion(c);
+        return (
+        <div className={`match-line court-card classic ${status.status}`} key={idx}>
+          <div className="court-card-head">
+            <h3>{c.label}</h3>
+            <span className="tag">{c.type}</span>
+            <span className={`tag status ${status.status}`}>{status.message}</span>
+          </div>
 
-          <div style={{ marginBottom: '.4rem' }}>
+          <div className="score-entry-grid">
+          <div className="player-entry-col">
             <div className="field-label">{team1.abbreviation} player{c.type === 'doubles' ? 's' : ''}</div>
             {c.p1.map((n, i) => (
-              <div style={{ marginBottom: '.4rem' }} key={i}>
+              <div className="compact-field" key={i}>
                 <PlayerInput
                   value={n}
                   onChange={(v) => updateCourt(idx, { p1: c.p1.map((x, j) => j === i ? v : x) })}
                   roster={team1.players || []}
+                  teamAbbr={team1.abbreviation}
                   testid={`court-${idx}-p1-${i}`}
                 />
               </div>
             ))}
           </div>
 
-          <div style={{ marginBottom: '.4rem' }}>
+          <div className="player-entry-col">
             <div className="field-label">{team2.abbreviation} player{c.type === 'doubles' ? 's' : ''}</div>
             {c.p2.map((n, i) => (
-              <div style={{ marginBottom: '.4rem' }} key={i}>
+              <div className="compact-field" key={i}>
                 <PlayerInput
                   value={n}
                   onChange={(v) => updateCourt(idx, { p2: c.p2.map((x, j) => j === i ? v : x) })}
                   roster={team2.players || []}
+                  teamAbbr={team2.abbreviation}
                   testid={`court-${idx}-p2-${i}`}
                 />
               </div>
             ))}
           </div>
 
+          <div className="sets-entry-col">
           <div className="field-label">Sets ({team1.abbreviation} – {team2.abbreviation})</div>
           {c.sets.map((s, i) => (
             <div key={i} data-testid={`court-${idx}-set-${i}-row`}>
-              <SetRow idx={i} set={s} onChange={(ns) => updateCourt(idx, { sets: c.sets.map((x, j) => j === i ? ns : x) })} />
+              <SetRow idx={i} set={s} disabled={i > 0 && c.sets[i - 1].a === '' && c.sets[i - 1].b === ''} onChange={(ns) => updateCourt(idx, { sets: c.sets.map((x, j) => j === i ? ns : x) })} />
             </div>
           ))}
+          </div>
+          </div>
         </div>
-      ))}
+        );
+      })}
 
       {team1 && team2 && (
         <div className="card">
@@ -396,12 +646,55 @@ function FormEntry({ teams, matches }) {
 
 function QuickEntry({ teams }) {
   const { session } = useAuth();
+  const textareaRef = useRef(null);
   const [text, setText] = useState('');
+  const [cursor, setCursor] = useState(0);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [saving, setSaving] = useState(false);
 
   const parsed = useMemo(() => parseQuickScore(text, teams), [text, teams]);
+  const quickTemplate = useMemo(() => getQuickTemplate(teams), [teams]);
+  const guidance = useMemo(() => getQuickGuidance(text, parsed, teams), [text, parsed, teams]);
+  const normalizedText = useMemo(() => normalizeQuickText(text, teams), [text, teams]);
+  const canNormalize = text.trim() && normalizedText !== text;
+  const applyTemplate = () => { setText(quickTemplate); setError(''); setSuccess(''); };
+  const applyNormalize = () => { setText(normalizedText); setError(''); setSuccess(''); };
+  const quickNameContext = useMemo(() => getQuickNameContext(text, cursor, parsed, teams), [text, cursor, parsed, teams]);
+  const updateCursorFromTextarea = (element) => setCursor(element.selectionStart || 0);
+  const applyQuickSuggestion = (name) => {
+    if (!quickNameContext) return;
+    const nextText = `${text.slice(0, quickNameContext.replaceStart)}${name}${text.slice(quickNameContext.replaceEnd)}`;
+    const nextCursor = quickNameContext.replaceStart + name.length;
+    setText(nextText);
+    setCursor(nextCursor);
+    requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(nextCursor, nextCursor);
+      }
+    });
+  };
+  const applyQuickTextChange = (value, selectionStart) => {
+    const nextParsed = parseQuickScore(value, teams);
+    const nextContext = getQuickNameContext(value, selectionStart, nextParsed, teams);
+    const autoName = nextContext ? autoCompleteUniqueRosterName(nextContext.query, nextContext.suggestions) : null;
+    if (autoName && autoName !== nextContext.query) {
+      const nextText = `${value.slice(0, nextContext.replaceStart)}${autoName}${value.slice(nextContext.replaceEnd)}`;
+      const nextCursor = nextContext.replaceStart + autoName.length;
+      setText(nextText);
+      setCursor(nextCursor);
+      requestAnimationFrame(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          textareaRef.current.setSelectionRange(nextCursor, nextCursor);
+        }
+      });
+      return;
+    }
+    setText(value);
+    setCursor(selectionStart || 0);
+  };
 
   const handleSubmit = async () => {
     setError(''); setSuccess('');
@@ -467,15 +760,19 @@ function QuickEntry({ teams }) {
 
   const placeholder = `Paste match results here...
 
-Example formats (all work):
-SK vs RR
-S: Kanak vs Srini 4-0,4-1,4-1 (won) SK
-D1: KP/Fayaz vs Vasu/Sandeep 2-4, 4-0, 3-4(6-10) (won) RR
-D2: Madhu/Uma V vs Yogesh/Kalam 4-2, 1-4, 3-4(6-10) (won) RR
-
-Or with scores on next line:
-S: Kanak vs Srini
-4-0,4-1,4-1 (won) SK`;
+KOC3 format:
+KC vs ML
+S1: Srini vs Bharath
+4-3, 4-2, 0-4, 4-2 (won) KC
+D1: Dinkar / Satya vs Rajasekar Karru / Mohan
+4-3, 1-4, 1-0 (won) KC
+D1: Dinkar / Satya vs Anil / Raja
+3-4, 1-4 (won) ML
+D2: Srikanth / Lloyd vs Anil / Raja
+0-4, 2-4 (won) ML
+D2: Srikanth / Lloyd vs Rajasekar Karru / Mohan
+4-1, 4-2 (won) KC
+Final: KC won 3-2`;
 
   let totG1 = 0, totG2 = 0, tw1 = 0, tw2 = 0;
   results.forEach(r => {
@@ -489,19 +786,70 @@ S: Kanak vs Srini
       {error && <div className="error-box" data-testid="quick-error" style={{ whiteSpace: 'pre-line' }}>{error}</div>}
       {success && <div className="success-box" data-testid="quick-success">{success}</div>}
 
-      <div className="card">
-        <h2>⚡ Quick Score Entry</h2>
-        <textarea
-          className="textarea"
-          style={{ minHeight: 220, fontFamily: 'monospace', fontSize: '.85rem' }}
-          value={text}
-          onChange={e => setText(e.target.value)}
-          placeholder={placeholder}
-          data-testid="quick-textarea"
-        />
-        <p className="hint">
-          Team abbrs: {Object.values(teams || {}).map(t => t.abbreviation).join(', ')}
-        </p>
+      <div className="card quick-entry-card">
+        <div className="quick-entry-head">
+          <div>
+            <h2>⚡ Quick Score Entry</h2>
+            <p className="hint">Paste messy scores, then use Auto-format and the live coach to fix the format.</p>
+          </div>
+          <div className="quick-actions">
+            <button className="btn ghost small" onClick={applyTemplate} type="button" data-testid="quick-template-btn">Use example</button>
+            <button className="btn small" onClick={applyNormalize} disabled={!canNormalize} type="button" data-testid="quick-normalize-btn">Auto-format</button>
+          </div>
+        </div>
+        <div className="quick-layout">
+          <div>
+            <div className="quick-textarea-wrap">
+              <textarea
+                ref={textareaRef}
+                className="textarea quick-textarea"
+                value={text}
+                onChange={e => {
+                  applyQuickTextChange(e.target.value, e.target.selectionStart || 0);
+                }}
+                onClick={e => updateCursorFromTextarea(e.target)}
+                onKeyUp={e => updateCursorFromTextarea(e.target)}
+                onSelect={e => updateCursorFromTextarea(e.target)}
+                onKeyDown={(e) => {
+                  if ((e.key === 'Tab' || e.key === 'Enter') && quickNameContext?.suggestions?.[0]) {
+                    e.preventDefault();
+                    applyQuickSuggestion(quickNameContext.suggestions[0].name);
+                  }
+                }}
+                placeholder={placeholder}
+                data-testid="quick-textarea"
+              />
+              {quickNameContext && (
+                <div className="suggest quick-suggest" data-testid="quick-name-suggest">
+                  <div className="suggest-hint">Choose a {quickNameContext.teamAbbr} player, or press Enter/Tab for the first match</div>
+                  {quickNameContext.suggestions.map((s, i) => (
+                    <div
+                      key={s.name || i}
+                      className="suggest-item"
+                      onMouseDown={(e) => { e.preventDefault(); applyQuickSuggestion(s.name); }}
+                      data-testid={`quick-name-suggest-${i}`}
+                    >
+                      {s.isCaptain ? '🏆 ' : ''}{s.name}
+                      {s.teamAbbr && <span className="score">{s.teamAbbr}</span>}
+                      {typeof s.score === 'number' && <span className="score">{Math.round(s.score * 100)}% match</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <p className="hint">
+              Team abbrs: {Object.values(teams || {}).map(t => t.abbreviation).join(', ')}
+            </p>
+          </div>
+          <aside className="format-coach" data-testid="quick-format-coach">
+            <h3>Format coach</h3>
+            <code>{'{TEAM1} vs {TEAM2}'}</code>
+            <code>S1: Player vs Player 4-2,4-1,4-0 (won) TEAM1</code>
+            <code>D1: P1/P2 vs P3/P4 4-3,1-4,1-0 (won) TEAM2</code>
+            <div className="divider" />
+            {guidance.map((tip, i) => <p key={i} className="coach-tip">💡 {tip}</p>)}
+          </aside>
+        </div>
       </div>
 
       {text.trim() && (
@@ -510,6 +858,11 @@ S: Kanak vs Srini
           {errors.length > 0 && (
             <div className="error-box" style={{ whiteSpace: 'pre-line' }}>
               {errors.map(e => `❌ ${e}`).join('\n')}
+            </div>
+          )}
+          {parsed.corrections?.length > 0 && (
+            <div className="success-box" style={{ whiteSpace: 'pre-line' }} data-testid="quick-corrections">
+              {parsed.corrections.map(c => `✨ ${c}`).join('\n')}
             </div>
           )}
           {team1 && team2 && results.length > 0 && (

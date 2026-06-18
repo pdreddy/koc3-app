@@ -4,6 +4,7 @@ import { onValue, ref, set, get } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { buildInitialTeams, DEFAULT_ADMIN_PASSWORD } from './data/initialTeams';
+import { buildUtrRatingsTable } from './data/utrRatings';
 import { buildScheduleFor8x2, firstSundayOnOrAfter } from './utils/roundRobin';
 
 import BottomNav from './components/BottomNav';
@@ -19,13 +20,34 @@ import Rules from './pages/Rules';
 import Schedule from './pages/Schedule';
 import Matchups from './pages/Matchups';
 import More from './pages/More';
-import Season1 from './pages/Season1';
+import Season2 from './pages/Season2';
+import PtlRatings from './pages/PtlRatings';
+
+function firebaseObjectToList(data, source) {
+  if (!data) return [];
+  const node = data.matches || data.matchResults || data.results || data;
+  if (Array.isArray(node)) {
+    return node.filter(Boolean).map((m, idx) => ({ id: m.id || `${source}-${idx}`, source, ...m }));
+  }
+  if (typeof node === 'object') {
+    const direct = Object.entries(node).map(([id, m]) => ({ id, source, ...(m || {}) }));
+    const hasMatchShape = direct.some(m => m.lines || m.t1 || m.t2 || m.t1Id || m.t2Id || m.winnerId || m.win);
+    if (hasMatchShape) return direct;
+    return Object.entries(node).flatMap(([groupId, child]) =>
+      firebaseObjectToList(child, source).map(m => ({ ...m, id: `${groupId}-${m.id}` }))
+    );
+  }
+  return [];
+}
 
 function Shell() {
   const location = useLocation();
   const hideChrome = location.pathname === '/login';
   const [teams, setTeams] = useState({});
   const [matches, setMatches] = useState([]);
+  const [legacyMatches, setLegacyMatches] = useState([]);
+  const [legacyFallbackMatches, setLegacyFallbackMatches] = useState([]);
+  const [playerRatings, setPlayerRatings] = useState({});
   const [adminConfig, setAdminConfig] = useState({ password: '' });
   const [schedule, setSchedule] = useState({});
   const [loaded, setLoaded] = useState(false);
@@ -64,6 +86,11 @@ function Shell() {
           await set(ref(db, PATHS.admin), { password: DEFAULT_ADMIN_PASSWORD });
         }
 
+        const rSnap = await get(ref(db, PATHS.playerRatings));
+        if (!rSnap.exists()) {
+          await set(ref(db, PATHS.playerRatings), buildUtrRatingsTable());
+        }
+
         // Seed schedule on first run
         const sSnap = await get(ref(db, PATHS.schedule));
         if (!sSnap.exists()) {
@@ -91,13 +118,32 @@ function Shell() {
       list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
       setMatches(list);
     });
+    const unsubLegacy = onValue(ref(db, PATHS.koc2db), (snap) => {
+      const list = firebaseObjectToList(snap.val(), 'KOC2DB');
+      list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+      setLegacyMatches(list);
+    }, (error) => {
+      console.error('Legacy KOC2DB load failed', error);
+      setLegacyMatches([]);
+    });
+    const unsubLegacyFallback = onValue(ref(db, PATHS.season1), (snap) => {
+      const list = firebaseObjectToList(snap.val(), 'KOC2DBPONEW');
+      list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+      setLegacyFallbackMatches(list);
+    }, (error) => {
+      console.error('Legacy KOC2DBPONEW fallback load failed', error);
+      setLegacyFallbackMatches([]);
+    });
     const unsubA = onValue(ref(db, PATHS.admin), (snap) => {
       setAdminConfig(snap.val() || { password: '' });
+    });
+    const unsubR = onValue(ref(db, PATHS.playerRatings), (snap) => {
+      setPlayerRatings(snap.val() || buildUtrRatingsTable());
     });
     const unsubS = onValue(ref(db, PATHS.schedule), (snap) => {
       setSchedule(snap.val() || {});
     });
-    return () => { unsubT(); unsubM(); unsubA(); unsubS(); };
+    return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubR(); unsubS(); };
   }, []);
 
   return (
@@ -109,8 +155,9 @@ function Shell() {
         <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} />} />
         <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />
         <Route path="/matchups" element={<Matchups matches={matches} teams={teams} />} />
+        <Route path="/ptl" element={<PtlRatings matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} teams={teams} ratingLookup={playerRatings} />} />
         <Route path="/history" element={<History matches={matches} teams={teams} />} />
-        <Route path="/season1" element={<Season1 />} />
+        <Route path="/season2" element={<Season2 />} />
         <Route path="/rules" element={<Rules />} />
         <Route path="/more" element={<More />} />
         <Route path="/login" element={<Login teams={teams} adminConfig={adminConfig} />} />

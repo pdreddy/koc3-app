@@ -5,6 +5,7 @@ import { matchName } from './nameMatch';
 export function parseQuickScore(text, teams) {
   const results = [];
   const errors = [];
+  const corrections = [];
 
   const abbrLookup = new Map();
   Object.values(teams || {}).forEach(t => {
@@ -12,7 +13,7 @@ export function parseQuickScore(text, teams) {
   });
 
   const rawLines = (text || '').trim().split('\n').map(l => l.trim()).filter(Boolean);
-  if (rawLines.length === 0) return { results: [], errors: [], team1: null, team2: null };
+  if (rawLines.length === 0) return { results: [], errors: [], corrections: [], team1: null, team2: null };
 
   let team1 = null, team2 = null;
   let startLine = 0;
@@ -40,10 +41,10 @@ export function parseQuickScore(text, teams) {
     if (list.length >= 2) { team1 = abbrLookup.get(list[0]); team2 = abbrLookup.get(list[1]); }
     if (!team1 || !team2) {
       errors.push('First line should be: TEAM1 vs TEAM2 (e.g., SK vs RR)');
-      return { results: [], errors, team1: null, team2: null };
+      return { results: [], errors, corrections, team1: null, team2: null };
     }
   }
-  if (!team1 || !team2) return { results: [], errors, team1: null, team2: null };
+  if (!team1 || !team2) return { results: [], errors, corrections, team1: null, team2: null };
 
   const t1Abbr = team1.abbreviation.toUpperCase();
   const t2Abbr = team2.abbreviation.toUpperCase();
@@ -52,10 +53,12 @@ export function parseQuickScore(text, teams) {
   const mergedLines = [];
   for (let i = startLine; i < rawLines.length; i++) {
     const line = rawLines[i];
-    const startsWithType = /^(S|D\d?|Singles|Doubles\s*\d?)[\s:]/i.test(line);
+    const startsWithType = /^(S\d?|D\d?|Singles\s*\d?|Doubles\s*\d?)[\s:]/i.test(line);
     const isScoreOnly = /^[\d\-(),\s]+\(won\)/i.test(line);
     if (isScoreOnly && mergedLines.length > 0) {
       mergedLines[mergedLines.length - 1] += ' ' + line;
+    } else if (/^final\s*:/i.test(line)) {
+      // Final line is a human-readable match summary; courts already determine the saved winner.
     } else if (startsWithType || /vs/i.test(line)) {
       mergedLines.push(line);
     }
@@ -85,8 +88,15 @@ export function parseQuickScore(text, teams) {
         }
         const r = matchName(trimmed, team.players || []);
         if (r.exact) return r.matched.name;
-        if (r.matched) return r.matched.name; // auto-fix high confidence (>=0.92)
-        errors.push(`${parsed.label}: "${trimmed}" not found in ${team.name}`);
+        if (r.matched) {
+          corrections.push(`${parsed.label}: auto-corrected "${trimmed}" to "${r.matched.name}"`);
+          return r.matched.name;
+        }
+        if (r.suggestions.length > 0) {
+          errors.push(`${parsed.label}: "${trimmed}" not found in ${team.name}. Did you mean ${r.suggestions.slice(0, 3).map(s => `"${s.name}"`).join(', ')}?`);
+        } else {
+          errors.push(`${parsed.label}: "${trimmed}" not found in ${team.name}`);
+        }
         return trimmed;
       });
       parsed.players.team1 = validate(parsed.players.team1, team1);
@@ -97,11 +107,11 @@ export function parseQuickScore(text, teams) {
       errors.push(`Line ${i + 1 + startLine}: ${err.message}`);
     }
   }
-  return { results, errors, team1, team2 };
+  return { results, errors, corrections, team1, team2 };
 }
 
 function parseLine(line, team1, team2, team1Abbr, team2Abbr, abbrLookup) {
-  const typeMatch = line.match(/^(S(?:ingles)?|D(?:oubles)?\s*(\d)?)[\s:]+/i);
+  const typeMatch = line.match(/^(S(?:ingles)?\s*(\d)?|D(?:oubles)?\s*(\d)?)[\s:]+/i);
   let remainder = line;
   let isDoubles = true;
   let courtNum = null;
@@ -113,6 +123,8 @@ function parseLine(line, team1, team2, team1Abbr, team2Abbr, abbrLookup) {
     const numMatch = typeStr.match(/\d/);
     if (numMatch) { courtNum = numMatch[0]; labelNum = true; }
     remainder = line.slice(typeMatch[0].length).trim();
+    // Be forgiving if Auto-format or pasted text left a nested court label, e.g. "S: S1: Name vs Name".
+    remainder = remainder.replace(/^(S\d?|D\d?)\s*:\s*/i, '');
   }
 
   const wonMatch = remainder.match(/\(won\)\s*(\w+)\s*\.?\s*$/i);
@@ -133,7 +145,7 @@ function parseLine(line, team1, team2, team1Abbr, team2Abbr, abbrLookup) {
   const rightSide = remainder.slice(vsMatch.index + vsMatch[0].length).trim();
   const leftPlayers = leftSide.split('/').map(p => p.trim()).filter(Boolean);
 
-  const scoreStartMatch = rightSide.match(/\s+(\d+-\d+)/);
+  const scoreStartMatch = rightSide.match(/\s+(\d+\s*-\s*\d+)/);
   if (!scoreStartMatch) throw new Error('Could not find scores (e.g., 4-0)');
 
   const rightPlayersStr = rightSide.slice(0, scoreStartMatch.index).trim();
@@ -174,7 +186,7 @@ function parseLine(line, team1, team2, team1Abbr, team2Abbr, abbrLookup) {
 
 function parseScores(scoresStr) {
   const out = [];
-  const re = /(\d+)-(\d+)(?:\((\d+)-(\d+)\))?/g;
+  const re = /(\d+)\s*-\s*(\d+)(?:\((\d+)\s*-\s*(\d+)\))?/g;
   let m;
   while ((m = re.exec(scoresStr)) !== null) {
     const set = { left: parseInt(m[1], 10), right: parseInt(m[2], 10) };

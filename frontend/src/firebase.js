@@ -28,9 +28,12 @@ export function ensureAuth() {
 
 // Firebase RTDB paths
 export const PATHS = {
-  teams: 'koc_s2/teams',         // 16 teams
-  matches: 'koc_s2/matches',     // S2 match results
-  admin: 'koc_s2/admin',         // { password }
-  schedule: 'koc_s2/schedule',   // S2 fixtures
-  season1: 'KOC2DBPONEW'         // Season 1 archive (read-only)
+  teams: 'koc_s3/teams',         // KOC3 teams
+  matches: 'koc_s3/matches',     // KOC3 match results
+  playerRatings: 'koc_s3/playerRatings', // UTR lookup table used by PTL
+  admin: 'koc_s3/admin',         // { password }
+  schedule: 'koc_s3/schedule',   // KOC3 fixtures
+  season2: 'koc_s2/matches',     // Season 2 archive (read-only)
+  koc2db: 'KOC2DB',              // Legacy KOC2 database for PTL rating history
+  season1: 'KOC2DBPONEW'         // Older legacy archive fallback (read-only)
 };

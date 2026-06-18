@@ -22,7 +22,14 @@ function TeamEditor({ team }) {
       abbreviation: abbr.trim().toUpperCase(),
       password: password.trim(),
       group,
-      players: players.filter(p => (p.name || '').trim()).map(p => ({ name: p.name.trim(), isCaptain: !!p.isCaptain }))
+      players: players.filter(p => (p.name || '').trim()).map(p => {
+        const utr = Number(p.utr);
+        return {
+          name: p.name.trim(),
+          isCaptain: !!p.isCaptain,
+          utr: p.utr === '' || p.utr == null || !Number.isFinite(utr) ? '' : utr
+        };
+      })
     };
     try {
       await set(ref(db, `${PATHS.teams}/${team.id}`), payload);
@@ -92,6 +99,17 @@ function TeamEditor({ team }) {
                 onChange={e => updatePlayer(i, { name: e.target.value })}
                 placeholder="Player name"
                 data-testid={`admin-team-${team.abbreviation}-player-${i}-name`}
+              />
+              <input
+                className="input player-utr-input"
+                type="number"
+                min="1"
+                max="16.5"
+                step="0.01"
+                value={p.utr || ''}
+                onChange={e => updatePlayer(i, { utr: e.target.value })}
+                placeholder="UTR"
+                data-testid={`admin-team-${team.abbreviation}-player-${i}-utr`}
               />
               <button
                 type="button"

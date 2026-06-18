@@ -8,7 +8,7 @@ export default function AppHeader() {
     <header className="app-header" data-testid="app-header">
       <Link to="/teams" className="brand" data-testid="header-home">
         <span className="logo">🏆</span>
-        <strong>KOC Season 2</strong>
+        <strong>KOC3</strong>
       </Link>
       <div style={{display:'flex', gap:'.4rem', alignItems:'center'}}>
         {session.role === 'admin' && (

@@ -6,8 +6,9 @@ export default function More() {
   const { session, logout } = useAuth();
 
   const items = [
+    { to: '/ptl', icon: '📈', label: 'PTL Rating', desc: 'Current UTR beside KOC performance rating', testid: 'more-ptl' },
     { to: '/history', icon: '📜', label: 'Match History', desc: 'View past results', testid: 'more-history' },
-    { to: '/season1', icon: '🏆', label: 'Season 1 Archive', desc: 'Last season standings & matches', testid: 'more-season1' },
+    { to: '/season2', icon: '🏆', label: 'Season 2 Archive', desc: 'Previous season standings & matches', testid: 'more-season2' },
     { to: '/rules', icon: '📋', label: 'Rules', desc: 'Format, scoring & tiebreakers', testid: 'more-rules' }
   ];
 

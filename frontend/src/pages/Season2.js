@@ -28,7 +28,7 @@ function computeStandings(matches) {
   );
 }
 
-export default function Season1() {
+export default function Season2() {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -37,14 +37,14 @@ export default function Season1() {
 
   useEffect(() => {
     ensureAuth();
-    const unsub = onValue(ref(db, PATHS.season1), (snap) => {
+    const unsub = onValue(ref(db, PATHS.season2), (snap) => {
       const data = snap.val() || {};
       const list = Object.entries(data).map(([id, m]) => ({ id, ...m }));
       list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
       setMatches(list);
       setLoading(false);
     }, (err) => {
-      setError('Could not load Season 1: ' + err.message);
+      setError('Could not load Season 2: ' + err.message);
       setLoading(false);
     });
     return () => unsub();
@@ -55,22 +55,22 @@ export default function Season1() {
   return (
     <main className="container">
       <div className="page-title">
-        <h1>🏆 Season 1 Archive</h1>
+        <h1>🏆 Season 2 Archive</h1>
         <p>{loading ? 'Loading…' : `${matches.length} matches · ${standings.length} teams`}</p>
       </div>
 
-      {error && <div className="error-box" data-testid="season1-error">{error}</div>}
+      {error && <div className="error-box" data-testid="season2-error">{error}</div>}
 
       <div className="tabs">
-        <button className={`tab ${tab === 'standings' ? 'active' : ''}`} onClick={() => setTab('standings')} data-testid="season1-tab-standings">Final Standings</button>
-        <button className={`tab ${tab === 'matches' ? 'active' : ''}`} onClick={() => setTab('matches')} data-testid="season1-tab-matches">Match History</button>
+        <button className={`tab ${tab === 'standings' ? 'active' : ''}`} onClick={() => setTab('standings')} data-testid="season2-tab-standings">Final Standings</button>
+        <button className={`tab ${tab === 'matches' ? 'active' : ''}`} onClick={() => setTab('matches')} data-testid="season2-tab-matches">Match History</button>
       </div>
 
       {tab === 'standings' && (
         <div className="card">
           <h2>Final Standings</h2>
           <div className="table-wrap">
-            <table className="std" data-testid="season1-standings-table">
+            <table className="std" data-testid="season2-standings-table">
               <thead>
                 <tr>
                   <th>#</th>
@@ -86,7 +86,7 @@ export default function Season1() {
               <tbody>
                 {standings.length === 0 && <tr><td colSpan="8" className="center muted">{loading ? 'Loading…' : 'No data'}</td></tr>}
                 {standings.map((r, i) => (
-                  <tr key={r.team} className={i === 0 ? 'q' : ''} data-testid={`season1-row-${i}`}>
+                  <tr key={r.team} className={i === 0 ? 'q' : ''} data-testid={`season2-row-${i}`}>
                     <td className="rank">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}</td>
                     <td><strong>{r.team}</strong></td>
                     <td>{r.matches}</td>
@@ -106,10 +106,10 @@ export default function Season1() {
       {tab === 'matches' && (
         <>
           {matches.length === 0 && !loading && (
-            <div className="card center muted" data-testid="season1-empty">No Season 1 matches found.</div>
+            <div className="card center muted" data-testid="season2-empty">No Season 2 matches found.</div>
           )}
           {matches.map(m => (
-            <div className="match-hist" key={m.id} data-testid={`season1-match-${m.id}`}>
+            <div className="match-hist" key={m.id} data-testid={`season2-match-${m.id}`}>
               <div className="teams">{m.t1} vs {m.t2}</div>
               <div className="meta">
                 <div>
@@ -124,7 +124,7 @@ export default function Season1() {
                     className="btn small ghost"
                     style={{ marginTop: '.5rem' }}
                     onClick={() => setOpenId(openId === m.id ? null : m.id)}
-                    data-testid={`season1-match-toggle-${m.id}`}
+                    data-testid={`season2-match-toggle-${m.id}`}
                   >
                     {openId === m.id ? 'Hide details' : 'Show details'}
                   </button>
