@@ -148,15 +148,40 @@ export function buildUtrRatingsTable() {
   }, {});
 }
 
-export function findUtrRating(playerName, rows = UTR_RATINGS) {
+export function matchUtrRating(playerName, rows = UTR_RATINGS) {
   const key = normalize(playerName);
   if (!key) return null;
   const list = Array.isArray(rows) ? rows : Object.values(rows || {});
   const tokens = key.split(' ');
-  return list.find(row => (row.keys || []).includes(key)) ||
-    list.find(row => {
-      const first = normalize(row.firstName).split(' ')[0];
-      const last = normalize(row.lastName).split(' ')[0];
-      return tokens.includes(first) && tokens.includes(last);
-    }) || null;
+  const scored = list.map(row => {
+    const firstTokens = normalize(row.firstName).split(' ').filter(Boolean);
+    const lastTokens = normalize(row.lastName).split(' ').filter(Boolean);
+    const first = firstTokens[0] || '';
+    const last = lastTokens[0] || '';
+    let score = 0;
+    let reason = 'No match';
+    if ((row.keys || []).includes(key)) {
+      score = 1;
+      reason = 'Exact normalized name';
+    } else if (tokens.includes(first) && tokens.includes(last)) {
+      score = 0.94;
+      reason = 'First + last token match';
+    } else if (tokens.includes(last) && first && tokens.some(t => first.startsWith(t) || t.startsWith(first))) {
+      score = 0.88;
+      reason = 'Last name + partial first';
+    } else if (tokens.includes(first) && last && tokens.some(t => last.startsWith(t) || t.startsWith(last))) {
+      score = 0.82;
+      reason = 'First name + partial last';
+    } else if (tokens.length === 1 && (tokens[0] === first || tokens[0] === last)) {
+      score = 0.72;
+      reason = 'Single-name partial';
+    }
+    return { row, score, reason };
+  }).sort((a, b) => b.score - a.score);
+  const best = scored[0];
+  return best && best.score >= 0.72 ? best : null;
+}
+
+export function findUtrRating(playerName, rows = UTR_RATINGS) {
+  return matchUtrRating(playerName, rows)?.row || null;
 }

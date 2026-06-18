@@ -1,9 +1,40 @@
 import React, { useMemo, useState } from 'react';
 import { buildPtlRatings } from '../utils/ptlRating';
-import { UTR_RATINGS } from '../data/utrRatings';
+import { UTR_RATINGS, matchUtrRating } from '../data/utrRatings';
 
 function formatRating(value) {
   return value == null ? '—' : Number(value).toFixed(2);
+}
+
+function collectLegacyNames(matches, lookupRows) {
+  const names = new Map();
+  (matches || []).forEach(match => {
+    (match.lines || []).forEach(line => {
+      [...(line.players?.team1 || []), ...(line.players?.team2 || [])].forEach(name => {
+        const clean = String(name || '').trim();
+        if (!clean) return;
+        if (!names.has(clean)) names.set(clean, { name: clean, count: 0 });
+        names.get(clean).count += 1;
+      });
+    });
+  });
+  const mapped = Array.from(names.values()).map(item => {
+    const match = matchUtrRating(item.name, lookupRows);
+    return {
+      ...item,
+      matchedName: match?.row.fullName || '',
+      singlesUtr: match?.row.singlesUtr ?? null,
+      doublesUtr: match?.row.doublesUtr ?? null,
+      confidence: match ? Math.round(match.score * 100) : 0,
+      reason: match?.reason || 'Needs manual mapping'
+    };
+  });
+  const matchedCounts = mapped.reduce((acc, row) => {
+    if (row.matchedName) acc[row.matchedName] = (acc[row.matchedName] || 0) + 1;
+    return acc;
+  }, {});
+  return mapped.map(row => ({ ...row, duplicateMappedName: row.matchedName && matchedCounts[row.matchedName] > 1 }))
+    .sort((a, b) => a.confidence - b.confidence || a.name.localeCompare(b.name));
 }
 
 export default function PtlRatings({ teams, matches, previousMatches = [], ratingLookup = {} }) {
@@ -18,6 +49,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
     ...(matches || []).map(match => ({ ...match, source: match.source || 'KOC3' }))
   ], [matches, previousMatches]);
   const ratings = useMemo(() => buildPtlRatings(teams, ratingMatches, lookupRows), [teams, ratingMatches, lookupRows]);
+  const legacyNameMap = useMemo(() => collectLegacyNames(previousMatches, lookupRows), [previousMatches, lookupRows]);
   const filtered = ratings.filter(player =>
     !q || `${player.name} ${player.team} ${player.teamAbbr}`.toLowerCase().includes(q.toLowerCase())
   );
@@ -68,6 +100,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
       <div className="tabs">
         <button className={`tab ${tab === 'ratings' ? 'active' : ''}`} onClick={() => setTab('ratings')} data-testid="ptl-tab-ratings">PTL Ratings</button>
         <button className={`tab ${tab === 'lookup' ? 'active' : ''}`} onClick={() => setTab('lookup')} data-testid="ptl-tab-lookup">UTR Lookup</button>
+        <button className={`tab ${tab === 'koc2map' ? 'active' : ''}`} onClick={() => setTab('koc2map')} data-testid="ptl-tab-koc2map">KOC2 Map</button>
       </div>
 
       {tab === 'lookup' && (
@@ -93,6 +126,42 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
                     <td>{row.singlesStatus || '—'}</td>
                     <td>{formatRating(row.doublesUtr)}</td>
                     <td>{row.verifiedDoublesStatus || row.doublesStatus || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {tab === 'koc2map' && (
+        <div className="card">
+          <h2>KOC2DBPONEW Name Mapping</h2>
+          <p className="hint">Partial matches from previous-season names to the stored UTR lookup. Duplicate mapped names are highlighted so aliases can be cleaned up.</p>
+          <div className="table-wrap">
+            <table className="std ptl-table" data-testid="ptl-koc2-map-table">
+              <thead>
+                <tr>
+                  <th>KOC2 name</th>
+                  <th>Plays</th>
+                  <th>Mapped UTR player</th>
+                  <th>Confidence</th>
+                  <th>Reason</th>
+                  <th>UTR S</th>
+                  <th>UTR D</th>
+                </tr>
+              </thead>
+              <tbody>
+                {legacyNameMap.length === 0 && <tr><td colSpan="7" className="center muted">No KOC2DBPONEW player names loaded yet</td></tr>}
+                {legacyNameMap.map(row => (
+                  <tr key={row.name} className={row.duplicateMappedName ? 'q' : ''}>
+                    <td><strong>{row.name}</strong></td>
+                    <td>{row.count}</td>
+                    <td>{row.matchedName || '—'}</td>
+                    <td><span className={`tag ${row.confidence >= 90 ? 'win' : row.confidence >= 72 ? 'tie' : 'lose'}`}>{row.confidence}%</span></td>
+                    <td>{row.duplicateMappedName ? `${row.reason} · duplicate alias` : row.reason}</td>
+                    <td>{formatRating(row.singlesUtr)}</td>
+                    <td>{formatRating(row.doublesUtr)}</td>
                   </tr>
                 ))}
               </tbody>
