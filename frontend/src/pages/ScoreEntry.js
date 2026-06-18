@@ -144,7 +144,7 @@ function PlayerInput({ value, onChange, roster, teamAbbr, testid }) {
         className="input"
         value={value}
         placeholder={teamAbbr ? `Type 3 letters for ${teamAbbr} roster` : 'Type 3 letters for roster'}
-        onChange={e => onChange(e.target.value)}
+        onChange={e => onChange(autoCompleteUniqueRosterName(e.target.value, roster))}
         onFocus={() => setFocus(true)}
         onKeyDown={(e) => {
           if ((e.key === 'Tab' || e.key === 'Enter') && showSuggest && rosterSuggestions[0]) {
@@ -317,6 +317,19 @@ function getRosterSuggestions(query, roster) {
   const seen = new Set(ranked.map(player => player.name));
   const fuzzy = matchName(query, roster).suggestions.filter(player => !seen.has(player.name));
   return [...ranked, ...fuzzy].slice(0, 5);
+}
+
+function autoCompleteUniqueRosterName(value, roster) {
+  const query = (value || '').trim();
+  if (query.length < 3 || /\s$/.test(value)) return value;
+  const normalizedQuery = query.toLowerCase();
+  const prefixMatches = (roster || []).filter(player => {
+    const name = player.name || '';
+    const lowerName = name.toLowerCase();
+    const firstToken = lowerName.split(/\s+/)[0] || '';
+    return firstToken.startsWith(normalizedQuery) || lowerName.startsWith(normalizedQuery);
+  });
+  return prefixMatches.length === 1 ? prefixMatches[0].name : value;
 }
 
 function getAllRosterPlayers(teams) {
@@ -662,6 +675,26 @@ function QuickEntry({ teams }) {
       }
     });
   };
+  const applyQuickTextChange = (value, selectionStart) => {
+    const nextParsed = parseQuickScore(value, teams);
+    const nextContext = getQuickNameContext(value, selectionStart, nextParsed, teams);
+    const autoName = nextContext ? autoCompleteUniqueRosterName(nextContext.query, nextContext.suggestions) : null;
+    if (autoName && autoName !== nextContext.query) {
+      const nextText = `${value.slice(0, nextContext.replaceStart)}${autoName}${value.slice(nextContext.replaceEnd)}`;
+      const nextCursor = nextContext.replaceStart + autoName.length;
+      setText(nextText);
+      setCursor(nextCursor);
+      requestAnimationFrame(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          textareaRef.current.setSelectionRange(nextCursor, nextCursor);
+        }
+      });
+      return;
+    }
+    setText(value);
+    setCursor(selectionStart || 0);
+  };
 
   const handleSubmit = async () => {
     setError(''); setSuccess('');
@@ -772,8 +805,7 @@ Final: KC won 3-2`;
                 className="textarea quick-textarea"
                 value={text}
                 onChange={e => {
-                  setText(e.target.value);
-                  updateCursorFromTextarea(e.target);
+                  applyQuickTextChange(e.target.value, e.target.selectionStart || 0);
                 }}
                 onClick={e => updateCursorFromTextarea(e.target)}
                 onKeyUp={e => updateCursorFromTextarea(e.target)}

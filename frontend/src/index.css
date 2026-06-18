@@ -1,8 +1,9 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg1: #667eea;
-  --bg2: #764ba2;
+  --bg1: #2563eb;
+  --bg2: #7c3aed;
+  --bg3: #06b6d4;
   --ink: #1a202c;
   --muted: #718096;
   --card: #ffffff;
@@ -17,7 +18,10 @@ html, body, #root { min-height: 100vh; }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  background: linear-gradient(135deg, var(--bg1), var(--bg2));
+  background:
+    radial-gradient(circle at 18% 10%, rgba(34, 211, 238, 0.45), transparent 28%),
+    radial-gradient(circle at 90% 0%, rgba(244, 114, 182, 0.28), transparent 25%),
+    linear-gradient(145deg, var(--bg1), var(--bg2));
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
@@ -79,28 +83,30 @@ a { color: inherit; text-decoration: none; }
 main.container {
   flex: 1;
   width: 100%;
-  max-width: 720px;
+  max-width: 1120px;
   margin: 0 auto;
   padding: 0.9rem;
+  padding-left: max(0.9rem, env(safe-area-inset-left));
+  padding-right: max(0.9rem, env(safe-area-inset-right));
 }
 
 .page-title {
-  background: #fff;
-  border-radius: 14px;
+  background: rgba(255,255,255,0.96);
+  border-radius: 18px;
   padding: 1rem 1.1rem;
   margin-bottom: 0.9rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  border-left: 4px solid var(--accent);
+  box-shadow: 0 10px 28px rgba(15,23,42,0.14);
+  border-left: 5px solid var(--bg3);
 }
-.page-title h1 { font-size: 1.35rem; font-weight: 900; }
+.page-title h1 { font-size: clamp(1.35rem, 5vw, 2.05rem); font-weight: 900; }
 .page-title p { color: var(--muted); font-size: 0.85rem; margin-top: 0.15rem; }
 
 .card {
-  background: #fff;
-  border-radius: 14px;
+  background: rgba(255,255,255,0.97);
+  border-radius: 18px;
   padding: 1rem;
   margin-bottom: 0.9rem;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  box-shadow: 0 12px 30px rgba(15,23,42,0.13);
 }
 .card h2 { font-size: 1.05rem; margin-bottom: 0.65rem; }
 
@@ -425,7 +431,7 @@ table.std .pts { font-weight: 900; }
 .groups-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.6rem;
+  gap: 0.9rem;
   align-items: start;
 }
 .group-col-title {
@@ -436,11 +442,11 @@ table.std .pts { font-weight: 900; }
   letter-spacing: 0.02em;
   text-align: center;
 }
-.groups-grid .card { padding: 0.6rem; }
-.groups-grid .card h2 { font-size: 0.88rem; margin-bottom: 0.4rem; }
-.groups-grid table.std { font-size: 0.7rem; }
-.groups-grid table.std thead th { padding: 0.4rem 0.25rem; font-size: 0.65rem; }
-.groups-grid table.std tbody td { padding: 0.4rem 0.25rem; }
+.groups-grid .card { padding: 0.75rem; border: 1px solid rgba(255,255,255,0.75); }
+.groups-grid .card h2 { font-size: 1rem; margin-bottom: 0.55rem; }
+.groups-grid table.std { font-size: 0.82rem; }
+.groups-grid table.std thead th { padding: 0.52rem 0.35rem; font-size: 0.72rem; }
+.groups-grid table.std tbody td { padding: 0.52rem 0.35rem; }
 .groups-grid .team-card { box-shadow: 0 1px 6px rgba(0,0,0,.08); }
 .groups-grid .team-header { padding: 0.55rem 0.7rem; }
 .groups-grid .team-header h2 { font-size: 0.82rem; line-height: 1.1; }
@@ -451,6 +457,28 @@ table.std .pts { font-weight: 900; }
 .groups-grid .teams-list { gap: 0.5rem; }
 
 /* Allow horizontal-scroll fallback on extreme narrow screens */
+@media (max-width: 720px) {
+  main.container {
+    max-width: 100%;
+    padding-top: 0.7rem;
+  }
+  .groups-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  .groups-grid .card {
+    margin-bottom: 0;
+  }
+  .groups-grid table.std {
+    min-width: 0;
+    font-size: 0.78rem;
+  }
+  .groups-grid table.std thead th,
+  .groups-grid table.std tbody td {
+    padding: 0.48rem 0.28rem;
+  }
+}
+
 @media (max-width: 360px) {
   .groups-grid { gap: 0.4rem; }
   .groups-grid .team-header h2 { font-size: 0.74rem; }
