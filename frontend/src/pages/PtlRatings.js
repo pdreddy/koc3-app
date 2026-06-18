@@ -197,7 +197,10 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
                 return (
                   <tr key={`${player.teamAbbr}-${player.name}`} className={idx < 8 && player.courts > 0 ? 'q' : ''} data-testid={`ptl-player-${player.name}`}>
                     <td className="rank">{idx + 1}</td>
-                    <td><strong>{player.name}</strong></td>
+                    <td>
+                      <strong>{player.name}</strong>
+                      {player.aliases?.length > 0 && <div className="muted" style={{ fontSize: '.72rem' }}>aliases: {player.aliases.join(', ')}</div>}
+                    </td>
                     <td><span className="tag">{player.teamAbbr}</span></td>
                     <td>{formatRating(player.currentSinglesUtr)}</td>
                     <td><strong className="ptl-rating-value">{formatRating(player.ptlSinglesRating)}</strong></td>

@@ -26,6 +26,15 @@ function playerUtr(player, type, ratingRows) {
   return numericRating(player?.doublesUtr) ?? numericRating(player?.utr) ?? lookup?.doublesUtr ?? null;
 }
 
+function canonicalPlayerInfo(name, ratingRows) {
+  const lookup = findUtrRating(name, ratingRows);
+  return {
+    key: normalizeName(lookup?.fullName || name),
+    displayName: lookup?.fullName || name,
+    lookup
+  };
+}
+
 function expectedWinChance(rating, opponentRating) {
   return 1 / (1 + Math.pow(10, (opponentRating - rating) / 4));
 }
@@ -40,12 +49,19 @@ function buildPlayerIndex(teams, ratingRows) {
   const players = {};
   Object.values(teams || {}).forEach(team => {
     (team.players || []).forEach(player => {
-      const key = normalizeName(player.name);
+      const canonical = canonicalPlayerInfo(player.name, ratingRows);
+      const key = canonical.key;
       if (!key) return;
       const singlesUtr = playerUtr(player, 'singles', ratingRows);
       const doublesUtr = playerUtr(player, 'doubles', ratingRows);
+      if (players[key]) {
+        players[key].team = players[key].team || team.name;
+        players[key].teamAbbr = players[key].teamAbbr || team.abbreviation;
+        return;
+      }
       players[key] = {
-        name: player.name,
+        name: canonical.displayName,
+        aliases: player.name === canonical.displayName ? [] : [player.name],
         team: team.name,
         teamAbbr: team.abbreviation,
         currentSinglesUtr: singlesUtr,
@@ -67,17 +83,18 @@ function buildPlayerIndex(teams, ratingRows) {
 }
 
 function ensurePlayer(players, name, team, ratingRows) {
-  const key = normalizeName(name);
+  const canonical = canonicalPlayerInfo(name, ratingRows);
+  const key = canonical.key;
   if (!players[key]) {
-    const lookup = findUtrRating(name, ratingRows);
     players[key] = {
-      name,
+      name: canonical.displayName,
+      aliases: name === canonical.displayName ? [] : [name],
       team: team?.name || 'Unknown',
       teamAbbr: team?.abbreviation || '?',
-      currentSinglesUtr: lookup?.singlesUtr ?? null,
-      currentDoublesUtr: lookup?.doublesUtr ?? null,
-      ptlSinglesRating: lookup?.singlesUtr || DEFAULT_BASE_RATING,
-      ptlDoublesRating: lookup?.doublesUtr || DEFAULT_BASE_RATING,
+      currentSinglesUtr: canonical.lookup?.singlesUtr ?? null,
+      currentDoublesUtr: canonical.lookup?.doublesUtr ?? null,
+      ptlSinglesRating: canonical.lookup?.singlesUtr || DEFAULT_BASE_RATING,
+      ptlDoublesRating: canonical.lookup?.doublesUtr || DEFAULT_BASE_RATING,
       courts: 0,
       wins: 0,
       losses: 0,
@@ -87,6 +104,8 @@ function ensurePlayer(players, name, team, ratingRows) {
       gamesAgainst: 0,
       ratingDelta: 0
     };
+  } else if (name !== players[key].name && !(players[key].aliases || []).includes(name)) {
+    players[key].aliases = [...(players[key].aliases || []), name];
   }
   return players[key];
 }
