@@ -45,7 +45,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
     return rows.length > 0 ? rows : UTR_RATINGS;
   }, [ratingLookup]);
   const ratingMatches = useMemo(() => [
-    ...(previousMatches || []).map(match => ({ ...match, source: match.source || 'KOC2DBPONEW' })),
+    ...(previousMatches || []).map(match => ({ ...match, source: match.source || 'KOC2DB' })),
     ...(matches || []).map(match => ({ ...match, source: match.source || 'KOC3' }))
   ], [matches, previousMatches]);
   const ratings = useMemo(() => buildPtlRatings(teams, ratingMatches, lookupRows), [teams, ratingMatches, lookupRows]);
@@ -62,7 +62,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
       <div className="page-title ptl-hero">
         <div>
           <h1>PTL Rating</h1>
-          <p>UTR-style KOC performance rating using KOC3 plus pulled KOC2DBPONEW history.</p>
+          <p>UTR-style KOC performance rating using KOC3 plus pulled KOC2DB history.</p>
         </div>
         <div className="ptl-hero-stat">
           <span>Leader</span>
@@ -78,7 +78,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
           <p>
             PTL starts singles and doubles separately from the UTR table when available, otherwise from 3.50.
             Singles courts update only the singles PTL; doubles courts update only the doubles PTL using
-            the average rating of the opposing pair. Previous season matches are pulled from /KOC2DBPONEW.
+            the average rating of the opposing pair. Previous season matches are pulled from /KOC2DB.
           </p>
         </div>
         <div className="card ptl-metric">
@@ -106,7 +106,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
       {tab === 'lookup' && (
         <div className="card">
           <h2>Stored Player Rating Lookup</h2>
-          <p className="hint">This table is seeded into Firebase at {`/${'koc_s3/playerRatings'}`} and used to match KOC2DBPONEW names.</p>
+          <p className="hint">This table is seeded into Firebase at {`/${'koc_s3/playerRatings'}`} and used to match KOC2DB names.</p>
           <div className="table-wrap">
             <table className="std ptl-table" data-testid="ptl-lookup-table">
               <thead>
@@ -136,7 +136,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
 
       {tab === 'koc2map' && (
         <div className="card">
-          <h2>KOC2DBPONEW Name Mapping</h2>
+          <h2>KOC2DB Name Mapping</h2>
           <p className="hint">Partial matches from previous-season names to the stored UTR lookup. Duplicate mapped names are highlighted so aliases can be cleaned up.</p>
           <div className="table-wrap">
             <table className="std ptl-table" data-testid="ptl-koc2-map-table">
@@ -152,7 +152,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
                 </tr>
               </thead>
               <tbody>
-                {legacyNameMap.length === 0 && <tr><td colSpan="7" className="center muted">No KOC2DBPONEW player names loaded yet</td></tr>}
+                {legacyNameMap.length === 0 && <tr><td colSpan="7" className="center muted">No KOC2DB player names loaded yet</td></tr>}
                 {legacyNameMap.map(row => (
                   <tr key={row.name} className={row.duplicateMappedName ? 'q' : ''}>
                     <td><strong>{row.name}</strong></td>

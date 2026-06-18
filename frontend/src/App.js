@@ -30,7 +30,12 @@ function firebaseObjectToList(data, source) {
     return node.filter(Boolean).map((m, idx) => ({ id: m.id || `${source}-${idx}`, source, ...m }));
   }
   if (typeof node === 'object') {
-    return Object.entries(node).map(([id, m]) => ({ id, source, ...(m || {}) }));
+    const direct = Object.entries(node).map(([id, m]) => ({ id, source, ...(m || {}) }));
+    const hasMatchShape = direct.some(m => m.lines || m.t1 || m.t2 || m.t1Id || m.t2Id || m.winnerId || m.win);
+    if (hasMatchShape) return direct;
+    return Object.entries(node).flatMap(([groupId, child]) =>
+      firebaseObjectToList(child, source).map(m => ({ ...m, id: `${groupId}-${m.id}` }))
+    );
   }
   return [];
 }
@@ -41,6 +46,7 @@ function Shell() {
   const [teams, setTeams] = useState({});
   const [matches, setMatches] = useState([]);
   const [legacyMatches, setLegacyMatches] = useState([]);
+  const [legacyFallbackMatches, setLegacyFallbackMatches] = useState([]);
   const [playerRatings, setPlayerRatings] = useState({});
   const [adminConfig, setAdminConfig] = useState({ password: '' });
   const [schedule, setSchedule] = useState({});
@@ -112,13 +118,21 @@ function Shell() {
       list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
       setMatches(list);
     });
-    const unsubLegacy = onValue(ref(db, PATHS.season1), (snap) => {
-      const list = firebaseObjectToList(snap.val(), 'KOC2DBPONEW');
+    const unsubLegacy = onValue(ref(db, PATHS.koc2db), (snap) => {
+      const list = firebaseObjectToList(snap.val(), 'KOC2DB');
       list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
       setLegacyMatches(list);
     }, (error) => {
-      console.error('Legacy KOC2DBPONEW load failed', error);
+      console.error('Legacy KOC2DB load failed', error);
       setLegacyMatches([]);
+    });
+    const unsubLegacyFallback = onValue(ref(db, PATHS.season1), (snap) => {
+      const list = firebaseObjectToList(snap.val(), 'KOC2DBPONEW');
+      list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+      setLegacyFallbackMatches(list);
+    }, (error) => {
+      console.error('Legacy KOC2DBPONEW fallback load failed', error);
+      setLegacyFallbackMatches([]);
     });
     const unsubA = onValue(ref(db, PATHS.admin), (snap) => {
       setAdminConfig(snap.val() || { password: '' });
@@ -129,7 +143,7 @@ function Shell() {
     const unsubS = onValue(ref(db, PATHS.schedule), (snap) => {
       setSchedule(snap.val() || {});
     });
-    return () => { unsubT(); unsubM(); unsubLegacy(); unsubA(); unsubR(); unsubS(); };
+    return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubR(); unsubS(); };
   }, []);
 
   return (
@@ -141,7 +155,7 @@ function Shell() {
         <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} />} />
         <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />
         <Route path="/matchups" element={<Matchups matches={matches} teams={teams} />} />
-        <Route path="/ptl" element={<PtlRatings matches={matches} previousMatches={legacyMatches} teams={teams} ratingLookup={playerRatings} />} />
+        <Route path="/ptl" element={<PtlRatings matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} teams={teams} ratingLookup={playerRatings} />} />
         <Route path="/history" element={<History matches={matches} teams={teams} />} />
         <Route path="/season2" element={<Season2 />} />
         <Route path="/rules" element={<Rules />} />

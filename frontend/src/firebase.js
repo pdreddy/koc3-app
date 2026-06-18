@@ -34,5 +34,6 @@ export const PATHS = {
   admin: 'koc_s3/admin',         // { password }
   schedule: 'koc_s3/schedule',   // KOC3 fixtures
   season2: 'koc_s2/matches',     // Season 2 archive (read-only)
-  season1: 'KOC2DBPONEW'         // Legacy Season 1 archive (read-only)
+  koc2db: 'KOC2DB',              // Legacy KOC2 database for PTL rating history
+  season1: 'KOC2DBPONEW'         // Older legacy archive fallback (read-only)
 };
