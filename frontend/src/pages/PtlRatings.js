@@ -5,9 +5,13 @@ function formatRating(value) {
   return value == null ? '—' : Number(value).toFixed(2);
 }
 
-export default function PtlRatings({ teams, matches }) {
+export default function PtlRatings({ teams, matches, previousMatches = [] }) {
   const [q, setQ] = useState('');
-  const ratings = useMemo(() => buildPtlRatings(teams, matches), [teams, matches]);
+  const ratingMatches = useMemo(() => [
+    ...(previousMatches || []).map(match => ({ ...match, source: match.source || 'KOC2DBPONEW' })),
+    ...(matches || []).map(match => ({ ...match, source: match.source || 'KOC3' }))
+  ], [matches, previousMatches]);
+  const ratings = useMemo(() => buildPtlRatings(teams, ratingMatches), [teams, ratingMatches]);
   const filtered = ratings.filter(player =>
     !q || `${player.name} ${player.team} ${player.teamAbbr}`.toLowerCase().includes(q.toLowerCase())
   );
@@ -20,7 +24,7 @@ export default function PtlRatings({ teams, matches }) {
       <div className="page-title ptl-hero">
         <div>
           <h1>PTL Rating</h1>
-          <p>UTR-style KOC performance rating beside each player&apos;s current UTR.</p>
+          <p>UTR-style KOC performance rating using KOC3 plus pulled KOC2DBPONEW history.</p>
         </div>
         <div className="ptl-hero-stat">
           <span>Leader</span>
@@ -36,13 +40,14 @@ export default function PtlRatings({ teams, matches }) {
           <p>
             PTL starts from the player&apos;s current UTR when available, otherwise from 7.00.
             Each KOC court updates the rating based on opponent strength, win/loss, and game margin.
-            Doubles compares each player against the average rating of the opposing pair.
+            Doubles compares each player against the average rating of the opposing pair. Previous
+            season matches are pulled from /KOC2DBPONEW and processed before KOC3 matches.
           </p>
         </div>
         <div className="card ptl-metric">
           <span>Rated players</span>
           <strong>{activeCount}</strong>
-          <small>{ratings.length} roster players tracked</small>
+          <small>{ratingMatches.length} current + previous matches</small>
         </div>
       </div>
 
