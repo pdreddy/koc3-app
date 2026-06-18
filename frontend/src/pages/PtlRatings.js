@@ -1,17 +1,23 @@
 import React, { useMemo, useState } from 'react';
 import { buildPtlRatings } from '../utils/ptlRating';
+import { UTR_RATINGS } from '../data/utrRatings';
 
 function formatRating(value) {
   return value == null ? '—' : Number(value).toFixed(2);
 }
 
-export default function PtlRatings({ teams, matches, previousMatches = [] }) {
+export default function PtlRatings({ teams, matches, previousMatches = [], ratingLookup = {} }) {
   const [q, setQ] = useState('');
+  const [tab, setTab] = useState('ratings');
+  const lookupRows = useMemo(() => {
+    const rows = Object.values(ratingLookup || {});
+    return rows.length > 0 ? rows : UTR_RATINGS;
+  }, [ratingLookup]);
   const ratingMatches = useMemo(() => [
     ...(previousMatches || []).map(match => ({ ...match, source: match.source || 'KOC2DBPONEW' })),
     ...(matches || []).map(match => ({ ...match, source: match.source || 'KOC3' }))
   ], [matches, previousMatches]);
-  const ratings = useMemo(() => buildPtlRatings(teams, ratingMatches), [teams, ratingMatches]);
+  const ratings = useMemo(() => buildPtlRatings(teams, ratingMatches, lookupRows), [teams, ratingMatches, lookupRows]);
   const filtered = ratings.filter(player =>
     !q || `${player.name} ${player.team} ${player.teamAbbr}`.toLowerCase().includes(q.toLowerCase())
   );
@@ -59,6 +65,43 @@ export default function PtlRatings({ teams, matches, previousMatches = [] }) {
         style={{ marginBottom: '.7rem' }}
       />
 
+      <div className="tabs">
+        <button className={`tab ${tab === 'ratings' ? 'active' : ''}`} onClick={() => setTab('ratings')} data-testid="ptl-tab-ratings">PTL Ratings</button>
+        <button className={`tab ${tab === 'lookup' ? 'active' : ''}`} onClick={() => setTab('lookup')} data-testid="ptl-tab-lookup">UTR Lookup</button>
+      </div>
+
+      {tab === 'lookup' && (
+        <div className="card">
+          <h2>Stored Player Rating Lookup</h2>
+          <p className="hint">This table is seeded into Firebase at {`/${'koc_s3/playerRatings'}`} and used to match KOC2DBPONEW names.</p>
+          <div className="table-wrap">
+            <table className="std ptl-table" data-testid="ptl-lookup-table">
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th>Singles UTR</th>
+                  <th>Status</th>
+                  <th>Doubles UTR</th>
+                  <th>Doubles Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lookupRows.map(row => (
+                  <tr key={row.fullName}>
+                    <td><strong>{row.fullName}</strong></td>
+                    <td>{formatRating(row.singlesUtr)}</td>
+                    <td>{row.singlesStatus || '—'}</td>
+                    <td>{formatRating(row.doublesUtr)}</td>
+                    <td>{row.verifiedDoublesStatus || row.doublesStatus || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {tab === 'ratings' && (
       <div className="card">
         <div className="table-wrap">
           <table className="std ptl-table" data-testid="ptl-ratings-table">
@@ -104,6 +147,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [] }) {
         </div>
         <p className="hint">PTL = Prosper Tennis League rating. UTR S/D come from the provided lookup table; PTL S/D are KOC-only singles and doubles performance ratings.</p>
       </div>
+      )}
     </main>
   );
 }

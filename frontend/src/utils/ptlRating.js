@@ -18,8 +18,8 @@ function numericRating(raw) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-function playerUtr(player, type) {
-  const lookup = findUtrRating(player?.name);
+function playerUtr(player, type, ratingRows) {
+  const lookup = findUtrRating(player?.name, ratingRows);
   if (type === 'singles') {
     return numericRating(player?.singlesUtr) ?? numericRating(player?.utr) ?? lookup?.singlesUtr ?? null;
   }
@@ -36,14 +36,14 @@ function ptlScoreForCourt({ won, gamesFor, gamesAgainst }) {
   return clamp((won ? 1 : 0) + gameMargin * 0.18, 0, 1);
 }
 
-function buildPlayerIndex(teams) {
+function buildPlayerIndex(teams, ratingRows) {
   const players = {};
   Object.values(teams || {}).forEach(team => {
     (team.players || []).forEach(player => {
       const key = normalizeName(player.name);
       if (!key) return;
-      const singlesUtr = playerUtr(player, 'singles');
-      const doublesUtr = playerUtr(player, 'doubles');
+      const singlesUtr = playerUtr(player, 'singles', ratingRows);
+      const doublesUtr = playerUtr(player, 'doubles', ratingRows);
       players[key] = {
         name: player.name,
         team: team.name,
@@ -66,10 +66,10 @@ function buildPlayerIndex(teams) {
   return players;
 }
 
-function ensurePlayer(players, name, team) {
+function ensurePlayer(players, name, team, ratingRows) {
   const key = normalizeName(name);
   if (!players[key]) {
-    const lookup = findUtrRating(name);
+    const lookup = findUtrRating(name, ratingRows);
     players[key] = {
       name,
       team: team?.name || 'Unknown',
@@ -91,9 +91,9 @@ function ensurePlayer(players, name, team) {
   return players[key];
 }
 
-function applyCourtRating(players, playerNames, opponentNames, context) {
-  const playerRecords = playerNames.map(name => ensurePlayer(players, name, context.team));
-  const opponentRecords = opponentNames.map(name => ensurePlayer(players, name, context.opponentTeam));
+function applyCourtRating(players, playerNames, opponentNames, context, ratingRows) {
+  const playerRecords = playerNames.map(name => ensurePlayer(players, name, context.team, ratingRows));
+  const opponentRecords = opponentNames.map(name => ensurePlayer(players, name, context.opponentTeam, ratingRows));
   const ratingKey = context.type === 'singles' ? 'ptlSinglesRating' : 'ptlDoublesRating';
   const deltaKey = context.type === 'singles' ? 'singlesRatingDelta' : 'doublesRatingDelta';
   const opponentAverage = opponentRecords.reduce((sum, p) => sum + p[ratingKey], 0) / Math.max(1, opponentRecords.length);
@@ -119,8 +119,8 @@ function applyCourtRating(players, playerNames, opponentNames, context) {
   });
 }
 
-export function buildPtlRatings(teams, matches) {
-  const players = buildPlayerIndex(teams);
+export function buildPtlRatings(teams, matches, ratingRows) {
+  const players = buildPlayerIndex(teams, ratingRows);
   const chronological = [...(matches || [])].sort((a, b) => (a.ts || 0) - (b.ts || 0));
 
   chronological.forEach(match => {
@@ -141,7 +141,7 @@ export function buildPtlRatings(teams, matches) {
         gamesFor: g1,
         gamesAgainst: g2,
         type: line.type
-      });
+      }, ratingRows);
       applyCourtRating(players, t2Players, t1Players, {
         team: team2,
         opponentTeam: team1,
@@ -149,7 +149,7 @@ export function buildPtlRatings(teams, matches) {
         gamesFor: g2,
         gamesAgainst: g1,
         type: line.type
-      });
+      }, ratingRows);
     });
   });
 

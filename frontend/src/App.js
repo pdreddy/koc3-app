@@ -4,6 +4,7 @@ import { onValue, ref, set, get } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { buildInitialTeams, DEFAULT_ADMIN_PASSWORD } from './data/initialTeams';
+import { buildUtrRatingsTable } from './data/utrRatings';
 import { buildScheduleFor8x2, firstSundayOnOrAfter } from './utils/roundRobin';
 
 import BottomNav from './components/BottomNav';
@@ -40,6 +41,7 @@ function Shell() {
   const [teams, setTeams] = useState({});
   const [matches, setMatches] = useState([]);
   const [legacyMatches, setLegacyMatches] = useState([]);
+  const [playerRatings, setPlayerRatings] = useState({});
   const [adminConfig, setAdminConfig] = useState({ password: '' });
   const [schedule, setSchedule] = useState({});
   const [loaded, setLoaded] = useState(false);
@@ -76,6 +78,11 @@ function Shell() {
         const aSnap = await get(ref(db, PATHS.admin));
         if (!aSnap.exists()) {
           await set(ref(db, PATHS.admin), { password: DEFAULT_ADMIN_PASSWORD });
+        }
+
+        const rSnap = await get(ref(db, PATHS.playerRatings));
+        if (!rSnap.exists()) {
+          await set(ref(db, PATHS.playerRatings), buildUtrRatingsTable());
         }
 
         // Seed schedule on first run
@@ -116,10 +123,13 @@ function Shell() {
     const unsubA = onValue(ref(db, PATHS.admin), (snap) => {
       setAdminConfig(snap.val() || { password: '' });
     });
+    const unsubR = onValue(ref(db, PATHS.playerRatings), (snap) => {
+      setPlayerRatings(snap.val() || buildUtrRatingsTable());
+    });
     const unsubS = onValue(ref(db, PATHS.schedule), (snap) => {
       setSchedule(snap.val() || {});
     });
-    return () => { unsubT(); unsubM(); unsubLegacy(); unsubA(); unsubS(); };
+    return () => { unsubT(); unsubM(); unsubLegacy(); unsubA(); unsubR(); unsubS(); };
   }, []);
 
   return (
@@ -131,7 +141,7 @@ function Shell() {
         <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} />} />
         <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />
         <Route path="/matchups" element={<Matchups matches={matches} teams={teams} />} />
-        <Route path="/ptl" element={<PtlRatings matches={matches} previousMatches={legacyMatches} teams={teams} />} />
+        <Route path="/ptl" element={<PtlRatings matches={matches} previousMatches={legacyMatches} teams={teams} ratingLookup={playerRatings} />} />
         <Route path="/history" element={<History matches={matches} teams={teams} />} />
         <Route path="/season2" element={<Season2 />} />
         <Route path="/rules" element={<Rules />} />

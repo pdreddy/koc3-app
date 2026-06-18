@@ -30,6 +30,7 @@ export function ensureAuth() {
 export const PATHS = {
   teams: 'koc_s3/teams',         // KOC3 teams
   matches: 'koc_s3/matches',     // KOC3 match results
+  playerRatings: 'koc_s3/playerRatings', // UTR lookup table used by PTL
   admin: 'koc_s3/admin',         // { password }
   schedule: 'koc_s3/schedule',   // KOC3 fixtures
   season2: 'koc_s2/matches',     // Season 2 archive (read-only)

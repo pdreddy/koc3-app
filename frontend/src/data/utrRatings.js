@@ -140,12 +140,21 @@ export const UTR_RATINGS = RAW_UTR_ROWS.split('\n').slice(1).map(line => {
   };
 });
 
-export function findUtrRating(playerName) {
+export function buildUtrRatingsTable() {
+  return UTR_RATINGS.reduce((acc, row) => {
+    const id = row.fullName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    acc[id] = row;
+    return acc;
+  }, {});
+}
+
+export function findUtrRating(playerName, rows = UTR_RATINGS) {
   const key = normalize(playerName);
   if (!key) return null;
+  const list = Array.isArray(rows) ? rows : Object.values(rows || {});
   const tokens = key.split(' ');
-  return UTR_RATINGS.find(row => row.keys.includes(key)) ||
-    UTR_RATINGS.find(row => {
+  return list.find(row => (row.keys || []).includes(key)) ||
+    list.find(row => {
       const first = normalize(row.firstName).split(' ')[0];
       const last = normalize(row.lastName).split(' ')[0];
       return tokens.includes(first) && tokens.includes(last);
