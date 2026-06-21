@@ -1,3 +1,5 @@
+import { randomRosterNamesForTeams } from './auctionPlayers';
+
 const canonicalTeams = [
   { id: 1, name: 'Rally Royals 👑', abbreviation: 'RR', captain: 'Yogesh Dhadge', roster: ['Srinivaasan Arumugam Sampath', 'Charan Macharla', 'Kalam Shaik', 'Sandeep Gengineri', 'Chandrakant Dharme', 'Vasu Gandhi'] },
   { id: 2, name: "Karna's Crusaders ⚔️", abbreviation: 'KC', captain: 'Srikant Tenni', roster: ['Vibhor Sharma', 'Malla Cheerke', 'Anshul Goyal', 'Srinidhi Kulkarni', 'Lloyd Kumar', 'Dinkar Bhardwaj'] },
@@ -16,6 +18,12 @@ const canonicalTeams = [
   { id: 15, name: 'Chill Super Kings 👑❄️', abbreviation: 'CSK', captain: 'Anand Krishnamurthy' },
   { id: 16, name: 'Court Masters', abbreviation: 'CM', captain: 'Dinesh Reddy Timmareddy' }
 ];
+
+const auctionRostersByCaptain = randomRosterNamesForTeams(canonicalTeams.map(team => team.captain));
+
+function rosterForTeam(team) {
+  return auctionRostersByCaptain[team.captain.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()] || team.roster || [];
+}
 
 function placeholderRoster() {
   return Array.from({ length: 6 }, (_, i) => ({ name: `Player ${i + 2}`, isCaptain: false, utr: '' }));
@@ -38,7 +46,7 @@ export function buildInitialTeams() {
       group: idx < 8 ? 'A' : 'B',
       players: [
         { name: t.captain, isCaptain: true, utr: '' },
-        ...(t.roster ? t.roster.map(n => ({ name: n, isCaptain: false, utr: '' })) : placeholderRoster())
+        ...(rosterForTeam(t).length > 0 ? rosterForTeam(t).map(n => ({ name: n, isCaptain: false, utr: '' })) : placeholderRoster())
       ]
     };
   });
@@ -49,10 +57,8 @@ function canonicalPlayersForExistingTeam(team, t) {
   const existing = Array.isArray(team.players) ? team.players : [];
   const desiredCaptainName = t.captain;
   const existingCaptain = existing.find(player => player?.name === desiredCaptainName) || existing.find(player => player?.isCaptain) || {};
-  const fallbackRoster = t.roster ? t.roster.map(name => ({ name, isCaptain: false, utr: '' })) : placeholderRoster();
-  const rest = (existing.length > 0 ? existing : fallbackRoster)
-    .filter(player => (player?.name || '') !== desiredCaptainName)
-    .map(player => ({ ...player, isCaptain: false }));
+  const fallbackRoster = rosterForTeam(t).length > 0 ? rosterForTeam(t).map(name => ({ name, isCaptain: false, utr: '' })) : placeholderRoster();
+  const rest = fallbackRoster.map(player => ({ ...player, isCaptain: false }));
   return [
     { ...existingCaptain, name: desiredCaptainName, isCaptain: true },
     ...rest

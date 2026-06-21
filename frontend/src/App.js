@@ -5,6 +5,7 @@ import { db, ensureAuth, PATHS } from './firebase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { buildInitialTeams, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD } from './data/initialTeams';
 import { buildUtrRatingsTable } from './data/utrRatings';
+import { auctionPlayerRatingUpdates, buildAuctionPlayerRatingsTable } from './data/auctionPlayers';
 import { buildScheduleFor8x2, firstSundayOnOrAfter } from './utils/roundRobin';
 
 import BottomNav from './components/BottomNav';
@@ -89,7 +90,10 @@ function Shell() {
 
         const rSnap = await get(ref(db, PATHS.playerRatings));
         if (!rSnap.exists()) {
-          await set(ref(db, PATHS.playerRatings), buildUtrRatingsTable());
+          await set(ref(db, PATHS.playerRatings), { ...buildUtrRatingsTable(), ...buildAuctionPlayerRatingsTable() });
+        } else {
+          const { update } = await import('firebase/database');
+          await update(ref(db, PATHS.playerRatings), auctionPlayerRatingUpdates());
         }
 
         // Seed schedule on first run
