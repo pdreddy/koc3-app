@@ -1,11 +1,80 @@
 import React, { useMemo, useState } from 'react';
+import { ref, update } from 'firebase/database';
 import { buildPtlRatings } from '../utils/ptlRating';
-import { UTR_RATINGS, matchUtrRating } from '../data/utrRatings';
+import { UTR_RATINGS, matchUtrRating, normalizeNameKey, suggestUtrMatches } from '../data/utrRatings';
+import { db, PATHS } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
 
 function formatRating(value) {
   return value == null ? '—' : Number(value).toFixed(2);
 }
 
+
+
+function ratingRowId(row) {
+  return row?._id || String(row?.fullName || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+}
+
+function uniqueValues(values) {
+  return Array.from(new Set(values.map(value => String(value || '').trim()).filter(Boolean)));
+}
+
+function NameMappingRow({ sourceName, lookupRows, onSaved, canSave }) {
+  const suggestions = useMemo(() => suggestUtrMatches(sourceName, lookupRows, 5), [sourceName, lookupRows]);
+  const initialTarget = suggestions[0]?.row.fullName || lookupRows[0]?.fullName || '';
+  const [targetName, setTargetName] = useState(initialTarget);
+  const [status, setStatus] = useState('');
+  const targetRow = lookupRows.find(row => row.fullName === targetName) || suggestions[0]?.row;
+
+  async function saveMapping() {
+    if (!sourceName || !targetRow) return;
+    const id = ratingRowId(targetRow);
+    if (!id) {
+      setStatus('Unable to save: selected player has no rating id.');
+      return;
+    }
+    const aliases = uniqueValues([...(targetRow.aliases || []), sourceName]);
+    const keys = uniqueValues([...(targetRow.keys || []), normalizeNameKey(sourceName)]);
+    try {
+      await update(ref(db, `${PATHS.playerRatings}/${id}`), { aliases, keys });
+      setStatus(`Saved → ${targetRow.fullName}`);
+      onSaved?.(sourceName);
+    } catch (error) {
+      setStatus(error.message || 'Unable to save mapping');
+    }
+  }
+
+  return (
+    <tr data-testid={`ptl-name-map-${sourceName}`}>
+      <td><strong>{sourceName}</strong></td>
+      <td>
+        {suggestions.length > 0 ? (
+          suggestions.map(item => (
+            <button
+              type="button"
+              key={item.row.fullName}
+              className={`tag ${item.score >= 0.72 ? 'tie' : ''}`}
+              onClick={() => setTargetName(item.row.fullName)}
+              style={{ marginRight: '.25rem', marginBottom: '.25rem' }}
+              title={item.reason}
+            >
+              {item.row.fullName} · {Math.round(item.score * 100)}%
+            </button>
+          ))
+        ) : '—'}
+      </td>
+      <td>
+        <select className="select" value={targetName} onChange={e => setTargetName(e.target.value)} data-testid={`ptl-name-map-${sourceName}-select`}>
+          {lookupRows.map(row => <option key={row.fullName} value={row.fullName}>{row.fullName}</option>)}
+        </select>
+      </td>
+      <td>
+        <button type="button" className="btn small success" onClick={saveMapping} disabled={!canSave} data-testid={`ptl-name-map-${sourceName}-save`}>Map Name</button>
+        {status && <div className="muted" style={{ fontSize: '.72rem', marginTop: '.25rem' }}>{status}</div>}
+      </td>
+    </tr>
+  );
+}
 
 function RatingRows({ players, startRank = 1, highlightQualifiers = true }) {
   return players.map((player, idx) => {
@@ -95,10 +164,13 @@ function collectLegacyNames(matches, lookupRows) {
 }
 
 export default function PtlRatings({ teams, matches, previousMatches = [], ratingLookup = {} }) {
+  const { session } = useAuth();
   const [q, setQ] = useState('');
+  const [savedMappings, setSavedMappings] = useState([]);
   const [tab, setTab] = useState('ratings');
   const lookupRows = useMemo(() => {
-    const rows = Object.values(ratingLookup || {});
+    const entries = Object.entries(ratingLookup || {});
+    const rows = entries.map(([id, row]) => ({ _id: id, ...(row || {}) }));
     return rows.length > 0 ? rows : UTR_RATINGS;
   }, [ratingLookup]);
   const ratingMatches = useMemo(() => [
@@ -116,6 +188,14 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
   const activeCount = ratings.filter(player => player.courts > 0).length;
   const unmappedCount = ratings.filter(player => !player.hasUtrLookup).length;
   const leader = ratings.find(player => player.courts > 0 && player.hasUtrLookup) || ratings.find(player => player.courts > 0);
+  const needsMappingNames = useMemo(() => {
+    const names = [
+      ...unmappedPlayers.flatMap(player => [player.name, ...(player.aliases || [])]),
+      ...legacyNameMap.filter(row => !row.matchedName).map(row => row.name)
+    ];
+    return uniqueValues(names).filter(name => !savedMappings.includes(name)).sort((a, b) => a.localeCompare(b));
+  }, [legacyNameMap, savedMappings, unmappedPlayers]);
+  const isAdmin = session.role === 'admin';
 
   return (
     <main className="container">
@@ -161,6 +241,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
         <button className={`tab ${tab === 'ratings' ? 'active' : ''}`} onClick={() => setTab('ratings')} data-testid="ptl-tab-ratings">PTL Ratings</button>
         <button className={`tab ${tab === 'lookup' ? 'active' : ''}`} onClick={() => setTab('lookup')} data-testid="ptl-tab-lookup">UTR Lookup</button>
         <button className={`tab ${tab === 'koc2map' ? 'active' : ''}`} onClick={() => setTab('koc2map')} data-testid="ptl-tab-koc2map">KOC2 Map</button>
+        <button className={`tab ${tab === 'mapping' ? 'active' : ''}`} onClick={() => setTab('mapping')} data-testid="ptl-tab-mapping">Name Correction</button>
       </div>
 
       {tab === 'lookup' && (
@@ -230,6 +311,41 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
         </div>
       )}
 
+
+      {tab === 'mapping' && (
+        <div className="card" data-testid="ptl-name-correction-card">
+          <h2>PTL Name Correction</h2>
+          <p className="hint">
+            Admins can map misspelled, short, or legacy PTL names to the actual UTR lookup player. Saving adds the source name as an alias under /koc_s3/playerRatings, so hardcoded aliases are no longer needed.
+          </p>
+          {!isAdmin && <div className="error-box">Sign in as admin to save name mappings. You can still review fuzzy suggestions here.</div>}
+          <div className="table-wrap">
+            <table className="std ptl-table" data-testid="ptl-name-correction-table">
+              <thead>
+                <tr>
+                  <th>Source name needing correction</th>
+                  <th>Fuzzy suggestions</th>
+                  <th>Actual UTR player</th>
+                  <th>Admin action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {needsMappingNames.length === 0 && <tr><td colSpan="4" className="center muted">All loaded PTL names are mapped.</td></tr>}
+                {needsMappingNames.map(name => (
+                  <NameMappingRow
+                    key={name}
+                    sourceName={name}
+                    lookupRows={lookupRows}
+                    onSaved={savedName => setSavedMappings(prev => uniqueValues([...prev, savedName]))}
+                    canSave={isAdmin}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {tab === 'ratings' && (
         <>
           <div className="card">
@@ -241,7 +357,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
           {unmappedPlayers.length > 0 && (
             <div className="card ptl-unmapped-card" data-testid="ptl-unmapped-card">
               <h2>Needs Name Mapping <span className="muted" style={{ fontWeight: 500, fontSize: '.85rem' }}>· not found in UTR lookup</span></h2>
-              <p className="hint">These players are kept below the main mapped group because their current or legacy match name did not resolve to a stored UTR player. Update /koc_s3/playerRatings aliases or clean the source player name to move them into the mapped table.</p>
+              <p className="hint">These players are kept below the main mapped group because their current or legacy match name did not resolve to a stored UTR player. Use the Name Correction tab to map the source name to an actual UTR player to move them into the mapped table.</p>
               <RatingTable
                 players={unmappedPlayers}
                 emptyText="All players are mapped"

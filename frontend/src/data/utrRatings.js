@@ -112,37 +112,16 @@ function toNumber(value) {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-function normalize(value) {
+export function normalizeNameKey(value) {
   return String(value || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-const PLAYER_ALIASES = {
-  'yogesh': 'Yogesh Dhadge',
-  'srikanth': 'Srikant Tenni',
-  'srikant': 'Srikant Tenni',
-  'uma v': 'Uma Vommi',
-  'uma': 'Uma Vommi',
-  'noufal mohamed': 'Mohamed Noufal',
-  'dinesh timmareddy': 'Dinesh Reddy Timmareddy',
-  'dinesh reddy': 'Dinesh Reddy Timmareddy',
-  'gopi guru': 'Guru Bavirisetty',
-  'guru': 'Guru Bavirisetty',
-  'nazeer mohammed': 'Naseer Mohd',
-  'naseer mohammed': 'Naseer Mohd',
-  'jaweed': 'Jaweed Ibrahim',
-  'ram kantheti': 'Janaki Ram Kantheti',
-  'damu palavali': 'Damodhara Palavali',
-  'sudhakar nallapati': 'Sudhakara Nallapati',
-  'durga': 'Durga Thimmisetty',
-  'venky dh': 'Venky Dh',
-  'krishna vennapusa': 'Krishna Vennapusa'
-};
+function normalize(value) {
+  return normalizeNameKey(value);
+}
 
-function aliasesFor(fullName) {
-  const normalizedFullName = normalize(fullName);
-  return Object.entries(PLAYER_ALIASES)
-    .filter(([, target]) => normalize(target) === normalizedFullName)
-    .map(([alias]) => alias);
+function aliasesFor() {
+  return [];
 }
 
 export const UTR_RATINGS = RAW_UTR_ROWS.split('\n').slice(1).map(line => {
@@ -183,9 +162,7 @@ export function matchUtrRating(playerName, rows = UTR_RATINGS) {
   const key = normalize(playerName);
   if (!key) return null;
   const list = Array.isArray(rows) ? rows : Object.values(rows || {});
-  const aliasTarget = PLAYER_ALIASES[key];
-  const effectiveKey = aliasTarget ? normalize(aliasTarget) : key;
-  const tokens = effectiveKey.split(' ');
+  const tokens = key.split(' ');
   const scored = list.map(row => {
     const firstTokens = normalize(row.firstName).split(' ').filter(Boolean);
     const lastTokens = normalize(row.lastName).split(' ').filter(Boolean);
@@ -193,9 +170,9 @@ export function matchUtrRating(playerName, rows = UTR_RATINGS) {
     const last = lastTokens[0] || '';
     let score = 0;
     let reason = 'No match';
-    if ((row.keys || []).includes(key) || (row.keys || []).includes(effectiveKey)) {
+    if ((row.keys || []).includes(key)) {
       score = 1;
-      reason = aliasTarget ? 'Configured alias' : 'Exact normalized name';
+      reason = (row.aliases || []).map(normalize).includes(key) ? 'Admin name mapping' : 'Exact normalized name';
     } else if (tokens.includes(first) && tokens.includes(last)) {
       score = 0.94;
       reason = 'First + last token match';
@@ -213,6 +190,38 @@ export function matchUtrRating(playerName, rows = UTR_RATINGS) {
   }).sort((a, b) => b.score - a.score);
   const best = scored[0];
   return best && best.score >= 0.72 ? best : null;
+}
+
+
+
+export function scoreUtrCandidate(playerName, row) {
+  const key = normalize(playerName);
+  if (!key || !row) return { row, score: 0, reason: 'No match' };
+  const tokens = key.split(' ').filter(Boolean);
+  const firstTokens = normalize(row.firstName).split(' ').filter(Boolean);
+  const lastTokens = normalize(row.lastName).split(' ').filter(Boolean);
+  const first = firstTokens[0] || '';
+  const last = lastTokens[0] || '';
+  const rowKeys = row.keys || [];
+  if (rowKeys.includes(key)) {
+    return { row, score: 1, reason: (row.aliases || []).map(normalize).includes(key) ? 'Admin name mapping' : 'Exact normalized name' };
+  }
+  if (tokens.includes(first) && tokens.includes(last)) return { row, score: 0.94, reason: 'First + last token match' };
+  if (tokens.includes(last) && first && tokens.some(t => first.startsWith(t) || t.startsWith(first))) return { row, score: 0.88, reason: 'Last name + partial first' };
+  if (tokens.includes(first) && last && tokens.some(t => last.startsWith(t) || t.startsWith(last))) return { row, score: 0.82, reason: 'First name + partial last' };
+  if (tokens.length === 1 && (tokens[0] === first || tokens[0] === last)) return { row, score: 0.72, reason: 'Single-name partial' };
+  const overlap = tokens.filter(t => firstTokens.includes(t) || lastTokens.includes(t)).length;
+  if (overlap > 0) return { row, score: Math.min(0.68, 0.45 + overlap * 0.12), reason: 'Fuzzy token overlap' };
+  return { row, score: 0, reason: 'No match' };
+}
+
+export function suggestUtrMatches(playerName, rows = UTR_RATINGS, limit = 5) {
+  const list = Array.isArray(rows) ? rows : Object.values(rows || {});
+  return list
+    .map(row => scoreUtrCandidate(playerName, row))
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score || a.row.fullName.localeCompare(b.row.fullName))
+    .slice(0, limit);
 }
 
 export function findUtrRating(playerName, rows = UTR_RATINGS) {
