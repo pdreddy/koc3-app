@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { push, ref } from 'firebase/database';
 import { db, PATHS, ensureAuth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -121,6 +121,10 @@ function buildQuickLineupText(team1, team2, team1Names, team2Names) {
   return `${team1.abbreviation} vs ${team2.abbreviation}\n\n${lines.join('\n\n')}\n\nFinal: ${team1.abbreviation} won 3-2`;
 }
 
+function lineupRoleLabel(orderIndex) {
+  return ['S', 'D1', 'D1', 'D2', 'D2'][orderIndex] || '';
+}
+
 function TeamLineupPicker({ team, selected, onChange, label }) {
   const toggle = (index) => {
     const key = String(index);
@@ -146,20 +150,18 @@ function TeamLineupPicker({ team, selected, onChange, label }) {
                 onChange={() => toggle(idx)}
                 data-testid={`lineup-${team?.abbreviation}-${idx}`}
               />
-              <span>{selected.indexOf(String(idx)) >= 0 ? selected.indexOf(String(idx)) + 1 : ''}</span>
+              <span>{selected.indexOf(String(idx)) >= 0 ? lineupRoleLabel(selected.indexOf(String(idx))) : ''}</span>
               {player.isCaptain ? '🏆 ' : ''}{player.name}
             </label>
           );
         })}
       </div>
-      <p className="hint">Pick order: singles, doubles pair 1 player 1/2, doubles pair 2 player 1/2.</p>
+      <p className="hint">Pick order: S, D1, D1, D2, D2. These selections are reused in Form and Quick Paste.</p>
     </div>
   );
 }
 
-function LineupBuilder({ team1, team2, onPopulateForm, onPopulateQuick }) {
-  const [team1Selected, setTeam1Selected] = useState([]);
-  const [team2Selected, setTeam2Selected] = useState([]);
+function LineupBuilder({ team1, team2, team1Selected, setTeam1Selected, team2Selected, setTeam2Selected, onPopulateForm, onPopulateQuick }) {
   const team1Names = selectedNamesFromIndexes(team1, team1Selected);
   const team2Names = selectedNamesFromIndexes(team2, team2Selected);
   const ready = team1Names.length === 5 && team2Names.length === 5;
@@ -455,6 +457,13 @@ function getQuickNameContext(text, cursor, parsed, teams) {
 
 export default function ScoreEntry({ teams, matches }) {
   const [mode, setMode] = useState('form');
+  const [sharedTeam1Id, setSharedTeam1IdRaw] = useState('');
+  const [sharedTeam2Id, setSharedTeam2IdRaw] = useState('');
+  const [team1Lineup, setTeam1Lineup] = useState([]);
+  const [team2Lineup, setTeam2Lineup] = useState([]);
+  const setSharedTeam1Id = (value) => { setSharedTeam1IdRaw(value); setTeam1Lineup([]); };
+  const setSharedTeam2Id = (value) => { setSharedTeam2IdRaw(value); setTeam2Lineup([]); };
+  const lineupState = { team1Lineup, setTeam1Lineup, team2Lineup, setTeam2Lineup };
   return (
     <main className="container">
       <div className="page-title">
@@ -473,23 +482,45 @@ export default function ScoreEntry({ teams, matches }) {
           data-testid="score-tab-paste"
         >⚡ Quick Paste</button>
       </div>
-      {mode === 'form' ? <FormEntry teams={teams} matches={matches} /> : <QuickEntry teams={teams} />}
+      {mode === 'form' ? (
+        <FormEntry
+          teams={teams}
+          matches={matches}
+          team1Id={sharedTeam1Id}
+          setTeam1Id={setSharedTeam1Id}
+          team2Id={sharedTeam2Id}
+          setTeam2Id={setSharedTeam2Id}
+          lineupState={lineupState}
+        />
+      ) : (
+        <QuickEntry
+          teams={teams}
+          team1Id={sharedTeam1Id}
+          setTeam1Id={setSharedTeam1Id}
+          team2Id={sharedTeam2Id}
+          setTeam2Id={setSharedTeam2Id}
+          lineupState={lineupState}
+        />
+      )}
     </main>
   );
 }
 
-function FormEntry({ teams, matches }) {
+function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const teamList = Object.values(teams || {});
   const myTeam = session.role === 'team' ? teams[session.teamId] : null;
   const isAdmin = session.role === 'admin';
 
-  const [team1Id, setTeam1Id] = useState(myTeam?.id || '');
-  const [team2Id, setTeam2Id] = useState('');
+
   const [courts, setCourts] = useState(() => COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (myTeam?.id && !team1Id) setTeam1Id(myTeam.id);
+  }, [myTeam, setTeam1Id, team1Id]);
 
   const team1 = teams[team1Id];
   const team2 = teams[team2Id];
@@ -649,6 +680,10 @@ function FormEntry({ teams, matches }) {
         <LineupBuilder
           team1={team1}
           team2={team2}
+          team1Selected={lineupState.team1Lineup}
+          setTeam1Selected={lineupState.setTeam1Lineup}
+          team2Selected={lineupState.team2Lineup}
+          setTeam2Selected={lineupState.setTeam2Lineup}
           onPopulateForm={(nextCourts) => { setCourts(nextCourts); setError(''); setSuccess(''); }}
         />
       )}
@@ -736,7 +771,7 @@ function FormEntry({ teams, matches }) {
 
 // ==================== QUICK PASTE ENTRY ====================
 
-function QuickEntry({ teams }) {
+function QuickEntry({ teams, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const textareaRef = useRef(null);
   const [text, setText] = useState('');
@@ -744,8 +779,6 @@ function QuickEntry({ teams }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [saving, setSaving] = useState(false);
-  const [team1Id, setTeam1Id] = useState('');
-  const [team2Id, setTeam2Id] = useState('');
   const teamList = Object.values(teams || {});
   const selectedTeam1 = teams[team1Id];
   const selectedTeam2 = teams[team2Id];
@@ -908,6 +941,10 @@ Final: KC won 3-2`;
         <LineupBuilder
           team1={selectedTeam1}
           team2={selectedTeam2}
+          team1Selected={lineupState.team1Lineup}
+          setTeam1Selected={lineupState.setTeam1Lineup}
+          team2Selected={lineupState.team2Lineup}
+          setTeam2Selected={lineupState.setTeam2Lineup}
           onPopulateQuick={(nextText) => { setText(nextText); setError(''); setSuccess(''); }}
         />
       )}
