@@ -717,8 +717,7 @@ main.container { padding-top: 1.05rem; }
 }
 
 @media (min-width: 900px) {
-  .app-shell { padding-bottom: 1.25rem; }
-  .bottom-nav { display: none; }
+  .app-shell { padding-bottom: 104px; }
 }
 
 @media (max-width: 760px) {

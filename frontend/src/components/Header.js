@@ -6,7 +6,8 @@ const PRIMARY_LINKS = [
   { to: '/teams', label: 'Teams' },
   { to: '/schedule', label: 'Schedule' },
   { to: '/standings', label: 'Standings' },
-  { to: '/matchups', label: 'Matchups' }
+  { to: '/matchups', label: 'Matchups' },
+  { to: '/more', label: 'More' }
 ];
 
 export default function AppHeader() {

@@ -116,6 +116,35 @@ function normalize(value) {
   return String(value || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+const PLAYER_ALIASES = {
+  'yogesh': 'Yogesh Dhadge',
+  'srikanth': 'Srikant Tenni',
+  'srikant': 'Srikant Tenni',
+  'uma v': 'Uma Vommi',
+  'uma': 'Uma Vommi',
+  'noufal mohamed': 'Mohamed Noufal',
+  'dinesh timmareddy': 'Dinesh Reddy Timmareddy',
+  'dinesh reddy': 'Dinesh Reddy Timmareddy',
+  'gopi guru': 'Guru Bavirisetty',
+  'guru': 'Guru Bavirisetty',
+  'nazeer mohammed': 'Naseer Mohd',
+  'naseer mohammed': 'Naseer Mohd',
+  'jaweed': 'Jaweed Ibrahim',
+  'ram kantheti': 'Janaki Ram Kantheti',
+  'damu palavali': 'Damodhara Palavali',
+  'sudhakar nallapati': 'Sudhakara Nallapati',
+  'durga': 'Durga Thimmisetty',
+  'venky dh': 'Venky Dh',
+  'krishna vennapusa': 'Krishna Vennapusa'
+};
+
+function aliasesFor(fullName) {
+  const normalizedFullName = normalize(fullName);
+  return Object.entries(PLAYER_ALIASES)
+    .filter(([, target]) => normalize(target) === normalizedFullName)
+    .map(([alias]) => alias);
+}
+
 export const UTR_RATINGS = RAW_UTR_ROWS.split('\n').slice(1).map(line => {
   const [lastName, firstName, verifiedSinglesUtr, verifiedSinglesStatus, verifiedDoublesUtr, verifiedDoublesStatus, singlesUtr, singlesStatus, doublesUtr] = line.split('|').map(v => v.trim());
   const singles = toNumber(singlesUtr) ?? toNumber(verifiedSinglesUtr);
@@ -132,10 +161,12 @@ export const UTR_RATINGS = RAW_UTR_ROWS.split('\n').slice(1).map(line => {
     verifiedSinglesStatus,
     verifiedDoublesUtr: toNumber(verifiedDoublesUtr),
     verifiedDoublesStatus,
+    aliases: aliasesFor(`${firstName} ${lastName}`),
     keys: [
       normalize(`${firstName} ${lastName}`),
       normalize(`${lastName} ${firstName}`),
-      normalize(`${firstName.split(' ')[0]} ${lastName}`)
+      normalize(`${firstName.split(' ')[0]} ${lastName}`),
+      ...aliasesFor(`${firstName} ${lastName}`).map(alias => normalize(alias))
     ]
   };
 });
@@ -152,7 +183,9 @@ export function matchUtrRating(playerName, rows = UTR_RATINGS) {
   const key = normalize(playerName);
   if (!key) return null;
   const list = Array.isArray(rows) ? rows : Object.values(rows || {});
-  const tokens = key.split(' ');
+  const aliasTarget = PLAYER_ALIASES[key];
+  const effectiveKey = aliasTarget ? normalize(aliasTarget) : key;
+  const tokens = effectiveKey.split(' ');
   const scored = list.map(row => {
     const firstTokens = normalize(row.firstName).split(' ').filter(Boolean);
     const lastTokens = normalize(row.lastName).split(' ').filter(Boolean);
@@ -160,9 +193,9 @@ export function matchUtrRating(playerName, rows = UTR_RATINGS) {
     const last = lastTokens[0] || '';
     let score = 0;
     let reason = 'No match';
-    if ((row.keys || []).includes(key)) {
+    if ((row.keys || []).includes(key) || (row.keys || []).includes(effectiveKey)) {
       score = 1;
-      reason = 'Exact normalized name';
+      reason = aliasTarget ? 'Configured alias' : 'Exact normalized name';
     } else if (tokens.includes(first) && tokens.includes(last)) {
       score = 0.94;
       reason = 'First + last token match';
