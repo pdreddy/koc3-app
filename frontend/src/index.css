@@ -730,3 +730,12 @@ main.container { padding-top: 1.05rem; }
   .brand-copy small { display: none; }
   .app-header .brand span.logo { width: 36px; height: 36px; border-radius: 12px; }
 }
+
+.lineup-builder-card { border-left: 4px solid #6366f1; }
+.lineup-builder-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
+.lineup-checkbox-grid { display: grid; grid-template-columns: 1fr; gap: .35rem; margin-top: .45rem; }
+.lineup-check { display: flex; align-items: center; gap: .45rem; border: 1px solid var(--ring); border-radius: 10px; padding: .45rem .55rem; background: rgba(255,255,255,.72); font-size: .88rem; cursor: pointer; }
+.lineup-check.active { border-color: #6366f1; background: #eef2ff; color: #312e81; font-weight: 700; }
+.lineup-check input { accent-color: #6366f1; }
+.lineup-check span { width: 1.25rem; height: 1.25rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: #e0e7ff; color: #3730a3; font-size: .72rem; font-weight: 900; }
+@media (max-width: 760px) { .lineup-builder-grid { grid-template-columns: 1fr; } }

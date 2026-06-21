@@ -95,6 +95,90 @@ function getQuickGuidance(text, parsed, teams) {
   return Array.from(new Set(tips)).slice(0, 6);
 }
 
+
+function selectedNamesFromIndexes(team, indexes) {
+  return indexes.map(index => team?.players?.[Number(index)]?.name).filter(Boolean);
+}
+
+function buildLineupCourts(team1Names, team2Names) {
+  const templates = COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount));
+  if (team1Names.length < 5 || team2Names.length < 5) return templates;
+  const [s1a, d1a, d1b, d2a, d2b] = team1Names;
+  const [s1b, od1a, od1b, od2a, od2b] = team2Names;
+  return templates.map((court, idx) => {
+    if (idx === 0) return { ...court, p1: [s1a], p2: [s1b] };
+    if (idx === 1) return { ...court, p1: [d1a, d1b], p2: [od1a, od1b] };
+    if (idx === 2) return { ...court, p1: [d1a, d1b], p2: [od2a, od2b] };
+    if (idx === 3) return { ...court, p1: [d2a, d2b], p2: [od2a, od2b] };
+    return { ...court, p1: [d2a, d2b], p2: [od1a, od1b] };
+  });
+}
+
+function buildQuickLineupText(team1, team2, team1Names, team2Names) {
+  const courts = buildLineupCourts(team1Names, team2Names);
+  const labels = ['S1', 'D1', 'D1', 'D2', 'D2'];
+  const lines = courts.map((court, idx) => `${labels[idx]}: ${court.p1.join('/')} vs ${court.p2.join('/')}\n__-__, __-__ (won) ${team1.abbreviation}`);
+  return `${team1.abbreviation} vs ${team2.abbreviation}\n\n${lines.join('\n\n')}\n\nFinal: ${team1.abbreviation} won 3-2`;
+}
+
+function TeamLineupPicker({ team, selected, onChange, label }) {
+  const toggle = (index) => {
+    const key = String(index);
+    if (selected.includes(key)) {
+      onChange(selected.filter(item => item !== key));
+      return;
+    }
+    if (selected.length >= 5) return;
+    onChange([...selected, key]);
+  };
+  return (
+    <div className="lineup-picker" data-testid={`lineup-picker-${team?.abbreviation || label}`}>
+      <div className="field-label">{label} lineup · select 5 ({selected.length}/5)</div>
+      <div className="lineup-checkbox-grid">
+        {(team?.players || []).map((player, idx) => {
+          const checked = selected.includes(String(idx));
+          return (
+            <label key={`${player.name}-${idx}`} className={`lineup-check ${checked ? 'active' : ''}`}>
+              <input
+                type="checkbox"
+                checked={checked}
+                disabled={!checked && selected.length >= 5}
+                onChange={() => toggle(idx)}
+                data-testid={`lineup-${team?.abbreviation}-${idx}`}
+              />
+              <span>{selected.indexOf(String(idx)) >= 0 ? selected.indexOf(String(idx)) + 1 : ''}</span>
+              {player.isCaptain ? '🏆 ' : ''}{player.name}
+            </label>
+          );
+        })}
+      </div>
+      <p className="hint">Pick order: singles, doubles pair 1 player 1/2, doubles pair 2 player 1/2.</p>
+    </div>
+  );
+}
+
+function LineupBuilder({ team1, team2, onPopulateForm, onPopulateQuick }) {
+  const [team1Selected, setTeam1Selected] = useState([]);
+  const [team2Selected, setTeam2Selected] = useState([]);
+  const team1Names = selectedNamesFromIndexes(team1, team1Selected);
+  const team2Names = selectedNamesFromIndexes(team2, team2Selected);
+  const ready = team1Names.length === 5 && team2Names.length === 5;
+  return (
+    <div className="card lineup-builder-card" data-testid="score-lineup-builder">
+      <h2>Lineup builder</h2>
+      <p className="hint">After teams are selected, choose 5 players from each roster. The app will fill Singles, Doubles 1, Reverse Doubles 1, Doubles 2, and Reverse Doubles 2 so you only enter scores.</p>
+      <div className="lineup-builder-grid">
+        <TeamLineupPicker team={team1} selected={team1Selected} onChange={setTeam1Selected} label={team1?.abbreviation || 'Team 1'} />
+        <TeamLineupPicker team={team2} selected={team2Selected} onChange={setTeam2Selected} label={team2?.abbreviation || 'Team 2'} />
+      </div>
+      <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginTop: '.75rem' }}>
+        {onPopulateForm && <button type="button" className="btn small success" disabled={!ready} onClick={() => onPopulateForm(buildLineupCourts(team1Names, team2Names))} data-testid="populate-form-lineup">Populate form lines</button>}
+        {onPopulateQuick && <button type="button" className="btn small success" disabled={!ready} onClick={() => onPopulateQuick(buildQuickLineupText(team1, team2, team1Names, team2Names))} data-testid="populate-quick-lineup">Populate quick paste</button>}
+      </div>
+    </div>
+  );
+}
+
 function newCourt(label, type, setCount = 3) {
   return {
     label, type,
@@ -561,6 +645,14 @@ function FormEntry({ teams, matches }) {
         </div>
       </div>
 
+      {team1 && team2 && (
+        <LineupBuilder
+          team1={team1}
+          team2={team2}
+          onPopulateForm={(nextCourts) => { setCourts(nextCourts); setError(''); setSuccess(''); }}
+        />
+      )}
+
       {team1 && team2 && courts.map((c, idx) => {
         const status = courtCompletion(c);
         return (
@@ -652,6 +744,11 @@ function QuickEntry({ teams }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [saving, setSaving] = useState(false);
+  const [team1Id, setTeam1Id] = useState('');
+  const [team2Id, setTeam2Id] = useState('');
+  const teamList = Object.values(teams || {});
+  const selectedTeam1 = teams[team1Id];
+  const selectedTeam2 = teams[team2Id];
 
   const parsed = useMemo(() => parseQuickScore(text, teams), [text, teams]);
   const quickTemplate = useMemo(() => getQuickTemplate(teams), [teams]);
@@ -785,6 +882,35 @@ Final: KC won 3-2`;
     <>
       {error && <div className="error-box" data-testid="quick-error" style={{ whiteSpace: 'pre-line' }}>{error}</div>}
       {success && <div className="success-box" data-testid="quick-success">{success}</div>}
+
+      <div className="card score-teams-card">
+        <h2>Match teams</h2>
+        <div className="row score-teams-row">
+          <div>
+            <div className="field-label">Team 1</div>
+            <select className="select" value={team1Id} onChange={e => setTeam1Id(e.target.value)} data-testid="quick-team1-select">
+              <option value="">— Select —</option>
+              {teamList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </div>
+          <span className="vs">vs</span>
+          <div>
+            <div className="field-label">Team 2</div>
+            <select className="select" value={team2Id} onChange={e => setTeam2Id(e.target.value)} data-testid="quick-team2-select">
+              <option value="">— Select —</option>
+              {teamList.filter(t => t.id !== team1Id).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {selectedTeam1 && selectedTeam2 && (
+        <LineupBuilder
+          team1={selectedTeam1}
+          team2={selectedTeam2}
+          onPopulateQuick={(nextText) => { setText(nextText); setError(''); setSuccess(''); }}
+        />
+      )}
 
       <div className="card quick-entry-card">
         <div className="quick-entry-head">
