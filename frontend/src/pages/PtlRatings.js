@@ -6,6 +6,63 @@ function formatRating(value) {
   return value == null ? '—' : Number(value).toFixed(2);
 }
 
+
+function RatingRows({ players, startRank = 1, highlightQualifiers = true }) {
+  return players.map((player, idx) => {
+    const rank = startRank + idx;
+    const deltaClass = player.ratingDelta > 0 ? 'win' : player.ratingDelta < 0 ? 'lose' : 'tie';
+    return (
+      <tr key={`${player.teamAbbr}-${player.name}`} className={highlightQualifiers && rank <= 8 && player.courts > 0 ? 'q' : ''} data-testid={`ptl-player-${player.name}`}>
+        <td className="rank">{rank}</td>
+        <td>
+          <strong>{player.name}</strong>
+          {player.aliases?.length > 0 && <div className="muted" style={{ fontSize: '.72rem' }}>aliases: {player.aliases.join(', ')}</div>}
+          {!player.hasUtrLookup && <div className="muted" style={{ fontSize: '.72rem' }}>Needs UTR name mapping</div>}
+        </td>
+        <td><span className="tag">{player.teamAbbr}</span></td>
+        <td>{formatRating(player.currentSinglesUtr)}</td>
+        <td><strong className="ptl-rating-value">{formatRating(player.ptlSinglesRating)}</strong></td>
+        <td>{formatRating(player.currentDoublesUtr)}</td>
+        <td><strong className="ptl-rating-value">{formatRating(player.ptlDoublesRating)}</strong></td>
+        <td><span className={`tag ${deltaClass}`}>{player.singlesRatingDelta > 0 ? '+' : ''}{formatRating(player.singlesRatingDelta)}/{player.doublesRatingDelta > 0 ? '+' : ''}{formatRating(player.doublesRatingDelta)}</span></td>
+        <td>{player.wins}-{player.losses}</td>
+        <td>{player.winPct}%</td>
+        <td>{player.singles}/{player.doubles}</td>
+        <td>{player.gameDiff > 0 ? `+${player.gameDiff}` : player.gameDiff}</td>
+      </tr>
+    );
+  });
+}
+
+function RatingTable({ players, emptyText, startRank = 1, highlightQualifiers = true, testid = 'ptl-ratings-table' }) {
+  return (
+    <div className="table-wrap">
+      <table className="std ptl-table" data-testid={testid}>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Player</th>
+            <th>Team</th>
+            <th>UTR S</th>
+            <th>PTL S</th>
+            <th>UTR D</th>
+            <th>PTL D</th>
+            <th>Δ S/D</th>
+            <th>W-L</th>
+            <th>Win%</th>
+            <th>S/D</th>
+            <th>G±</th>
+          </tr>
+        </thead>
+        <tbody>
+          {players.length === 0 && <tr><td colSpan="12" className="center muted">{emptyText}</td></tr>}
+          <RatingRows players={players} startRank={startRank} highlightQualifiers={highlightQualifiers} />
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function collectLegacyNames(matches, lookupRows) {
   const names = new Map();
   (matches || []).forEach(match => {
@@ -54,8 +111,11 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
     !q || `${player.name} ${player.team} ${player.teamAbbr}`.toLowerCase().includes(q.toLowerCase())
   );
 
+  const mappedPlayers = filtered.filter(player => player.hasUtrLookup);
+  const unmappedPlayers = filtered.filter(player => !player.hasUtrLookup);
   const activeCount = ratings.filter(player => player.courts > 0).length;
-  const leader = ratings.find(player => player.courts > 0);
+  const unmappedCount = ratings.filter(player => !player.hasUtrLookup).length;
+  const leader = ratings.find(player => player.courts > 0 && player.hasUtrLookup) || ratings.find(player => player.courts > 0);
 
   return (
     <main className="container">
@@ -84,7 +144,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
         <div className="card ptl-metric">
           <span>Rated players</span>
           <strong>{activeCount}</strong>
-          <small>{ratingMatches.length} current + previous matches</small>
+          <small>{ratingMatches.length} matches · {unmappedCount} need mapping</small>
         </div>
       </div>
 
@@ -171,54 +231,27 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
       )}
 
       {tab === 'ratings' && (
-      <div className="card">
-        <div className="table-wrap">
-          <table className="std ptl-table" data-testid="ptl-ratings-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Player</th>
-                <th>Team</th>
-                <th>UTR S</th>
-                <th>PTL S</th>
-                <th>UTR D</th>
-                <th>PTL D</th>
-                <th>Δ S/D</th>
-                <th>W-L</th>
-                <th>Win%</th>
-                <th>S/D</th>
-                <th>G±</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 && <tr><td colSpan="12" className="center muted">No players found</td></tr>}
-              {filtered.map((player, idx) => {
-                const deltaClass = player.ratingDelta > 0 ? 'win' : player.ratingDelta < 0 ? 'lose' : 'tie';
-                return (
-                  <tr key={`${player.teamAbbr}-${player.name}`} className={idx < 8 && player.courts > 0 ? 'q' : ''} data-testid={`ptl-player-${player.name}`}>
-                    <td className="rank">{idx + 1}</td>
-                    <td>
-                      <strong>{player.name}</strong>
-                      {player.aliases?.length > 0 && <div className="muted" style={{ fontSize: '.72rem' }}>aliases: {player.aliases.join(', ')}</div>}
-                    </td>
-                    <td><span className="tag">{player.teamAbbr}</span></td>
-                    <td>{formatRating(player.currentSinglesUtr)}</td>
-                    <td><strong className="ptl-rating-value">{formatRating(player.ptlSinglesRating)}</strong></td>
-                    <td>{formatRating(player.currentDoublesUtr)}</td>
-                    <td><strong className="ptl-rating-value">{formatRating(player.ptlDoublesRating)}</strong></td>
-                    <td><span className={`tag ${deltaClass}`}>{player.singlesRatingDelta > 0 ? '+' : ''}{formatRating(player.singlesRatingDelta)}/{player.doublesRatingDelta > 0 ? '+' : ''}{formatRating(player.doublesRatingDelta)}</span></td>
-                    <td>{player.wins}-{player.losses}</td>
-                    <td>{player.winPct}%</td>
-                    <td>{player.singles}/{player.doubles}</td>
-                    <td>{player.gameDiff > 0 ? `+${player.gameDiff}` : player.gameDiff}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <p className="hint">PTL = Prosper Tennis League rating. UTR S/D come from the provided lookup table; PTL S/D are KOC-only singles and doubles performance ratings.</p>
-      </div>
+        <>
+          <div className="card">
+            <h2>Mapped PTL Ratings <span className="muted" style={{ fontWeight: 500, fontSize: '.85rem' }}>· matched to UTR names</span></h2>
+            <RatingTable players={mappedPlayers} emptyText="No mapped players found" />
+            <p className="hint">PTL = Prosper Tennis League rating. UTR S/D come from the provided lookup table; PTL S/D are KOC-only singles and doubles performance ratings.</p>
+          </div>
+
+          {unmappedPlayers.length > 0 && (
+            <div className="card ptl-unmapped-card" data-testid="ptl-unmapped-card">
+              <h2>Needs Name Mapping <span className="muted" style={{ fontWeight: 500, fontSize: '.85rem' }}>· not found in UTR lookup</span></h2>
+              <p className="hint">These players are kept below the main mapped group because their current or legacy match name did not resolve to a stored UTR player. Update /koc_s3/playerRatings aliases or clean the source player name to move them into the mapped table.</p>
+              <RatingTable
+                players={unmappedPlayers}
+                emptyText="All players are mapped"
+                startRank={mappedPlayers.length + 1}
+                highlightQualifiers={false}
+                testid="ptl-unmapped-table"
+              />
+            </div>
+          )}
+        </>
       )}
     </main>
   );

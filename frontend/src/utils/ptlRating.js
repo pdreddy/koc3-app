@@ -31,7 +31,8 @@ function canonicalPlayerInfo(name, ratingRows) {
   return {
     key: normalizeName(lookup?.fullName || name),
     displayName: lookup?.fullName || name,
-    lookup
+    lookup,
+    hasUtrLookup: !!lookup
   };
 }
 
@@ -66,6 +67,8 @@ function buildPlayerIndex(teams, ratingRows) {
         teamAbbr: team.abbreviation,
         currentSinglesUtr: singlesUtr,
         currentDoublesUtr: doublesUtr,
+        hasUtrLookup: canonical.hasUtrLookup,
+        lookupName: canonical.lookup?.fullName || '',
         ptlSinglesRating: singlesUtr || DEFAULT_BASE_RATING,
         ptlDoublesRating: doublesUtr || DEFAULT_BASE_RATING,
         courts: 0,
@@ -93,6 +96,8 @@ function ensurePlayer(players, name, team, ratingRows) {
       teamAbbr: team?.abbreviation || '?',
       currentSinglesUtr: canonical.lookup?.singlesUtr ?? null,
       currentDoublesUtr: canonical.lookup?.doublesUtr ?? null,
+      hasUtrLookup: canonical.hasUtrLookup,
+      lookupName: canonical.lookup?.fullName || '',
       ptlSinglesRating: canonical.lookup?.singlesUtr || DEFAULT_BASE_RATING,
       ptlDoublesRating: canonical.lookup?.doublesUtr || DEFAULT_BASE_RATING,
       courts: 0,
