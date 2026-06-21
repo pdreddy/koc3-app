@@ -16,6 +16,15 @@
   "start_url": ".",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#2563eb",
-  "background_color": "#7c3aed"
+  "theme_color": "#081634",
+  "background_color": "#05122e",
+  "description": "Kings of the Court league app for teams, scores, standings, schedules, PTL ratings, and rules.",
+  "categories": [
+    "sports",
+    "productivity"
+  ],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone"
+  ]
 }
