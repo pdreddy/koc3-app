@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { onValue, ref, set, get } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { buildInitialTeams, DEFAULT_ADMIN_PASSWORD } from './data/initialTeams';
+import { buildInitialTeams, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD } from './data/initialTeams';
 import { buildUtrRatingsTable } from './data/utrRatings';
 import { buildScheduleFor8x2, firstSundayOnOrAfter } from './utils/roundRobin';
 
@@ -75,6 +75,7 @@ function Shell() {
               teamsData[tid].group = g;
             }
           });
+          Object.assign(updates, canonicalTeamIdentityUpdates(teamsData));
           if (Object.keys(updates).length > 0) {
             const { update } = await import('firebase/database');
             await update(ref(db, PATHS.teams), updates);
