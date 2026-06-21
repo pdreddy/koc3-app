@@ -54,7 +54,7 @@ export function parseQuickScore(text, teams) {
   for (let i = startLine; i < rawLines.length; i++) {
     const line = rawLines[i];
     const startsWithType = /^(S\d?|D\d?|Singles\s*\d?|Doubles\s*\d?)[\s:]/i.test(line);
-    const isScoreOnly = /^[\d\-(),\s]+\(won\)/i.test(line);
+    const isScoreOnly = /^[\d_\-(),\s]+\(won\)/i.test(line);
     if (isScoreOnly && mergedLines.length > 0) {
       mergedLines[mergedLines.length - 1] += ' ' + line;
     } else if (/^final\s*:/i.test(line)) {
@@ -112,7 +112,7 @@ export function parseQuickScore(text, teams) {
 
 function parseLine(line, team1, team2, team1Abbr, team2Abbr, abbrLookup) {
   const typeMatch = line.match(/^(S(?:ingles)?\s*(\d)?|D(?:oubles)?\s*(\d)?)[\s:]+/i);
-  let remainder = line;
+  let remainder = line.replace(/_/g, '');
   let isDoubles = true;
   let courtNum = null;
   let labelNum = false;
@@ -186,6 +186,7 @@ function parseLine(line, team1, team2, team1Abbr, team2Abbr, abbrLookup) {
 
 function parseScores(scoresStr) {
   const out = [];
+  scoresStr = String(scoresStr || '').replace(/_/g, '');
   const re = /(\d+)\s*-\s*(\d+)(?:\((\d+)\s*-\s*(\d+)\))?/g;
   let m;
   while ((m = re.exec(scoresStr)) !== null) {

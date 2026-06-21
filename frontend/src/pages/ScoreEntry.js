@@ -117,7 +117,7 @@ function buildLineupCourts(team1Names, team2Names) {
 function buildQuickLineupText(team1, team2, team1Names, team2Names) {
   const courts = buildLineupCourts(team1Names, team2Names);
   const labels = ['S1', 'D1', 'D1', 'D2', 'D2'];
-  const lines = courts.map((court, idx) => `${labels[idx]}: ${court.p1.join('/')} vs ${court.p2.join('/')}\n__-__, __-__ (won) ${team1.abbreviation}`);
+  const lines = courts.map((court, idx) => `${labels[idx]}: ${court.p1.join('/')} vs ${court.p2.join('/')}\n4-3, 4-3 (won) ${team1.abbreviation}`);
   return `${team1.abbreviation} vs ${team2.abbreviation}\n\n${lines.join('\n\n')}\n\nFinal: ${team1.abbreviation} won 3-2`;
 }
 
@@ -361,17 +361,21 @@ function courtHasEntry(c) {
 }
 
 function getDuplicatePlayers(courts) {
-  const seen = new Map();
-  const duplicates = new Set();
+  const usage = new Map();
   courts.forEach(c => {
     [...c.p1, ...c.p2].forEach(name => {
-      const key = (name || '').trim().toLowerCase();
+      const clean = (name || '').trim();
+      const key = clean.toLowerCase();
       if (!key) return;
-      if (seen.has(key)) duplicates.add((name || '').trim());
-      seen.set(key, true);
+      const current = usage.get(key) || { name: clean, singles: 0, doubles: 0 };
+      if (c.type === 'singles') current.singles += 1;
+      else current.doubles += 1;
+      usage.set(key, current);
     });
   });
-  return Array.from(duplicates);
+  return Array.from(usage.values())
+    .filter(item => item.singles > 1 || (item.singles > 0 && item.doubles > 0) || item.doubles > 2)
+    .map(item => item.name);
 }
 
 function courtCompletion(c) {
