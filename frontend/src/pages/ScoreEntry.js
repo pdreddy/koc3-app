@@ -272,6 +272,63 @@ function PlayerInput({ value, onChange, roster, teamAbbr, testid }) {
   );
 }
 
+
+function ScoreShortcut({ court, team1, team2, onApply }) {
+  const [team1Result, setTeam1Result] = useState('W');
+  const [normalLosses, setNormalLosses] = useState(['3', '3']);
+  const [extraLoss, setExtraLoss] = useState('');
+  const winnerTeamNum = team1Result === 'W' ? 1 : 2;
+  const apply = () => {
+    const nextSets = court.sets.map(() => ({ a: '', b: '', tieA: '', tieB: '' }));
+    normalLosses.forEach((loss, idx) => {
+      if (loss === '') return;
+      const loserGames = String(Math.max(0, Math.min(3, Number(loss) || 0)));
+      nextSets[idx] = winnerTeamNum === 1
+        ? { a: '4', b: loserGames, tieA: '', tieB: '' }
+        : { a: loserGames, b: '4', tieA: '', tieB: '' };
+    });
+    if (extraLoss !== '') {
+      if (court.type === 'doubles') {
+        const loserPoints = String(Math.max(0, Math.min(9, Number(extraLoss) || 0)));
+        nextSets[2] = winnerTeamNum === 1
+          ? { a: '0', b: '0', tieA: '10', tieB: loserPoints }
+          : { a: '0', b: '0', tieA: loserPoints, tieB: '10' };
+      } else {
+        const loserGames = String(Math.max(0, Math.min(3, Number(extraLoss) || 0)));
+        nextSets[2] = winnerTeamNum === 1
+          ? { a: '4', b: loserGames, tieA: '', tieB: '' }
+          : { a: loserGames, b: '4', tieA: '', tieB: '' };
+      }
+    }
+    onApply(nextSets);
+  };
+  return (
+    <div className="score-shortcut" data-testid={`score-shortcut-${court.label}`}>
+      <div className="field-label">Fast score</div>
+      <div className="score-shortcut-row">
+        <span className="muted">{team1.abbreviation}</span>
+        <button type="button" className={`tag ${team1Result === 'W' ? 'win' : ''}`} onClick={() => setTeam1Result('W')} data-testid={`score-shortcut-${court.label}-w`}>W</button>
+        <button type="button" className={`tag ${team1Result === 'L' ? 'lose' : ''}`} onClick={() => setTeam1Result('L')} data-testid={`score-shortcut-${court.label}-l`}>L</button>
+        <span className="muted">winner starts at 4; enter loser scores</span>
+      </div>
+      <div className="score-shortcut-row">
+        {normalLosses.map((value, idx) => (
+          <label key={idx} className="score-mini-field">
+            Set {idx + 1} loser
+            <input className="input" type="number" min="0" max="3" value={value} onChange={e => setNormalLosses(values => values.map((v, i) => i === idx ? e.target.value : v))} />
+          </label>
+        ))}
+        <label className="score-mini-field">
+          {court.type === 'doubles' ? '3rd super TB loser' : 'Set 3 loser'}
+          <input className="input" type="number" min="0" max={court.type === 'doubles' ? '9' : '3'} value={extraLoss} onChange={e => setExtraLoss(e.target.value)} placeholder={court.type === 'doubles' ? '0-9' : 'optional'} />
+        </label>
+        <button type="button" className="btn small" onClick={apply} data-testid={`score-shortcut-${court.label}-apply`}>Apply scores</button>
+      </div>
+      <p className="hint">For doubles, the optional 3rd score is saved as a 10-point super tiebreak.</p>
+    </div>
+  );
+}
+
 function SetRow({ idx, set, onChange, disabled }) {
   return (
     <div className="set-input">
@@ -734,6 +791,7 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
           </div>
 
           <div className="sets-entry-col">
+          <ScoreShortcut court={c} team1={team1} team2={team2} onApply={(sets) => updateCourt(idx, { sets })} />
           <div className="field-label">Sets ({team1.abbreviation} – {team2.abbreviation})</div>
           {c.sets.map((s, i) => (
             <div key={i} data-testid={`court-${idx}-set-${i}-row`}>
