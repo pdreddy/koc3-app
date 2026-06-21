@@ -1,16 +1,39 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+
+const PRIMARY_LINKS = [
+  { to: '/teams', label: 'Teams' },
+  { to: '/schedule', label: 'Schedule' },
+  { to: '/standings', label: 'Standings' },
+  { to: '/matchups', label: 'Matchups' }
+];
 
 export default function AppHeader() {
   const { session, logout } = useAuth();
   return (
     <header className="app-header" data-testid="app-header">
-      <Link to="/teams" className="brand" data-testid="header-home">
-        <span className="logo">🏆</span>
-        <strong>KOC3</strong>
+      <Link to="/teams" className="brand" data-testid="header-home" aria-label="KOC3 home">
+        <span className="logo" aria-hidden="true">🏆</span>
+        <span className="brand-copy">
+          <strong>KOC3</strong>
+          <small>Table Tennis League</small>
+        </span>
       </Link>
-      <div style={{display:'flex', gap:'.4rem', alignItems:'center'}}>
+
+      <nav className="top-nav" aria-label="Primary navigation">
+        {PRIMARY_LINKS.map(link => (
+          <NavLink
+            key={link.to}
+            to={link.to}
+            className={({ isActive }) => isActive ? 'active' : ''}
+          >
+            {link.label}
+          </NavLink>
+        ))}
+      </nav>
+
+      <div className="header-actions">
         {session.role === 'admin' && (
           <span className="user-pill" data-testid="user-pill">ADMIN</span>
         )}
