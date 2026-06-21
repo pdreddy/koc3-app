@@ -73,8 +73,8 @@ function RuleItem({ item }) {
 
 function RuleCard({ card, idx }) {
   return (
-    <article className="rules-card" style={{ '--rule-color': card.color, animationDelay: `${(idx + 1) * 0.04}s` }}>
-      <div className="rules-card-top"><span className="rules-num">{card.num}</span><span className="rules-chip">{card.icon}</span><span className="rules-title">{card.title}</span></div>
+    <article id={`rule-${card.num}`} className="rules-card" style={{ '--rule-color': card.color, animationDelay: `${(idx + 1) * 0.04}s` }}>
+      <div className="rules-card-top"><span className="rules-num">{card.num}</span><span className="rules-chip">{card.icon}</span><span className="rules-title">{card.title}</span></div><div className="rules-card-watermark">{card.num}</div>
       {card.items?.map((item) => <RuleItem key={`${card.num}-${item[1]}`} item={item} />)}
       {card.groups?.map(([name, items]) => (
         <div key={name}>
@@ -98,7 +98,7 @@ export default function Rules() {
           <p>Everything captains and players need: match limits, scoring, scheduling, and the road to the playoffs.</p>
           <div className="rules-energy" />
         </div>
-        <div className="rules-visual" aria-hidden="true"><div className="rules-ball" /></div>
+        <div className="rules-visual" aria-hidden="true"><div className="rules-orbit" /><div className="rules-ball" /><div className="rules-racket" /></div>
         <div className="rules-stats">
           <div className="rules-stat"><b>16</b><small>Teams</small></div>
           <div className="rules-stat"><b>RR</b><small>Round Robin</small></div>
@@ -107,8 +107,19 @@ export default function Rules() {
         </div>
       </section>
 
+      <nav className="rules-toc" aria-label="Rules sections">
+        {ruleCards.map(card => <a key={card.num} href={`#rule-${card.num}`}><span>{card.num}</span>{card.title}</a>)}
+      </nav>
+
       <div className="rules-sec-head"><h2>The Rules</h2><div className="rules-line" /></div>
       <section className="rules-grid">{ruleCards.map((card, idx) => <RuleCard key={card.num} card={card} idx={idx} />)}</section>
+
+      <section className="rules-flow-card">
+        <div><b>1</b><span>Share lineup</span><small>Captains post lines before play.</small></div>
+        <div><b>2</b><span>Play 5 lines</span><small>Singles, doubles and reverse doubles.</small></div>
+        <div><b>3</b><span>Post scores</span><small>Winning captain reports before Sunday morning.</small></div>
+        <div><b>4</b><span>Standings update</span><small>Points, sets, games and head-to-head decide rank.</small></div>
+      </section>
 
       <div className="rules-sec-head"><h2>Playoffs</h2><div className="rules-line" /></div>
       <section className="rules-bracket">
