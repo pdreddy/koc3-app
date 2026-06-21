@@ -1,7 +1,142 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ref, set, update, remove, push } from 'firebase/database';
 import { db, PATHS } from '../firebase';
 import { buildScheduleFor8x2, firstSundayOnOrAfter } from '../utils/roundRobin';
+import { UTR_RATINGS, matchUtrRating, normalizeNameKey, suggestUtrMatches } from '../data/utrRatings';
+
+
+function ratingRowId(row) {
+  return row?._id || String(row?.fullName || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+}
+
+function uniqueValues(values) {
+  return Array.from(new Set(values.map(value => String(value || '').trim()).filter(Boolean)));
+}
+
+function collectPlayerNames(teams, matches, previousMatches) {
+  const names = new Map();
+  const add = (name, source) => {
+    const clean = String(name || '').trim();
+    if (!clean) return;
+    const current = names.get(clean) || { name: clean, sources: new Set(), count: 0 };
+    current.sources.add(source);
+    current.count += 1;
+    names.set(clean, current);
+  };
+
+  Object.values(teams || {}).forEach(team => {
+    (team.players || []).forEach(player => add(player.name, `Roster ${team.abbreviation || team.name || ''}`.trim()));
+  });
+  [...(matches || []), ...(previousMatches || [])].forEach(match => {
+    (match.lines || []).forEach(line => {
+      [...(line.players?.team1 || []), ...(line.players?.team2 || [])].forEach(name => add(name, match.source || 'Match'));
+    });
+  });
+
+  return Array.from(names.values()).map(row => ({
+    ...row,
+    sources: Array.from(row.sources).join(', ')
+  })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function AdminNameMapRow({ sourceName, sourceInfo, lookupRows }) {
+  const suggestions = useMemo(() => suggestUtrMatches(sourceName, lookupRows, 5), [sourceName, lookupRows]);
+  const [targetName, setTargetName] = useState(suggestions[0]?.row.fullName || lookupRows[0]?.fullName || '');
+  const [msg, setMsg] = useState('');
+  const targetRow = lookupRows.find(row => row.fullName === targetName) || suggestions[0]?.row;
+
+  const saveMapping = async () => {
+    if (!targetRow) { setMsg('Select an actual UTR player first.'); return; }
+    const id = ratingRowId(targetRow);
+    if (!id) { setMsg('Selected rating row has no Firebase id.'); return; }
+    const aliases = uniqueValues([...(targetRow.aliases || []), sourceName]);
+    const keys = uniqueValues([...(targetRow.keys || []), normalizeNameKey(sourceName)]);
+    try {
+      await update(ref(db, `${PATHS.playerRatings}/${id}`), { aliases, keys });
+      setMsg(`✅ DB updated: ${sourceName} → ${targetRow.fullName}`);
+    } catch (e) {
+      setMsg(`Save failed: ${e.message}`);
+    }
+  };
+
+  return (
+    <tr data-testid={`admin-name-map-${sourceName}`}>
+      <td>
+        <strong>{sourceName}</strong>
+        <div className="muted" style={{ fontSize: '.72rem' }}>{sourceInfo.sources} · {sourceInfo.count} occurrence{sourceInfo.count === 1 ? '' : 's'}</div>
+      </td>
+      <td>
+        {suggestions.length === 0 ? '—' : suggestions.map(item => (
+          <button
+            type="button"
+            key={item.row.fullName}
+            className={`tag ${item.score >= 0.72 ? 'tie' : ''}`}
+            onClick={() => setTargetName(item.row.fullName)}
+            title={item.reason}
+            style={{ marginRight: '.25rem', marginBottom: '.25rem' }}
+          >
+            {item.row.fullName} · {Math.round(item.score * 100)}%
+          </button>
+        ))}
+      </td>
+      <td>
+        <select className="select" value={targetName} onChange={e => setTargetName(e.target.value)} data-testid={`admin-name-map-${sourceName}-select`}>
+          {lookupRows.map(row => <option key={row.fullName} value={row.fullName}>{row.fullName}</option>)}
+        </select>
+      </td>
+      <td>
+        <button type="button" className="btn small success" onClick={saveMapping} data-testid={`admin-name-map-${sourceName}-save`}>Update DB Mapping</button>
+        {msg && <div className={msg.startsWith('✅') ? 'success-box' : 'error-box'} style={{ marginTop: '.35rem' }}>{msg}</div>}
+      </td>
+    </tr>
+  );
+}
+
+function NameMappingAdmin({ teams, matches, previousMatches, playerRatings }) {
+  const [filter, setFilter] = useState('unmapped');
+  const lookupRows = useMemo(() => {
+    const rows = Object.entries(playerRatings || {}).map(([id, row]) => ({ _id: id, ...(row || {}) }));
+    return rows.length > 0 ? rows : UTR_RATINGS;
+  }, [playerRatings]);
+  const sourceNames = useMemo(() => collectPlayerNames(teams, matches, previousMatches), [teams, matches, previousMatches]);
+  const rows = useMemo(() => sourceNames.map(row => {
+    const matched = matchUtrRating(row.name, lookupRows);
+    return {
+      ...row,
+      matchedName: matched?.row.fullName || '',
+      confidence: matched ? Math.round(matched.score * 100) : 0,
+      reason: matched?.reason || 'Needs mapping'
+    };
+  }), [lookupRows, sourceNames]);
+  const visibleRows = rows.filter(row => filter === 'all' || !row.matchedName);
+
+  return (
+    <div className="card" data-testid="admin-name-mapping-card">
+      <h2>PTL Name Mapping</h2>
+      <p className="hint">Map roster, KOC3 match, and KOC2 history names to actual UTR players. Clicking <strong>Update DB Mapping</strong> writes aliases and normalized keys directly to /koc_s3/playerRatings.</p>
+      <div style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap', marginBottom: '.7rem' }}>
+        <button className={`btn small ${filter === 'unmapped' ? '' : 'ghost'}`} onClick={() => setFilter('unmapped')} data-testid="admin-name-map-filter-unmapped">Needs mapping ({rows.filter(row => !row.matchedName).length})</button>
+        <button className={`btn small ${filter === 'all' ? '' : 'ghost'}`} onClick={() => setFilter('all')} data-testid="admin-name-map-filter-all">All names ({rows.length})</button>
+      </div>
+      <div className="table-wrap">
+        <table className="std ptl-table" data-testid="admin-name-mapping-table">
+          <thead>
+            <tr>
+              <th>Source name</th>
+              <th>Fuzzy suggestions</th>
+              <th>Actual UTR player</th>
+              <th>DB action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visibleRows.length === 0 && <tr><td colSpan="4" className="center muted">No names need mapping.</td></tr>}
+            {visibleRows.map(row => <AdminNameMapRow key={row.name} sourceName={row.name} sourceInfo={row} lookupRows={lookupRows} />)}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 function TeamEditor({ team }) {
   const [name, setName] = useState(team.name);
@@ -286,7 +421,7 @@ function ScheduleEditor({ schedule, teams }) {
   );
 }
 
-export default function Admin({ teams, adminConfig, matches, schedule }) {
+export default function Admin({ teams, adminConfig, matches, previousMatches = [], schedule, playerRatings = {} }) {
   const [tab, setTab] = useState('teams');
   const [newAdminPwd, setNewAdminPwd] = useState('');
   const [adminMsg, setAdminMsg] = useState('');
@@ -325,6 +460,7 @@ export default function Admin({ teams, adminConfig, matches, schedule }) {
         <button className={`tab ${tab === 'teams' ? 'active' : ''}`} onClick={() => setTab('teams')} data-testid="admin-tab-teams">Teams</button>
         <button className={`tab ${tab === 'schedule' ? 'active' : ''}`} onClick={() => setTab('schedule')} data-testid="admin-tab-schedule">Schedule</button>
         <button className={`tab ${tab === 'settings' ? 'active' : ''}`} onClick={() => setTab('settings')} data-testid="admin-tab-settings">Settings</button>
+        <button className={`tab ${tab === 'nameMapping' ? 'active' : ''}`} onClick={() => setTab('nameMapping')} data-testid="admin-tab-name-mapping">PTL Name Mapping</button>
         <button className={`tab ${tab === 'passwords' ? 'active' : ''}`} onClick={() => setTab('passwords')} data-testid="admin-tab-passwords">Passwords</button>
       </div>
 
@@ -335,6 +471,8 @@ export default function Admin({ teams, adminConfig, matches, schedule }) {
       )}
 
       {tab === 'schedule' && <ScheduleEditor schedule={schedule} teams={teams} />}
+
+      {tab === 'nameMapping' && <NameMappingAdmin teams={teams} matches={matches} previousMatches={previousMatches} playerRatings={playerRatings} />}
 
       {tab === 'passwords' && (
         <div className="card">

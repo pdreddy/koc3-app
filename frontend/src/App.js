@@ -168,7 +168,7 @@ function Shell() {
         } />
         <Route path="/admin" element={
           <ProtectedAdmin>
-            <Admin teams={teams} adminConfig={adminConfig} matches={matches} schedule={schedule} />
+            <Admin teams={teams} adminConfig={adminConfig} matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} schedule={schedule} playerRatings={playerRatings} />
           </ProtectedAdmin>
         } />
         <Route path="*" element={<Navigate to="/teams" replace />} />
