@@ -40,6 +40,26 @@ function expectedWinChance(rating, opponentRating) {
   return 1 / (1 + Math.pow(10, (opponentRating - rating) / 4));
 }
 
+
+function seasonLabel(source) {
+  const clean = String(source || '').trim();
+  if (!clean) return 'Unknown season';
+  if (/koc3/i.test(clean)) return 'KOC3';
+  if (/season\s*2|koc2/i.test(clean)) return 'Season 2';
+  return clean;
+}
+
+function teamLabel(team) {
+  return team?.abbreviation || team?.name || '?';
+}
+
+function addSeasonTeam(player, source, team) {
+  if (!player) return;
+  const label = `${seasonLabel(source)} / ${teamLabel(team)}`;
+  if (!player.seasonTeams) player.seasonTeams = new Set();
+  player.seasonTeams.add(label);
+}
+
 function pprcScoreForCourt({ won, gamesFor, gamesAgainst }) {
   const totalGames = Math.max(1, gamesFor + gamesAgainst);
   const gameMargin = clamp((gamesFor - gamesAgainst) / totalGames, -1, 1);
@@ -77,7 +97,8 @@ function buildPlayerIndex(teams, ratingRows) {
         doubles: 0,
         gamesFor: 0,
         gamesAgainst: 0,
-        ratingDelta: 0
+        ratingDelta: 0,
+        seasonTeams: new Set([`KOC3 / ${teamLabel(team)}`])
       };
     });
   });
@@ -105,7 +126,8 @@ function ensurePlayer(players, name, team, ratingRows) {
       doubles: 0,
       gamesFor: 0,
       gamesAgainst: 0,
-      ratingDelta: 0
+      ratingDelta: 0,
+      seasonTeams: new Set()
     };
   }
   return players[key];
@@ -114,6 +136,8 @@ function ensurePlayer(players, name, team, ratingRows) {
 function applyCourtRating(players, playerNames, opponentNames, context, ratingRows) {
   const playerRecords = playerNames.map(name => ensurePlayer(players, name, context.team, ratingRows));
   const opponentRecords = opponentNames.map(name => ensurePlayer(players, name, context.opponentTeam, ratingRows));
+  playerRecords.forEach(player => addSeasonTeam(player, context.source, context.team));
+  opponentRecords.forEach(player => addSeasonTeam(player, context.source, context.opponentTeam));
   const ratingKey = context.type === 'singles' ? 'pprcSinglesRating' : 'pprcDoublesRating';
   const deltaKey = context.type === 'singles' ? 'singlesRatingDelta' : 'doublesRatingDelta';
   const opponentAverage = opponentRecords.reduce((sum, p) => sum + p[ratingKey], 0) / Math.max(1, opponentRecords.length);
@@ -160,7 +184,8 @@ export function buildPprcRatings(teams, matches, ratingRows) {
         won: team1Won,
         gamesFor: g1,
         gamesAgainst: g2,
-        type: line.type
+        type: line.type,
+        source: match.source
       }, ratingRows);
       applyCourtRating(players, t2Players, t1Players, {
         team: team2,
@@ -168,7 +193,8 @@ export function buildPprcRatings(teams, matches, ratingRows) {
         won: !team1Won,
         gamesFor: g2,
         gamesAgainst: g1,
-        type: line.type
+        type: line.type,
+        source: match.source
       }, ratingRows);
     });
   });
@@ -181,6 +207,7 @@ export function buildPprcRatings(teams, matches, ratingRows) {
       pprcSinglesRating: Number(player.pprcSinglesRating.toFixed(2)),
       pprcDoublesRating: Number(player.pprcDoublesRating.toFixed(2)),
       pprcRating: Number((((player.pprcSinglesRating || DEFAULT_BASE_RATING) + (player.pprcDoublesRating || DEFAULT_BASE_RATING)) / 2).toFixed(2)),
+      seasonTeamSummary: Array.from(player.seasonTeams || []).sort().join(', '),
       ratingDelta: Number(player.ratingDelta.toFixed(2)),
       singlesRatingDelta: Number((player.singlesRatingDelta || 0).toFixed(2)),
       doublesRatingDelta: Number((player.doublesRatingDelta || 0).toFixed(2))

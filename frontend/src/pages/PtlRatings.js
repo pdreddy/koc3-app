@@ -84,9 +84,9 @@ function RatingRows({ players, startRank = 1, highlightQualifiers = true }) {
         <td className="rank">{rank}</td>
         <td>
           <strong>{player.name}</strong>
+          <div className="muted" style={{ fontSize: '.72rem' }}>{player.seasonTeamSummary || 'No season/team data yet'}</div>
           {!player.hasUtrLookup && <div className="muted" style={{ fontSize: '.72rem' }}>Needs UTR name mapping</div>}
         </td>
-        <td><span className="tag">{player.teamAbbr}</span></td>
         <td>{formatRating(player.currentSinglesUtr)}</td>
         <td><strong className="ptl-rating-value">{formatRating(player.pprcSinglesRating)}</strong></td>
         <td>{formatRating(player.currentDoublesUtr)}</td>
@@ -109,7 +109,6 @@ function RatingTable({ players, emptyText, startRank = 1, highlightQualifiers = 
           <tr>
             <th>#</th>
             <th>Player</th>
-            <th>Team</th>
             <th>UTR S</th>
             <th>PPRC S</th>
             <th>UTR D</th>
@@ -122,7 +121,7 @@ function RatingTable({ players, emptyText, startRank = 1, highlightQualifiers = 
           </tr>
         </thead>
         <tbody>
-          {players.length === 0 && <tr><td colSpan="12" className="center muted">{emptyText}</td></tr>}
+          {players.length === 0 && <tr><td colSpan="11" className="center muted">{emptyText}</td></tr>}
           <RatingRows players={players} startRank={startRank} highlightQualifiers={highlightQualifiers} />
         </tbody>
       </table>
@@ -178,7 +177,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
   const ratings = useMemo(() => buildPprcRatings(teams, ratingMatches, lookupRows), [teams, ratingMatches, lookupRows]);
   const legacyNameMap = useMemo(() => collectLegacyNames(previousMatches, lookupRows), [previousMatches, lookupRows]);
   const filtered = ratings.filter(player =>
-    !q || `${player.name} ${player.team} ${player.teamAbbr}`.toLowerCase().includes(q.toLowerCase())
+    !q || `${player.name} ${player.team} ${player.teamAbbr} ${player.seasonTeamSummary}`.toLowerCase().includes(q.toLowerCase())
   );
 
   const mappedPlayers = filtered.filter(player => player.hasUtrLookup);
@@ -214,7 +213,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
           <span className="ptl-kicker">Algorithm</span>
           <h2>How PPRC works</h2>
           <p>
-            PPRC starts singles and doubles separately from the UTR table when available, otherwise from 3.50.
+            PPRC combines all loaded seasons for the same player name. It starts singles and doubles separately from the UTR table when available, otherwise from 3.50.
             Each court compares the player rating to the opponent or opponent-pair average, applies a small
             game-margin adjustment, caps each court movement, then averages PPRC S and PPRC D into the final rating.
             Previous season matches are cleaned from /koc_s2/matches before rating, and aliases are not used.
