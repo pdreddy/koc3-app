@@ -3,6 +3,7 @@ import { ref, set, update, remove, push } from 'firebase/database';
 import { db, PATHS } from '../firebase';
 import { buildScheduleFor8x2, firstSundayOnOrAfter } from '../utils/roundRobin';
 import { UTR_RATINGS, matchUtrRating, normalizeNameKey, suggestUtrMatches } from '../data/utrRatings';
+import { normalizeAuctionTeam } from '../data/auctionTeams';
 
 
 function ratingRowId(row) {
@@ -134,6 +135,51 @@ function NameMappingAdmin({ teams, matches, previousMatches, playerRatings }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function TeamJsonImporter() {
+  const [msg, setMsg] = useState('');
+
+  const saveTeamsFromJson = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setMsg('');
+    try {
+      const parsed = JSON.parse(await file.text());
+      const sourceTeams = Array.isArray(parsed) ? parsed : Object.values(parsed.teams || parsed);
+      if (!Array.isArray(sourceTeams) || sourceTeams.length === 0) {
+        setMsg('JSON must contain an array of teams or a { "teams": [...] } object.');
+        return;
+      }
+      const updates = {};
+      sourceTeams.forEach((team, index) => {
+        const normalized = normalizeAuctionTeam(team, index);
+        if (!normalized.name || !normalized.abbreviation || normalized.players.length === 0) {
+          throw new Error(`Team ${index + 1} is missing name, abbreviation, or players.`);
+        }
+        updates[normalized.id] = {
+          ...normalized,
+          password: team.password || `KOC${normalized.abbreviation}#3`,
+          gradient: team.gradient || index + 1,
+          group: team.group || (index < 8 ? 'A' : 'B')
+        };
+      });
+      await update(ref(db, PATHS.teams), updates);
+      setMsg(`✅ Updated ${sourceTeams.length} team${sourceTeams.length === 1 ? '' : 's'} from JSON`);
+    } catch (e) {
+      setMsg('Import failed: ' + e.message);
+    }
+  };
+
+  return (
+    <div className="card" data-testid="admin-team-json-importer">
+      <h2>📥 Bulk Team JSON Update</h2>
+      <p className="hint">Upload a JSON array (or an object with a <code>teams</code> array) to update all team records, including roster, UTR, base price, auctioned money, captain slot, total spent, and money left.</p>
+      <input className="input" type="file" accept="application/json,.json" onChange={saveTeamsFromJson} data-testid="admin-team-json-file" />
+      {msg && <div className={msg.startsWith('✅') ? 'success-box' : 'error-box'} style={{ marginTop: '.6rem' }}>{msg}</div>}
     </div>
   );
 }
@@ -466,6 +512,7 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
 
       {tab === 'teams' && (
         <>
+          <TeamJsonImporter />
           {teamList.map(t => <TeamEditor key={t.id} team={t} />)}
         </>
       )}
