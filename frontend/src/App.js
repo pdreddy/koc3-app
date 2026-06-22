@@ -134,7 +134,7 @@ function Shell() {
     const unsubLegacy = onValue(ref(db, PATHS.koc2db), (snap) => {
       setLegacyMatches(cleanMatchList(firebaseObjectToList(snap.val(), 'Season 2')));
     }, (error) => {
-      console.error('Legacy KOC2DB load failed', error);
+      console.error('Legacy Season 2 load failed', error);
       setLegacyMatches([]);
     });
     const unsubA = onValue(ref(db, PATHS.admin), (snap) => {

@@ -172,7 +172,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
     return rows.length > 0 ? rows : UTR_RATINGS;
   }, [ratingLookup]);
   const ratingMatches = useMemo(() => [
-    ...(previousMatches || []).map(match => ({ ...match, source: match.source || 'KOC2DB' })),
+    ...(previousMatches || []).map(match => ({ ...match, source: match.source || 'Season 2' })),
     ...(matches || []).map(match => ({ ...match, source: match.source || 'KOC3' }))
   ], [matches, previousMatches]);
   const ratings = useMemo(() => buildPprcRatings(teams, ratingMatches, lookupRows), [teams, ratingMatches, lookupRows]);
@@ -217,7 +217,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
             PPRC starts singles and doubles separately from the UTR table when available, otherwise from 3.50.
             Each court compares the player rating to the opponent or opponent-pair average, applies a small
             game-margin adjustment, caps each court movement, then averages PPRC S and PPRC D into the final rating.
-            Previous season matches are cleaned from /KOC2DB before rating, and aliases are not used.
+            Previous season matches are cleaned from /koc_s2/matches before rating, and aliases are not used.
           </p>
         </div>
         <div className="card ptl-metric">

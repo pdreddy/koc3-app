@@ -25,7 +25,7 @@ export const PATHS = {
   playerRatings: 'koc_s3/playerRatings', // UTR lookup table used by PPRC
   admin: 'koc_s3/admin',         // { password }
   schedule: 'koc_s3/schedule',   // KOC3 fixtures
-  season2: 'KOC2DB',              // Season 2 archive / PPRC history (read-only)
-  koc2db: 'KOC2DB',              // Legacy KOC2 database for PPRC rating history
-  season1: 'KOC2DBPONEW'         // Older legacy archive fallback (read-only)
+  season2: 'koc_s2/matches',     // Season 2 archive / PPRC history (read-only)
+  koc2db: 'koc_s2/matches',      // Existing Season 2 match path for PPRC rating history
+  season1: 'koc_s2/matches'      // Backward-compatible alias; no separate legacy DB required
 };
