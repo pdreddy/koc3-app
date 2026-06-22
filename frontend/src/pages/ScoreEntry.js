@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { push, ref } from 'firebase/database';
 import { db, PATHS, ensureAuth } from '../firebase';
+import { ScoreProcessingService } from '../services/ScoreProcessingService';
+import { writeAuditLog } from '../services/AuditService';
+import { ROLES, isAdminRole } from '../utils/roles';
 import { useAuth } from '../contexts/AuthContext';
 import { matchName } from '../utils/nameMatch';
 import { parseQuickScore } from '../utils/quickScoreParser';
@@ -533,8 +536,8 @@ export default function ScoreEntry({ teams, matches }) {
 function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const teamList = Object.values(teams || {});
-  const myTeam = session.role === 'team' ? teams[session.teamId] : null;
-  const isAdmin = session.role === 'admin';
+  const myTeam = session.role === ROLES.CAPTAIN ? teams[session.teamId] : null;
+  const isAdmin = isAdminRole(session);
 
 
   const [courts, setCourts] = useState(() => COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
@@ -571,7 +574,7 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
     if (team1.id === team2.id) { setError('Teams must be different.'); return; }
 
     // For team captains, must include their own team
-    if (session.role === 'team' && team1.id !== session.teamId && team2.id !== session.teamId) {
+    if (session.role === ROLES.CAPTAIN && team1.id !== session.teamId && team2.id !== session.teamId) {
       setError('Your team must be involved in the match.');
       return;
     }
@@ -644,15 +647,22 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
       courtsWon1: totals.w1, courtsWon2: totals.w2,
       win: winner,
       ts: Date.now(),
-      enteredBy: session.role === 'team' ? session.teamName : 'Admin',
+      enteredBy: session.role === ROLES.CAPTAIN ? session.teamName : 'Admin',
+      status: 'APPROVED',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      updatedBy: session.teamId || session.role,
+      approvedBy: session.role,
       lines
     };
 
     try {
       setSaving(true);
       await ensureAuth();
-      await push(ref(db, PATHS.matches), record);
-      setSuccess(`✅ Saved: ${team1.name} vs ${team2.name} — Winner: ${winner}`);
+      const saved = await push(ref(db, PATHS.matches), record);
+      await ScoreProcessingService.processMatchResult(saved.key, { session, matchRecord: { ...record, id: saved.key } });
+      await writeAuditLog({ actionType: 'Score Entry', session, targetType: 'match', targetId: saved.key, newValue: record });
+      setSuccess(`✅ Saved and synchronized ratings, standings, histories, and dashboard:  ${team1.name} vs ${team2.name} — Winner: ${winner}`);
       setCourts(COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
     } catch (e) {
       setError('Save failed: ' + e.message);
@@ -858,7 +868,7 @@ function QuickEntry({ teams, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupSta
     if (results.length === 0) { setError('No valid courts parsed.'); return; }
 
     // Team-captain restriction
-    if (session.role === 'team' && team1.id !== session.teamId && team2.id !== session.teamId) {
+    if (session.role === ROLES.CAPTAIN && team1.id !== session.teamId && team2.id !== session.teamId) {
       setError('Your team must be involved in the match.');
       return;
     }
@@ -893,15 +903,22 @@ function QuickEntry({ teams, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupSta
       courtsWon1: w1, courtsWon2: w2,
       win: winner,
       ts: Date.now(),
-      enteredBy: session.role === 'team' ? session.teamName : 'Admin',
+      enteredBy: session.role === ROLES.CAPTAIN ? session.teamName : 'Admin',
+      status: 'APPROVED',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      updatedBy: session.teamId || session.role,
+      approvedBy: session.role,
       lines
     };
 
     try {
       setSaving(true);
       await ensureAuth();
-      await push(ref(db, PATHS.matches), record);
-      setSuccess(`✅ Saved: ${team1.name} vs ${team2.name} — Winner: ${winner}`);
+      const saved = await push(ref(db, PATHS.matches), record);
+      await ScoreProcessingService.processMatchResult(saved.key, { session, matchRecord: { ...record, id: saved.key } });
+      await writeAuditLog({ actionType: 'Score Entry', session, targetType: 'match', targetId: saved.key, newValue: record });
+      setSuccess(`✅ Saved and synchronized ratings, standings, histories, and dashboard:  ${team1.name} vs ${team2.name} — Winner: ${winner}`);
       setText('');
     } catch (e) {
       setError('Save failed: ' + e.message);

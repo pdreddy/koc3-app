@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { onValue, ref, set, get } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ROLES, hasRole } from './utils/roles';
 import { buildInitialTeams, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD } from './data/initialTeams';
 import { buildUtrRatingsTable } from './data/utrRatings';
 import { sortByGroupOrder } from './data/auctionTeams';
@@ -22,8 +23,8 @@ import Rules from './pages/Rules';
 import Schedule from './pages/Schedule';
 import Matchups from './pages/Matchups';
 import More from './pages/More';
-import Season2 from './pages/Season2';
 import PtlRatings from './pages/PtlRatings';
+import AuditLogs from './pages/AuditLogs';
 
 function firebaseObjectToList(data, source) {
   if (!data) return [];
@@ -50,7 +51,7 @@ function Shell() {
   const [legacyMatches, setLegacyMatches] = useState([]);
   const [legacyFallbackMatches, setLegacyFallbackMatches] = useState([]);
   const [playerRatings, setPlayerRatings] = useState({});
-  const [adminConfig, setAdminConfig] = useState({ password: '' });
+  const [adminConfig, setAdminConfig] = useState({ password: '', users: {} });
   const [schedule, setSchedule] = useState({});
   const [loaded, setLoaded] = useState(false);
 
@@ -88,6 +89,7 @@ function Shell() {
         if (!aSnap.exists()) {
           await set(ref(db, PATHS.admin), { password: DEFAULT_ADMIN_PASSWORD });
         }
+
 
         const rSnap = await get(ref(db, PATHS.playerRatings));
         if (!rSnap.exists()) {
@@ -148,7 +150,10 @@ function Shell() {
       setLegacyFallbackMatches([]);
     });
     const unsubA = onValue(ref(db, PATHS.admin), (snap) => {
-      setAdminConfig(snap.val() || { password: '' });
+      setAdminConfig(prev => ({ ...prev, ...(snap.val() || { password: '' }) }));
+    });
+    const unsubAU = onValue(ref(db, PATHS.adminUsers), (snap) => {
+      setAdminConfig(prev => ({ ...prev, users: snap.val() || {} }));
     });
     const unsubR = onValue(ref(db, PATHS.playerRatings), (snap) => {
       setPlayerRatings(snap.val() || buildUtrRatingsTable());
@@ -156,7 +161,7 @@ function Shell() {
     const unsubS = onValue(ref(db, PATHS.schedule), (snap) => {
       setSchedule(snap.val() || {});
     });
-    return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubR(); unsubS(); };
+    return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubAU(); unsubR(); unsubS(); };
   }, []);
 
   return (
@@ -170,7 +175,6 @@ function Shell() {
         <Route path="/matchups" element={<Matchups matches={matches} teams={teams} />} />
         <Route path="/ptl" element={<PtlRatings matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} teams={teams} ratingLookup={playerRatings} />} />
         <Route path="/history" element={<History matches={matches} teams={teams} />} />
-        <Route path="/season2" element={<Season2 />} />
         <Route path="/rules" element={<Rules />} />
         <Route path="/more" element={<More />} />
         <Route path="/login" element={<Login teams={teams} adminConfig={adminConfig} />} />
@@ -178,6 +182,11 @@ function Shell() {
           <ProtectedTeam>
             <ScoreEntry teams={teams} matches={matches} />
           </ProtectedTeam>
+        } />
+        <Route path="/audit" element={
+          <ProtectedRoles allowed={[ROLES.SUPER_ADMIN]} next="/audit">
+            <AuditLogs />
+          </ProtectedRoles>
         } />
         <Route path="/admin" element={
           <ProtectedAdmin>
@@ -191,9 +200,17 @@ function Shell() {
   );
 }
 
+function ProtectedRoles({ allowed, next, children }) {
+  const { session } = useAuth();
+  if (!hasRole(session, allowed)) {
+    return <Navigate to="/login" replace state={{ next }} />;
+  }
+  return children;
+}
+
 function ProtectedTeam({ children }) {
   const { session } = useAuth();
-  if (session.role !== 'team' && session.role !== 'admin') {
+  if (!hasRole(session, [ROLES.CAPTAIN, ROLES.ADMIN, ROLES.SUPER_ADMIN])) {
     return <Navigate to="/login" replace state={{ next: '/score' }} />;
   }
   return children;
@@ -201,7 +218,7 @@ function ProtectedTeam({ children }) {
 
 function ProtectedAdmin({ children }) {
   const { session } = useAuth();
-  if (session.role !== 'admin') {
+  if (!hasRole(session, [ROLES.ADMIN, ROLES.SUPER_ADMIN])) {
     return <Navigate to="/login" replace state={{ next: '/admin' }} />;
   }
   return children;
