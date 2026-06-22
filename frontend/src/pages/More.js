@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import PageLayout from '../components/ui/PageLayout';
 
 export default function More() {
   const { session, logout } = useAuth();
@@ -22,12 +23,7 @@ export default function More() {
   }
 
   return (
-    <main className="container">
-      <div className="page-title">
-        <h1>More</h1>
-        <p>Everything else in one place</p>
-      </div>
-
+    <PageLayout title="More" subtitle="Everything else in one place">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '.55rem' }} data-testid="more-list">
         {items.map(it => (
           <Link
@@ -65,6 +61,6 @@ export default function More() {
           </button>
         )}
       </div>
-    </main>
+    </PageLayout>
   );
 }
