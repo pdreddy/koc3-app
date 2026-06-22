@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { ROLES, normalizeRole } from '../utils/roles';
 
 const AuthContext = createContext(null);
 const STORAGE_KEY = 'koc_session_v1';
@@ -7,9 +8,9 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : { role: 'guest' };
+      return raw ? { ...JSON.parse(raw), role: normalizeRole(JSON.parse(raw).role) } : { role: ROLES.GUEST };
     } catch {
-      return { role: 'guest' };
+      return { role: ROLES.GUEST };
     }
   });
 
@@ -17,9 +18,9 @@ export function AuthProvider({ children }) {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(session)); } catch {}
   }, [session]);
 
-  const loginAdmin = () => setSession({ role: 'admin', loginAt: Date.now() });
-  const loginTeam = (teamId, teamName) => setSession({ role: 'team', teamId, teamName, loginAt: Date.now() });
-  const logout = () => setSession({ role: 'guest' });
+  const loginAdmin = (role = ROLES.SUPER_ADMIN) => setSession({ role, loginAt: Date.now() });
+  const loginTeam = (teamId, teamName) => setSession({ role: ROLES.CAPTAIN, teamId, teamName, loginAt: Date.now() });
+  const logout = () => setSession({ role: ROLES.GUEST });
 
   return (
     <AuthContext.Provider value={{ session, loginAdmin, loginTeam, logout }}>

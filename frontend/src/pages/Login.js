@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { ROLES } from '../utils/roles';
+import { writeAuditLog } from '../services/AuditService';
 
 export default function Login({ teams, adminConfig }) {
   const [mode, setMode] = useState('team'); // 'team' | 'admin'
@@ -14,7 +16,7 @@ export default function Login({ teams, adminConfig }) {
 
   const teamList = Object.values(teams || {}).sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     if (mode === 'admin') {
@@ -24,7 +26,10 @@ export default function Login({ teams, adminConfig }) {
         return;
       }
       if (password.trim() === expected) {
-        loginAdmin();
+        const adminRole = adminConfig?.role === ROLES.ADMIN ? ROLES.ADMIN : ROLES.SUPER_ADMIN;
+        const nextSession = { role: adminRole, loginAt: Date.now() };
+        loginAdmin(adminRole);
+        await writeAuditLog({ actionType: 'Login', session: nextSession, targetType: 'user', targetId: adminRole });
         navigate(next, { replace: true });
       } else {
         setError('Incorrect admin password.');
@@ -34,7 +39,9 @@ export default function Login({ teams, adminConfig }) {
       const team = teams[teamId];
       if (!team) { setError('Team not found.'); return; }
       if (password.trim() === String(team.password || '')) {
+        const nextSession = { role: ROLES.CAPTAIN, teamId: team.id, teamName: team.name, loginAt: Date.now() };
         loginTeam(team.id, team.name);
+        await writeAuditLog({ actionType: 'Login', session: nextSession, targetType: 'team', targetId: team.id });
         navigate('/score', { replace: true });
       } else {
         setError('Incorrect team password.');
