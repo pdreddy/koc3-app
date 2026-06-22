@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { ROLES, hasRole, canViewAudit } from '../utils/roles';
 
 const PRIMARY_LINKS = [
   { to: '/teams', label: 'Teams' },
@@ -23,7 +24,7 @@ export default function AppHeader() {
       </Link>
 
       <nav className="top-nav" aria-label="Primary navigation">
-        {PRIMARY_LINKS.map(link => (
+        {[...PRIMARY_LINKS, ...(canViewAudit(session) ? [{ to: '/audit', label: 'Audit' }] : [])].map(link => (
           <NavLink
             key={link.to}
             to={link.to}
@@ -35,16 +36,16 @@ export default function AppHeader() {
       </nav>
 
       <div className="header-actions">
-        {session.role === 'admin' && (
+        {hasRole(session, [ROLES.ADMIN, ROLES.SUPER_ADMIN]) && (
           <span className="user-pill" data-testid="user-pill">ADMIN</span>
         )}
-        {session.role === 'team' && (
+        {hasRole(session, [ROLES.CAPTAIN]) && (
           <span className="user-pill" data-testid="user-pill">{session.teamName}</span>
         )}
-        {session.role === 'guest' && (
+        {hasRole(session, [ROLES.GUEST]) && (
           <Link to="/login" className="user-pill" data-testid="header-login-link">LOGIN</Link>
         )}
-        {session.role !== 'guest' && (
+        {!hasRole(session, [ROLES.GUEST]) && (
           <button onClick={logout} className="btn small ghost" data-testid="header-logout-btn">Logout</button>
         )}
       </div>

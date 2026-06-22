@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { ROLES, hasRole, canViewAudit } from '../utils/roles';
 
 export default function More() {
   const { session, logout } = useAuth();
@@ -8,17 +9,17 @@ export default function More() {
   const items = [
     { to: '/ptl', icon: '📈', label: 'PTL Rating', desc: 'Current UTR beside KOC performance rating', testid: 'more-ptl' },
     { to: '/history', icon: '📜', label: 'Match History', desc: 'View past results', testid: 'more-history' },
-    { to: '/season2', icon: '🏆', label: 'Season 2 Archive', desc: 'Previous season standings & matches', testid: 'more-season2' },
     { to: '/rules', icon: '📋', label: 'Rules', desc: 'Format, scoring & tiebreakers', testid: 'more-rules' }
   ];
 
-  if (session.role === 'guest') {
+  if (hasRole(session, [ROLES.GUEST])) {
     items.push({ to: '/login', icon: '🔒', label: 'Captain / Admin Login', desc: 'Sign in to enter scores', testid: 'more-login' });
-  } else if (session.role === 'team') {
+  } else if (hasRole(session, [ROLES.CAPTAIN])) {
     items.push({ to: '/score', icon: '✍️', label: 'Enter Score', desc: `Logged in as ${session.teamName}`, testid: 'more-score' });
-  } else if (session.role === 'admin') {
+  } else if (hasRole(session, [ROLES.ADMIN, ROLES.SUPER_ADMIN])) {
     items.push({ to: '/score', icon: '✍️', label: 'Enter Score', desc: 'Admin score entry', testid: 'more-score' });
-    items.push({ to: '/admin', icon: '⚙️', label: 'Admin Dashboard', desc: 'Manage teams & passwords', testid: 'more-admin' });
+    items.push({ to: '/admin', icon: '⚙️', label: 'Admin Dashboard', desc: 'Manage teams, schedules, and operations', testid: 'more-admin' });
+    if (canViewAudit(session)) items.push({ to: '/audit', icon: '🧾', label: 'Audit Logs', desc: 'SUPER_ADMIN-only system activity', testid: 'more-audit' });
   }
 
   return (
@@ -54,7 +55,7 @@ export default function More() {
           </Link>
         ))}
 
-        {session.role !== 'guest' && (
+        {!hasRole(session, [ROLES.GUEST]) && (
           <button
             className="btn ghost full"
             onClick={logout}
