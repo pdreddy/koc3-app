@@ -62,7 +62,6 @@ function buildPlayerIndex(teams, ratingRows) {
       }
       players[key] = {
         name: canonical.displayName,
-        aliases: player.name === canonical.displayName ? [] : [player.name],
         team: team.name,
         teamAbbr: team.abbreviation,
         currentSinglesUtr: singlesUtr,
@@ -91,7 +90,6 @@ function ensurePlayer(players, name, team, ratingRows) {
   if (!players[key]) {
     players[key] = {
       name: canonical.displayName,
-      aliases: name === canonical.displayName ? [] : [name],
       team: team?.name || 'Unknown',
       teamAbbr: team?.abbreviation || '?',
       currentSinglesUtr: canonical.lookup?.singlesUtr ?? null,
@@ -109,8 +107,6 @@ function ensurePlayer(players, name, team, ratingRows) {
       gamesAgainst: 0,
       ratingDelta: 0
     };
-  } else if (name !== players[key].name && !(players[key].aliases || []).includes(name)) {
-    players[key].aliases = [...(players[key].aliases || []), name];
   }
   return players[key];
 }

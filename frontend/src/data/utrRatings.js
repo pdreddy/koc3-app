@@ -120,10 +120,6 @@ function normalize(value) {
   return normalizeNameKey(value);
 }
 
-function aliasesFor() {
-  return [];
-}
-
 export const UTR_RATINGS = RAW_UTR_ROWS.split('\n').slice(1).map(line => {
   const [lastName, firstName, verifiedSinglesUtr, verifiedSinglesStatus, verifiedDoublesUtr, verifiedDoublesStatus, singlesUtr, singlesStatus, doublesUtr] = line.split('|').map(v => v.trim());
   const singles = toNumber(singlesUtr) ?? toNumber(verifiedSinglesUtr);
@@ -140,12 +136,10 @@ export const UTR_RATINGS = RAW_UTR_ROWS.split('\n').slice(1).map(line => {
     verifiedSinglesStatus,
     verifiedDoublesUtr: toNumber(verifiedDoublesUtr),
     verifiedDoublesStatus,
-    aliases: aliasesFor(`${firstName} ${lastName}`),
     keys: [
       normalize(`${firstName} ${lastName}`),
       normalize(`${lastName} ${firstName}`),
-      normalize(`${firstName.split(' ')[0]} ${lastName}`),
-      ...aliasesFor(`${firstName} ${lastName}`).map(alias => normalize(alias))
+      normalize(`${firstName.split(' ')[0]} ${lastName}`)
     ]
   };
 });
@@ -172,7 +166,7 @@ export function matchUtrRating(playerName, rows = UTR_RATINGS) {
     let reason = 'No match';
     if ((row.keys || []).includes(key)) {
       score = 1;
-      reason = (row.aliases || []).map(normalize).includes(key) ? 'Admin name mapping' : 'Exact normalized name';
+      reason = 'Exact normalized name';
     } else if (tokens.includes(first) && tokens.includes(last)) {
       score = 0.94;
       reason = 'First + last token match';
@@ -204,7 +198,7 @@ export function scoreUtrCandidate(playerName, row) {
   const last = lastTokens[0] || '';
   const rowKeys = row.keys || [];
   if (rowKeys.includes(key)) {
-    return { row, score: 1, reason: (row.aliases || []).map(normalize).includes(key) ? 'Admin name mapping' : 'Exact normalized name' };
+    return { row, score: 1, reason: 'Exact normalized name' };
   }
   if (tokens.includes(first) && tokens.includes(last)) return { row, score: 0.94, reason: 'First + last token match' };
   if (tokens.includes(last) && first && tokens.some(t => first.startsWith(t) || t.startsWith(first))) return { row, score: 0.88, reason: 'Last name + partial first' };

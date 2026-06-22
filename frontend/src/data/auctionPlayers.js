@@ -165,7 +165,6 @@ export function auctionPlayerToRating(player) {
     category: player.cat,
     group: player.group,
     price: player.price,
-    aliases: [],
     keys: [
       normalizeNameKey(player.Name),
       normalizeNameKey(`${lastName} ${firstName}`),

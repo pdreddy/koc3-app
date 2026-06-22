@@ -33,11 +33,10 @@ function NameMappingRow({ sourceName, lookupRows, onSaved, canSave }) {
       setStatus('Unable to save: selected player has no rating id.');
       return;
     }
-    const aliases = uniqueValues([...(targetRow.aliases || []), sourceName]);
     const keys = uniqueValues([...(targetRow.keys || []), normalizeNameKey(sourceName)]);
     try {
-      await update(ref(db, `${PATHS.playerRatings}/${id}`), { aliases, keys });
-      setStatus(`Saved → ${targetRow.fullName}`);
+      await update(ref(db, `${PATHS.playerRatings}/${id}`), { keys, aliases: null });
+      setStatus(`Saved clean key → ${targetRow.fullName}`);
       onSaved?.(sourceName);
     } catch (error) {
       setStatus(error.message || 'Unable to save mapping');
@@ -85,7 +84,6 @@ function RatingRows({ players, startRank = 1, highlightQualifiers = true }) {
         <td className="rank">{rank}</td>
         <td>
           <strong>{player.name}</strong>
-          {player.aliases?.length > 0 && <div className="muted" style={{ fontSize: '.72rem' }}>aliases: {player.aliases.join(', ')}</div>}
           {!player.hasUtrLookup && <div className="muted" style={{ fontSize: '.72rem' }}>Needs UTR name mapping</div>}
         </td>
         <td><span className="tag">{player.teamAbbr}</span></td>
@@ -190,7 +188,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
   const leader = ratings.find(player => player.courts > 0 && player.hasUtrLookup) || ratings.find(player => player.courts > 0);
   const needsMappingNames = useMemo(() => {
     const names = [
-      ...unmappedPlayers.flatMap(player => [player.name, ...(player.aliases || [])]),
+      ...unmappedPlayers.map(player => player.name),
       ...legacyNameMap.filter(row => !row.matchedName).map(row => row.name)
     ];
     return uniqueValues(names).filter(name => !savedMappings.includes(name)).sort((a, b) => a.localeCompare(b));
@@ -217,8 +215,9 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
           <h2>How PPRC works</h2>
           <p>
             PPRC starts singles and doubles separately from the UTR table when available, otherwise from 3.50.
-            Singles courts update only the singles PPRC; doubles courts update only the doubles PPRC using
-            the average rating of the opposing pair. Previous season matches are cleaned from /KOC2DB before rating.
+            Each court compares the player rating to the opponent or opponent-pair average, applies a small
+            game-margin adjustment, caps each court movement, then averages PPRC S and PPRC D into the final rating.
+            Previous season matches are cleaned from /KOC2DB before rating, and aliases are not used.
           </p>
         </div>
         <div className="card ptl-metric">
@@ -278,7 +277,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
       {tab === 'koc2map' && (
         <div className="card">
           <h2>Season 2 Name Mapping</h2>
-          <p className="hint">Cleaned previous-season names are matched to the stored UTR lookup. Duplicate mapped names are highlighted so aliases can be cleaned up.</p>
+          <p className="hint">Cleaned previous-season names are matched to the stored UTR lookup. Duplicate mapped names are highlighted so the source data can be cleaned up.</p>
           <div className="table-wrap">
             <table className="std ptl-table" data-testid="ptl-koc2-map-table">
               <thead>
@@ -300,7 +299,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
                     <td>{row.count}</td>
                     <td>{row.matchedName || '—'}</td>
                     <td><span className={`tag ${row.confidence >= 90 ? 'win' : row.confidence >= 72 ? 'tie' : 'lose'}`}>{row.confidence}%</span></td>
-                    <td>{row.duplicateMappedName ? `${row.reason} · duplicate alias` : row.reason}</td>
+                    <td>{row.duplicateMappedName ? `${row.reason} · duplicate mapping` : row.reason}</td>
                     <td>{formatRating(row.singlesUtr)}</td>
                     <td>{formatRating(row.doublesUtr)}</td>
                   </tr>
@@ -316,7 +315,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
         <div className="card" data-testid="ptl-name-correction-card">
           <h2>PPRC Name Correction</h2>
           <p className="hint">
-            Admins can map misspelled, short, or legacy PPRC names to the actual UTR lookup player. Saving adds the source name as an alias under /koc_s3/playerRatings, so hardcoded aliases are no longer needed.
+            Admins can map misspelled, short, or legacy PPRC names to the actual UTR lookup player. Saving writes only a normalized key under /koc_s3/playerRatings and deletes any alias field, so you can keep the DB clean.
           </p>
           {!isAdmin && <div className="error-box">Sign in as admin to save name mappings. You can still review fuzzy suggestions here.</div>}
           <div className="table-wrap">

@@ -50,11 +50,10 @@ function AdminNameMapRow({ sourceName, sourceInfo, lookupRows }) {
     if (!targetRow) { setMsg('Select an actual UTR player first.'); return; }
     const id = ratingRowId(targetRow);
     if (!id) { setMsg('Selected rating row has no Firebase id.'); return; }
-    const aliases = uniqueValues([...(targetRow.aliases || []), sourceName]);
     const keys = uniqueValues([...(targetRow.keys || []), normalizeNameKey(sourceName)]);
     try {
-      await update(ref(db, `${PATHS.playerRatings}/${id}`), { aliases, keys });
-      setMsg(`✅ DB updated: ${sourceName} → ${targetRow.fullName}`);
+      await update(ref(db, `${PATHS.playerRatings}/${id}`), { keys, aliases: null });
+      setMsg(`✅ DB key updated: ${sourceName} → ${targetRow.fullName}`);
     } catch (e) {
       setMsg(`Save failed: ${e.message}`);
     }
@@ -114,7 +113,7 @@ function NameMappingAdmin({ teams, matches, previousMatches, playerRatings }) {
   return (
     <div className="card" data-testid="admin-name-mapping-card">
       <h2>PPRC Name Mapping</h2>
-      <p className="hint">Map roster, KOC3 match, and KOC2 history names to actual UTR players. Clicking <strong>Update DB Mapping</strong> writes aliases and normalized keys directly to /koc_s3/playerRatings.</p>
+      <p className="hint">Map roster, KOC3 match, and Season 2 names to actual UTR players. Clicking <strong>Update DB Mapping</strong> writes only normalized keys to /koc_s3/playerRatings; aliases are removed so the rating data stays clean.</p>
       <div style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap', marginBottom: '.7rem' }}>
         <button className={`btn small ${filter === 'unmapped' ? '' : 'ghost'}`} onClick={() => setFilter('unmapped')} data-testid="admin-name-map-filter-unmapped">Needs mapping ({rows.filter(row => !row.matchedName).length})</button>
         <button className={`btn small ${filter === 'all' ? '' : 'ghost'}`} onClick={() => setFilter('all')} data-testid="admin-name-map-filter-all">All names ({rows.length})</button>
