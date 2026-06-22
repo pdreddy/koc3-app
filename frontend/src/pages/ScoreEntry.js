@@ -4,6 +4,7 @@ import { db, PATHS, ensureAuth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { matchName } from '../utils/nameMatch';
 import { parseQuickScore } from '../utils/quickScoreParser';
+import { MAX_MATCH_DAYS, MAX_PARTNER_DAYS, MAX_SINGLES_DAYS, buildEligibilityStats, validateEligibilityForMatch } from '../utils/playerEligibility';
 
 const COURT_TEMPLATES = [
   { label: 'Singles', type: 'singles', setCount: 5 },
@@ -95,6 +96,34 @@ function getQuickGuidance(text, parsed, teams) {
   return Array.from(new Set(tips)).slice(0, 6);
 }
 
+
+function CaptainEligibilityCard({ team, teams, matches }) {
+  const stats = useMemo(() => buildEligibilityStats(matches, teams).statsByTeam[team?.id] || {}, [matches, teams, team?.id]);
+  if (!team) return null;
+  const rows = (team.players || []).map(player => {
+    const id = String(player.name || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    return stats[id] || { name: player.name, totalMatchDays: 0, singlesDays: 0, doublesDays: 0 };
+  });
+  return (
+    <div className="card" data-testid="captain-eligibility-card">
+      <h2>Player Eligibility — {team.abbreviation}</h2>
+      <p className="hint">Before choosing a lineup: max {MAX_MATCH_DAYS} match days, max {MAX_SINGLES_DAYS} singles days, same doubles partner max {MAX_PARTNER_DAYS} match days. A doubles selection must play both doubles and reverse doubles that day.</p>
+      <div className="table-wrap">
+        <table className="std" data-testid="captain-eligibility-table">
+          <thead><tr><th>Player</th><th>Match Days</th><th>Singles</th><th>Doubles</th></tr></thead>
+          <tbody>{rows.map(row => (
+            <tr key={row.name}>
+              <td><strong>{row.name}</strong></td>
+              <td>{row.totalMatchDays}/{MAX_MATCH_DAYS}</td>
+              <td>{row.singlesDays}/{MAX_SINGLES_DAYS}</td>
+              <td>{row.doublesDays}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 function selectedNamesFromIndexes(team, indexes) {
   return indexes.map(index => team?.players?.[Number(index)]?.name).filter(Boolean);
@@ -480,6 +509,7 @@ function getQuickNameContext(text, cursor, parsed, teams) {
 }
 
 export default function ScoreEntry({ teams, matches }) {
+  const { session } = useAuth();
   const [mode, setMode] = useState('form');
   const [sharedTeam1Id, setSharedTeam1IdRaw] = useState('');
   const [sharedTeam2Id, setSharedTeam2IdRaw] = useState('');
@@ -506,6 +536,7 @@ export default function ScoreEntry({ teams, matches }) {
           data-testid="score-tab-paste"
         >⚡ Quick Paste</button>
       </div>
+      {session.role === 'team' && <CaptainEligibilityCard team={teams[session.teamId]} teams={teams} matches={matches} />}
       {mode === 'form' ? (
         <FormEntry
           teams={teams}
@@ -519,6 +550,7 @@ export default function ScoreEntry({ teams, matches }) {
       ) : (
         <QuickEntry
           teams={teams}
+          matches={matches}
           team1Id={sharedTeam1Id}
           setTeam1Id={setSharedTeam1Id}
           team2Id={sharedTeam2Id}
@@ -628,6 +660,12 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
       return;
     }
 
+    const eligibility = validateEligibilityForMatch({ lines, team1, team2, matches, teams });
+    if (!eligibility.valid) {
+      setError(eligibility.errors.join('\n'));
+      return;
+    }
+
     const winner = totals.w1 > totals.w2 ? team1.name : (totals.w2 > totals.w1 ? team2.name : null);
     if (!winner) { setError('Match is tied on courts won. Please verify scores.'); return; }
 
@@ -645,7 +683,8 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
       win: winner,
       ts: Date.now(),
       enteredBy: session.role === 'team' ? session.teamName : 'Admin',
-      lines
+      lines,
+      eligibility: eligibility.snapshots
     };
 
     try {
@@ -795,7 +834,7 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
 
 // ==================== QUICK PASTE ENTRY ====================
 
-function QuickEntry({ teams, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
+function QuickEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const textareaRef = useRef(null);
   const [text, setText] = useState('');
@@ -880,6 +919,12 @@ function QuickEntry({ teams, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupSta
       };
     });
 
+    const eligibility = validateEligibilityForMatch({ lines, team1, team2, matches, teams });
+    if (!eligibility.valid) {
+      setError(eligibility.errors.join('\n'));
+      return;
+    }
+
     const winner = w1 > w2 ? team1.name : (w2 > w1 ? team2.name : null);
     if (!winner) { setError('Match is tied on courts won. Please verify scores.'); return; }
 
@@ -894,7 +939,8 @@ function QuickEntry({ teams, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupSta
       win: winner,
       ts: Date.now(),
       enteredBy: session.role === 'team' ? session.teamName : 'Admin',
-      lines
+      lines,
+      eligibility: eligibility.snapshots
     };
 
     try {
