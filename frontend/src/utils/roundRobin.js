@@ -19,24 +19,40 @@ export function roundRobin(n) {
   return rounds;
 }
 
+export const KOC3_SCHEDULE_VERSION = 'koc3-2026-06-27-group-weekends-v1';
+
+const GROUP_A_FIRST_DATE = new Date(2026, 5, 27); // Jun 27, 2026
+const GROUP_B_FIRST_DATE = new Date(2026, 5, 28); // Jun 28, 2026
+const BUFFER_WEEK_START = new Date(2026, 6, 4); // Jul 4, 2026
+
+function isoDate(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function dateForRound(firstDate, roundIndex) {
+  const date = new Date(firstDate.getTime());
+  const weekOffset = roundIndex === 0 ? 0 : roundIndex + 1; // skip Jul 4/5 buffer weekend before round 2
+  date.setDate(firstDate.getDate() + weekOffset * 7);
+  return date;
+}
+
 /**
- * Build an initial schedule for two groups on weekly Sundays starting at `startDate`.
- * @param {Array} groupATeams - 8 teams with .id and .abbreviation
- * @param {Array} groupBTeams - 8 teams with .id and .abbreviation
- * @param {Date} startDate - first Sunday
+ * Build the KOC3 schedule for two 8-team groups.
+ * Group A plays Saturdays starting Jun 27, 2026; Group B plays Sundays starting Jun 28, 2026.
+ * Jul 4/5 is a buffer weekend, then the remaining six weekly rounds continue.
+ * @param {Array} groupATeams - 8 teams with .id and .abbreviation in requested seed order
+ * @param {Array} groupBTeams - 8 teams with .id and .abbreviation in requested seed order
  * @returns {Object} map of matchId -> match record (Firebase-friendly)
  */
-export function buildScheduleFor8x2(groupATeams, groupBTeams, startDate) {
+export function buildScheduleFor8x2(groupATeams, groupBTeams) {
   const out = {};
   const pairingsA = roundRobin(8);
   const pairingsB = roundRobin(8);
 
-  for (let r = 0; r < 7; r++) {
-    const sunday = new Date(startDate.getTime());
-    sunday.setDate(startDate.getDate() + r * 7);
-    const dateISO = sunday.toISOString().slice(0, 10); // YYYY-MM-DD
-
-    const buildGroup = (label, teamsArr, pairings) => {
+  const buildGroup = (label, teamsArr, pairings, firstDate) => {
+    for (let r = 0; r < 7; r++) {
+      const roundDate = dateForRound(firstDate, r);
+      const dateISO = isoDate(roundDate);
       pairings[r].forEach(([i, j], k) => {
         const t1 = teamsArr[i];
         const t2 = teamsArr[j];
@@ -51,14 +67,28 @@ export function buildScheduleFor8x2(groupATeams, groupBTeams, startDate) {
           time: slot,
           team1Id: t1.id,
           team2Id: t2.id,
-          status: 'scheduled'
+          status: 'scheduled',
+          scheduleVersion: KOC3_SCHEDULE_VERSION
         };
       });
-    };
+    }
+  };
 
-    buildGroup('A', groupATeams, pairingsA);
-    buildGroup('B', groupBTeams, pairingsB);
-  }
+  buildGroup('A', groupATeams, pairingsA, GROUP_A_FIRST_DATE);
+  buildGroup('B', groupBTeams, pairingsB, GROUP_B_FIRST_DATE);
+
+  out.buffer_week = {
+    id: 'buffer_week',
+    type: 'buffer',
+    round: 2,
+    group: 'ALL',
+    date: isoDate(BUFFER_WEEK_START),
+    time: '',
+    title: 'July 4 buffer week',
+    status: 'buffer',
+    scheduleVersion: KOC3_SCHEDULE_VERSION
+  };
+
   return out;
 }
 
