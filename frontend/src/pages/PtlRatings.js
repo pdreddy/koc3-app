@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ref, update } from 'firebase/database';
-import { buildPtlRatings } from '../utils/ptlRating';
+import { buildPprcRatings } from '../utils/pprcRating';
 import { UTR_RATINGS, matchUtrRating, normalizeNameKey, suggestUtrMatches } from '../data/utrRatings';
 import { db, PATHS } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -90,9 +90,9 @@ function RatingRows({ players, startRank = 1, highlightQualifiers = true }) {
         </td>
         <td><span className="tag">{player.teamAbbr}</span></td>
         <td>{formatRating(player.currentSinglesUtr)}</td>
-        <td><strong className="ptl-rating-value">{formatRating(player.ptlSinglesRating)}</strong></td>
+        <td><strong className="ptl-rating-value">{formatRating(player.pprcSinglesRating)}</strong></td>
         <td>{formatRating(player.currentDoublesUtr)}</td>
-        <td><strong className="ptl-rating-value">{formatRating(player.ptlDoublesRating)}</strong></td>
+        <td><strong className="ptl-rating-value">{formatRating(player.pprcDoublesRating)}</strong></td>
         <td><span className={`tag ${deltaClass}`}>{player.singlesRatingDelta > 0 ? '+' : ''}{formatRating(player.singlesRatingDelta)}/{player.doublesRatingDelta > 0 ? '+' : ''}{formatRating(player.doublesRatingDelta)}</span></td>
         <td>{player.wins}-{player.losses}</td>
         <td>{player.winPct}%</td>
@@ -113,9 +113,9 @@ function RatingTable({ players, emptyText, startRank = 1, highlightQualifiers = 
             <th>Player</th>
             <th>Team</th>
             <th>UTR S</th>
-            <th>PTL S</th>
+            <th>PPRC S</th>
             <th>UTR D</th>
-            <th>PTL D</th>
+            <th>PPRC D</th>
             <th>Δ S/D</th>
             <th>W-L</th>
             <th>Win%</th>
@@ -177,7 +177,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
     ...(previousMatches || []).map(match => ({ ...match, source: match.source || 'KOC2DB' })),
     ...(matches || []).map(match => ({ ...match, source: match.source || 'KOC3' }))
   ], [matches, previousMatches]);
-  const ratings = useMemo(() => buildPtlRatings(teams, ratingMatches, lookupRows), [teams, ratingMatches, lookupRows]);
+  const ratings = useMemo(() => buildPprcRatings(teams, ratingMatches, lookupRows), [teams, ratingMatches, lookupRows]);
   const legacyNameMap = useMemo(() => collectLegacyNames(previousMatches, lookupRows), [previousMatches, lookupRows]);
   const filtered = ratings.filter(player =>
     !q || `${player.name} ${player.team} ${player.teamAbbr}`.toLowerCase().includes(q.toLowerCase())
@@ -201,24 +201,24 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
     <main className="container">
       <div className="page-title ptl-hero">
         <div>
-          <h1>PTL Rating</h1>
-          <p>UTR-style KOC performance rating using KOC3 plus pulled KOC2DB history.</p>
+          <h1>PPRC Rating</h1>
+          <p>UTR-style KOC performance rating using clean KOC3 and Season 2 history.</p>
         </div>
         <div className="ptl-hero-stat">
           <span>Leader</span>
           <strong>{leader ? leader.name : '—'}</strong>
-          <small>{leader ? formatRating(leader.ptlRating) : 'No scores yet'}</small>
+          <small>{leader ? formatRating(leader.pprcRating) : 'No scores yet'}</small>
         </div>
       </div>
 
       <div className="ptl-summary">
         <div className="card ptl-info-card">
           <span className="ptl-kicker">Algorithm</span>
-          <h2>How PTL works</h2>
+          <h2>How PPRC works</h2>
           <p>
-            PTL starts singles and doubles separately from the UTR table when available, otherwise from 3.50.
-            Singles courts update only the singles PTL; doubles courts update only the doubles PTL using
-            the average rating of the opposing pair. Previous season matches are pulled from /KOC2DB.
+            PPRC starts singles and doubles separately from the UTR table when available, otherwise from 3.50.
+            Singles courts update only the singles PPRC; doubles courts update only the doubles PPRC using
+            the average rating of the opposing pair. Previous season matches are cleaned from /KOC2DB before rating.
           </p>
         </div>
         <div className="card ptl-metric">
@@ -238,16 +238,16 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
       />
 
       <div className="tabs">
-        <button className={`tab ${tab === 'ratings' ? 'active' : ''}`} onClick={() => setTab('ratings')} data-testid="ptl-tab-ratings">PTL Ratings</button>
+        <button className={`tab ${tab === 'ratings' ? 'active' : ''}`} onClick={() => setTab('ratings')} data-testid="ptl-tab-ratings">PPRC Ratings</button>
         <button className={`tab ${tab === 'lookup' ? 'active' : ''}`} onClick={() => setTab('lookup')} data-testid="ptl-tab-lookup">UTR Lookup</button>
-        <button className={`tab ${tab === 'koc2map' ? 'active' : ''}`} onClick={() => setTab('koc2map')} data-testid="ptl-tab-koc2map">KOC2 Map</button>
+        <button className={`tab ${tab === 'koc2map' ? 'active' : ''}`} onClick={() => setTab('koc2map')} data-testid="ptl-tab-koc2map">Season 2 Map</button>
         <button className={`tab ${tab === 'mapping' ? 'active' : ''}`} onClick={() => setTab('mapping')} data-testid="ptl-tab-mapping">Name Correction</button>
       </div>
 
       {tab === 'lookup' && (
         <div className="card">
           <h2>Stored Player Rating Lookup</h2>
-          <p className="hint">This table is seeded into Firebase at {`/${'koc_s3/playerRatings'}`} and used to match KOC2DB names.</p>
+          <p className="hint">This table is seeded into Firebase at {`/${'koc_s3/playerRatings'}`} and used to match Season 2 names.</p>
           <div className="table-wrap">
             <table className="std ptl-table" data-testid="ptl-lookup-table">
               <thead>
@@ -277,13 +277,13 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
 
       {tab === 'koc2map' && (
         <div className="card">
-          <h2>KOC2DB Name Mapping</h2>
-          <p className="hint">Partial matches from previous-season names to the stored UTR lookup. Duplicate mapped names are highlighted so aliases can be cleaned up.</p>
+          <h2>Season 2 Name Mapping</h2>
+          <p className="hint">Cleaned previous-season names are matched to the stored UTR lookup. Duplicate mapped names are highlighted so aliases can be cleaned up.</p>
           <div className="table-wrap">
             <table className="std ptl-table" data-testid="ptl-koc2-map-table">
               <thead>
                 <tr>
-                  <th>KOC2 name</th>
+                  <th>Season 2 name</th>
                   <th>Plays</th>
                   <th>Mapped UTR player</th>
                   <th>Confidence</th>
@@ -293,7 +293,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
                 </tr>
               </thead>
               <tbody>
-                {legacyNameMap.length === 0 && <tr><td colSpan="7" className="center muted">No KOC2DB player names loaded yet</td></tr>}
+                {legacyNameMap.length === 0 && <tr><td colSpan="7" className="center muted">No Season 2 player names loaded yet</td></tr>}
                 {legacyNameMap.map(row => (
                   <tr key={row.name} className={row.duplicateMappedName ? 'q' : ''}>
                     <td><strong>{row.name}</strong></td>
@@ -314,9 +314,9 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
 
       {tab === 'mapping' && (
         <div className="card" data-testid="ptl-name-correction-card">
-          <h2>PTL Name Correction</h2>
+          <h2>PPRC Name Correction</h2>
           <p className="hint">
-            Admins can map misspelled, short, or legacy PTL names to the actual UTR lookup player. Saving adds the source name as an alias under /koc_s3/playerRatings, so hardcoded aliases are no longer needed.
+            Admins can map misspelled, short, or legacy PPRC names to the actual UTR lookup player. Saving adds the source name as an alias under /koc_s3/playerRatings, so hardcoded aliases are no longer needed.
           </p>
           {!isAdmin && <div className="error-box">Sign in as admin to save name mappings. You can still review fuzzy suggestions here.</div>}
           <div className="table-wrap">
@@ -330,7 +330,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
                 </tr>
               </thead>
               <tbody>
-                {needsMappingNames.length === 0 && <tr><td colSpan="4" className="center muted">All loaded PTL names are mapped.</td></tr>}
+                {needsMappingNames.length === 0 && <tr><td colSpan="4" className="center muted">All loaded PPRC names are mapped.</td></tr>}
                 {needsMappingNames.map(name => (
                   <NameMappingRow
                     key={name}
@@ -349,9 +349,9 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
       {tab === 'ratings' && (
         <>
           <div className="card">
-            <h2>Mapped PTL Ratings <span className="muted" style={{ fontWeight: 500, fontSize: '.85rem' }}>· matched to UTR names</span></h2>
+            <h2>Mapped PPRC Ratings <span className="muted" style={{ fontWeight: 500, fontSize: '.85rem' }}>· matched to UTR names</span></h2>
             <RatingTable players={mappedPlayers} emptyText="No mapped players found" />
-            <p className="hint">PTL = Prosper Tennis League rating. UTR S/D come from the provided lookup table; PTL S/D are KOC-only singles and doubles performance ratings.</p>
+            <p className="hint">PPRC = Prosper Performance Rating for Court results. UTR S/D come from the stored lookup table; PPRC S/D are KOC-only singles and doubles performance ratings.</p>
           </div>
 
           {unmappedPlayers.length > 0 && (

@@ -113,7 +113,7 @@ function NameMappingAdmin({ teams, matches, previousMatches, playerRatings }) {
 
   return (
     <div className="card" data-testid="admin-name-mapping-card">
-      <h2>PTL Name Mapping</h2>
+      <h2>PPRC Name Mapping</h2>
       <p className="hint">Map roster, KOC3 match, and KOC2 history names to actual UTR players. Clicking <strong>Update DB Mapping</strong> writes aliases and normalized keys directly to /koc_s3/playerRatings.</p>
       <div style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap', marginBottom: '.7rem' }}>
         <button className={`btn small ${filter === 'unmapped' ? '' : 'ghost'}`} onClick={() => setFilter('unmapped')} data-testid="admin-name-map-filter-unmapped">Needs mapping ({rows.filter(row => !row.matchedName).length})</button>
@@ -508,7 +508,7 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
         <button className={`tab ${tab === 'teams' ? 'active' : ''}`} onClick={() => setTab('teams')} data-testid="admin-tab-teams">Teams</button>
         <button className={`tab ${tab === 'schedule' ? 'active' : ''}`} onClick={() => setTab('schedule')} data-testid="admin-tab-schedule">Schedule</button>
         <button className={`tab ${tab === 'settings' ? 'active' : ''}`} onClick={() => setTab('settings')} data-testid="admin-tab-settings">Settings</button>
-        <button className={`tab ${tab === 'nameMapping' ? 'active' : ''}`} onClick={() => setTab('nameMapping')} data-testid="admin-tab-name-mapping">PTL Name Mapping</button>
+        <button className={`tab ${tab === 'nameMapping' ? 'active' : ''}`} onClick={() => setTab('nameMapping')} data-testid="admin-tab-name-mapping">PPRC Name Mapping</button>
         <button className={`tab ${tab === 'passwords' ? 'active' : ''}`} onClick={() => setTab('passwords')} data-testid="admin-tab-passwords">Passwords</button>
       </div>
 

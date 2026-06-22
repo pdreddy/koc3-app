@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { onValue, ref } from 'firebase/database';
 import { db, PATHS, ensureAuth } from '../firebase';
+import { cleanMatchList } from '../utils/legacyMatches';
 
 function computeStandings(matches) {
   const stats = {};
@@ -39,9 +40,8 @@ export default function Season2() {
     ensureAuth();
     const unsub = onValue(ref(db, PATHS.season2), (snap) => {
       const data = snap.val() || {};
-      const list = Object.entries(data).map(([id, m]) => ({ id, ...m }));
-      list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
-      setMatches(list);
+      const rawList = Object.entries(data).map(([id, m]) => ({ id, source: 'Season 2', ...(m || {}) }));
+      setMatches(cleanMatchList(rawList));
       setLoading(false);
     }, (err) => {
       setError('Could not load Season 2: ' + err.message);
@@ -56,7 +56,7 @@ export default function Season2() {
     <main className="container">
       <div className="page-title">
         <h1>🏆 Season 2 Archive</h1>
-        <p>{loading ? 'Loading…' : `${matches.length} matches · ${standings.length} teams`}</p>
+        <p>{loading ? 'Loading…' : `${matches.length} clean matches · ${standings.length} teams`}</p>
       </div>
 
       {error && <div className="error-box" data-testid="season2-error">{error}</div>}
@@ -68,7 +68,7 @@ export default function Season2() {
 
       {tab === 'standings' && (
         <div className="card">
-          <h2>Final Standings</h2>
+          <h2>Clean Final Standings</h2>
           <div className="table-wrap">
             <table className="std" data-testid="season2-standings-table">
               <thead>

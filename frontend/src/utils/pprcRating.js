@@ -40,7 +40,7 @@ function expectedWinChance(rating, opponentRating) {
   return 1 / (1 + Math.pow(10, (opponentRating - rating) / 4));
 }
 
-function ptlScoreForCourt({ won, gamesFor, gamesAgainst }) {
+function pprcScoreForCourt({ won, gamesFor, gamesAgainst }) {
   const totalGames = Math.max(1, gamesFor + gamesAgainst);
   const gameMargin = clamp((gamesFor - gamesAgainst) / totalGames, -1, 1);
   return clamp((won ? 1 : 0) + gameMargin * 0.18, 0, 1);
@@ -69,8 +69,8 @@ function buildPlayerIndex(teams, ratingRows) {
         currentDoublesUtr: doublesUtr,
         hasUtrLookup: canonical.hasUtrLookup,
         lookupName: canonical.lookup?.fullName || '',
-        ptlSinglesRating: singlesUtr || DEFAULT_BASE_RATING,
-        ptlDoublesRating: doublesUtr || DEFAULT_BASE_RATING,
+        pprcSinglesRating: singlesUtr || DEFAULT_BASE_RATING,
+        pprcDoublesRating: doublesUtr || DEFAULT_BASE_RATING,
         courts: 0,
         wins: 0,
         losses: 0,
@@ -98,8 +98,8 @@ function ensurePlayer(players, name, team, ratingRows) {
       currentDoublesUtr: canonical.lookup?.doublesUtr ?? null,
       hasUtrLookup: canonical.hasUtrLookup,
       lookupName: canonical.lookup?.fullName || '',
-      ptlSinglesRating: canonical.lookup?.singlesUtr || DEFAULT_BASE_RATING,
-      ptlDoublesRating: canonical.lookup?.doublesUtr || DEFAULT_BASE_RATING,
+      pprcSinglesRating: canonical.lookup?.singlesUtr || DEFAULT_BASE_RATING,
+      pprcDoublesRating: canonical.lookup?.doublesUtr || DEFAULT_BASE_RATING,
       courts: 0,
       wins: 0,
       losses: 0,
@@ -118,14 +118,14 @@ function ensurePlayer(players, name, team, ratingRows) {
 function applyCourtRating(players, playerNames, opponentNames, context, ratingRows) {
   const playerRecords = playerNames.map(name => ensurePlayer(players, name, context.team, ratingRows));
   const opponentRecords = opponentNames.map(name => ensurePlayer(players, name, context.opponentTeam, ratingRows));
-  const ratingKey = context.type === 'singles' ? 'ptlSinglesRating' : 'ptlDoublesRating';
+  const ratingKey = context.type === 'singles' ? 'pprcSinglesRating' : 'pprcDoublesRating';
   const deltaKey = context.type === 'singles' ? 'singlesRatingDelta' : 'doublesRatingDelta';
   const opponentAverage = opponentRecords.reduce((sum, p) => sum + p[ratingKey], 0) / Math.max(1, opponentRecords.length);
 
   playerRecords.forEach(player => {
     const before = player[ratingKey];
     const expected = expectedWinChance(before, opponentAverage);
-    const actual = ptlScoreForCourt(context);
+    const actual = pprcScoreForCourt(context);
     const confidence = Math.min(player.courts, 12);
     const kFactor = 0.34 - confidence * 0.012;
     const delta = clamp((actual - expected) * kFactor, -0.22, 0.22);
@@ -143,7 +143,7 @@ function applyCourtRating(players, playerNames, opponentNames, context, ratingRo
   });
 }
 
-export function buildPtlRatings(teams, matches, ratingRows) {
+export function buildPprcRatings(teams, matches, ratingRows) {
   const players = buildPlayerIndex(teams, ratingRows);
   const chronological = [...(matches || [])].sort((a, b) => (a.ts || 0) - (b.ts || 0));
 
@@ -182,12 +182,12 @@ export function buildPtlRatings(teams, matches, ratingRows) {
       ...player,
       winPct: player.courts ? Math.round((player.wins / player.courts) * 100) : 0,
       gameDiff: player.gamesFor - player.gamesAgainst,
-      ptlSinglesRating: Number(player.ptlSinglesRating.toFixed(2)),
-      ptlDoublesRating: Number(player.ptlDoublesRating.toFixed(2)),
-      ptlRating: Number((((player.ptlSinglesRating || DEFAULT_BASE_RATING) + (player.ptlDoublesRating || DEFAULT_BASE_RATING)) / 2).toFixed(2)),
+      pprcSinglesRating: Number(player.pprcSinglesRating.toFixed(2)),
+      pprcDoublesRating: Number(player.pprcDoublesRating.toFixed(2)),
+      pprcRating: Number((((player.pprcSinglesRating || DEFAULT_BASE_RATING) + (player.pprcDoublesRating || DEFAULT_BASE_RATING)) / 2).toFixed(2)),
       ratingDelta: Number(player.ratingDelta.toFixed(2)),
       singlesRatingDelta: Number((player.singlesRatingDelta || 0).toFixed(2)),
       doublesRatingDelta: Number((player.doublesRatingDelta || 0).toFixed(2))
     }))
-    .sort((a, b) => b.ptlRating - a.ptlRating || b.wins - a.wins || a.name.localeCompare(b.name));
+    .sort((a, b) => b.pprcRating - a.pprcRating || b.wins - a.wins || a.name.localeCompare(b.name));
 }
