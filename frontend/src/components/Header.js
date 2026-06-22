@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { ROLE_LABELS, roleOf } from '../config/roles';
 
 const PRIMARY_LINKS = [
   { to: '/teams', label: 'Teams' },
@@ -36,7 +37,7 @@ export default function AppHeader() {
 
       <div className="header-actions">
         {session.role === 'admin' && (
-          <span className="user-pill" data-testid="user-pill">ADMIN</span>
+          <span className="user-pill" data-testid="user-pill">{(ROLE_LABELS[roleOf(session)] || 'Admin').toUpperCase()}</span>
         )}
         {session.role === 'team' && (
           <span className="user-pill" data-testid="user-pill">{session.teamName}</span>

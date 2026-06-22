@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { push, ref } from 'firebase/database';
 import { db, PATHS, ensureAuth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { roleOf, ROLES } from '../config/roles';
+import { AUDIT_ACTIONS, logAudit } from '../utils/audit';
 import { matchName } from '../utils/nameMatch';
 import { parseQuickScore } from '../utils/quickScoreParser';
 import { MAX_MATCH_DAYS, MAX_PARTNER_DAYS, MAX_SINGLES_DAYS, buildEligibilityStats, validateEligibilityForMatch } from '../utils/playerEligibility';
@@ -14,6 +16,18 @@ const COURT_TEMPLATES = [
   { label: 'Doubles 2 Reverse', type: 'doubles', setCount: 3 }
 ];
 
+
+// Captain-entered scores start as pending (require opponent/admin approval);
+// admin-entered scores are auto-approved.
+function scoreEntryMeta(session) {
+  const role = roleOf(session);
+  const isCaptain = role === ROLES.CAPTAIN;
+  return {
+    status: isCaptain ? 'pending' : 'approved',
+    enteredByRole: role,
+    enteredByUserId: session?.username || session?.teamId || 'unknown'
+  };
+}
 
 function getQuickTemplate(teams) {
   const list = Object.values(teams || {});
@@ -698,7 +712,8 @@ function FormEntry({ teams, matches, scoreGroup, setScoreGroup, team1Id, setTeam
       courtsWon1: totals.w1, courtsWon2: totals.w2,
       win: winner,
       ts: Date.now(),
-      enteredBy: session.role === 'team' ? session.teamName : 'Admin',
+      enteredBy: session.role === 'team' ? session.teamName : (session.adminName || 'Admin'),
+      ...scoreEntryMeta(session),
       lines,
       eligibility: eligibility.snapshots
     };
@@ -706,7 +721,12 @@ function FormEntry({ teams, matches, scoreGroup, setScoreGroup, team1Id, setTeam
     try {
       setSaving(true);
       await ensureAuth();
-      await push(ref(db, PATHS.matches), record);
+      const saved = await push(ref(db, PATHS.matches), record);
+      await logAudit(session, AUDIT_ACTIONS.SCORE_ENTRY, {
+        targetType: 'match',
+        targetId: saved.key,
+        newValue: { t1: team1.name, t2: team2.name, winner, status: record.status }
+      });
       setSuccess(`✅ Saved: ${team1.name} vs ${team2.name} — Winner: ${winner}`);
       setCourts(COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
     } catch (e) {
@@ -966,7 +986,8 @@ function QuickEntry({ teams, matches, scoreGroup, setScoreGroup, team1Id, setTea
       courtsWon1: w1, courtsWon2: w2,
       win: winner,
       ts: Date.now(),
-      enteredBy: session.role === 'team' ? session.teamName : 'Admin',
+      enteredBy: session.role === 'team' ? session.teamName : (session.adminName || 'Admin'),
+      ...scoreEntryMeta(session),
       lines,
       eligibility: eligibility.snapshots
     };
@@ -974,7 +995,12 @@ function QuickEntry({ teams, matches, scoreGroup, setScoreGroup, team1Id, setTea
     try {
       setSaving(true);
       await ensureAuth();
-      await push(ref(db, PATHS.matches), record);
+      const saved = await push(ref(db, PATHS.matches), record);
+      await logAudit(session, AUDIT_ACTIONS.SCORE_ENTRY, {
+        targetType: 'match',
+        targetId: saved.key,
+        newValue: { t1: team1.name, t2: team2.name, winner, status: record.status }
+      });
       setSuccess(`✅ Saved: ${team1.name} vs ${team2.name} — Winner: ${winner}`);
       setText('');
     } catch (e) {

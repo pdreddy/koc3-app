@@ -1,6 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { ref, set, update, remove, push } from 'firebase/database';
 import { db, PATHS } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
+import { can, PERMISSIONS, ROLES, ROLE_LABELS, roleOf } from '../config/roles';
+import { AUDIT_ACTIONS, AUDIT_ACTION_LABELS, logAudit } from '../utils/audit';
 import { buildScheduleFor8x2 } from '../utils/roundRobin';
 import { UTR_RATINGS, matchUtrRating, normalizeNameKey, suggestUtrMatches } from '../data/utrRatings';
 import { groupInfoForTeamId, normalizeAuctionTeam, sortByGroupOrder } from '../data/auctionTeams';
@@ -40,7 +43,7 @@ function collectPlayerNames(teams, matches, previousMatches) {
   })).sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function AdminNameMapRow({ sourceName, sourceInfo, lookupRows }) {
+function AdminNameMapRow({ sourceName, sourceInfo, lookupRows, session }) {
   const suggestions = useMemo(() => suggestUtrMatches(sourceName, lookupRows, 5), [sourceName, lookupRows]);
   const [targetName, setTargetName] = useState(suggestions[0]?.row.fullName || lookupRows[0]?.fullName || '');
   const [msg, setMsg] = useState('');
@@ -53,6 +56,11 @@ function AdminNameMapRow({ sourceName, sourceInfo, lookupRows }) {
     const keys = uniqueValues([...(targetRow.keys || []), normalizeNameKey(sourceName)]);
     try {
       await update(ref(db, `${PATHS.playerRatings}/${id}`), { keys, aliases: null });
+      await logAudit(session, AUDIT_ACTIONS.RATING_RECALCULATION, {
+        targetType: 'playerRating',
+        targetId: id,
+        newValue: { source: sourceName, mappedTo: targetRow.fullName }
+      });
       setMsg(`✅ DB key updated: ${sourceName} → ${targetRow.fullName}`);
     } catch (e) {
       setMsg(`Save failed: ${e.message}`);
@@ -92,7 +100,7 @@ function AdminNameMapRow({ sourceName, sourceInfo, lookupRows }) {
   );
 }
 
-function NameMappingAdmin({ teams, matches, previousMatches, playerRatings }) {
+function NameMappingAdmin({ teams, matches, previousMatches, playerRatings, session }) {
   const [filter, setFilter] = useState('unmapped');
   const lookupRows = useMemo(() => {
     const rows = Object.entries(playerRatings || {}).map(([id, row]) => ({ _id: id, ...(row || {}) }));
@@ -130,7 +138,7 @@ function NameMappingAdmin({ teams, matches, previousMatches, playerRatings }) {
           </thead>
           <tbody>
             {visibleRows.length === 0 && <tr><td colSpan="4" className="center muted">No names need mapping.</td></tr>}
-            {visibleRows.map(row => <AdminNameMapRow key={row.name} sourceName={row.name} sourceInfo={row} lookupRows={lookupRows} />)}
+            {visibleRows.map(row => <AdminNameMapRow key={row.name} sourceName={row.name} sourceInfo={row} lookupRows={lookupRows} session={session} />)}
           </tbody>
         </table>
       </div>
@@ -185,7 +193,7 @@ function TeamJsonImporter() {
   );
 }
 
-function TeamEditor({ team }) {
+function TeamEditor({ team, session }) {
   const [name, setName] = useState(team.name);
   const [abbr, setAbbr] = useState(team.abbreviation);
   const [password, setPassword] = useState(team.password || '');
@@ -215,6 +223,12 @@ function TeamEditor({ team }) {
     };
     try {
       await set(ref(db, `${PATHS.teams}/${team.id}`), payload);
+      await logAudit(session, AUDIT_ACTIONS.TEAM_EDIT, {
+        targetType: 'team',
+        targetId: team.id,
+        oldValue: { name: team.name, abbreviation: team.abbreviation, group: team.group, playerCount: (team.players || []).length },
+        newValue: { name: payload.name, abbreviation: payload.abbreviation, group: payload.group, playerCount: payload.players.length }
+      });
       setSavedMsg('✅ Saved');
       setTimeout(() => setSavedMsg(''), 2000);
     } catch (e) {
@@ -315,10 +329,11 @@ function TeamEditor({ team }) {
   );
 }
 
-function ScheduleEditor({ schedule, teams }) {
+function ScheduleEditor({ schedule, teams, session }) {
   const [editing, setEditing] = useState({}); // matchId -> draft
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const canDeleteCore = can(session, PERMISSIONS.DELETE_CORE_DATA);
 
   const teamList = Object.values(teams || {}).sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
   const matchList = Object.values(schedule || {}).filter(item => item?.type !== 'buffer');
@@ -346,6 +361,7 @@ function ScheduleEditor({ schedule, teams }) {
     try {
       setBusy(true);
       await update(ref(db, `${PATHS.schedule}/${m.id}`), updates);
+      await logAudit(session, AUDIT_ACTIONS.SCHEDULE_EDIT, { targetType: 'fixture', targetId: m.id, newValue: updates });
       setMsg(`✅ Saved ${m.id}`);
       setEditing(prev => { const c = { ...prev }; delete c[m.id]; return c; });
       setTimeout(() => setMsg(''), 1500);
@@ -355,8 +371,12 @@ function ScheduleEditor({ schedule, teams }) {
   };
 
   const deleteMatch = async (m) => {
+    if (!canDeleteCore) { setMsg('Only a Super Admin can delete fixtures.'); return; }
     if (!window.confirm(`Delete fixture ${m.id}?`)) return;
-    try { await remove(ref(db, `${PATHS.schedule}/${m.id}`)); } catch (e) { alert(e.message); }
+    try {
+      await remove(ref(db, `${PATHS.schedule}/${m.id}`));
+      await logAudit(session, AUDIT_ACTIONS.SCHEDULE_DELETE, { targetType: 'fixture', targetId: m.id, oldValue: { team1Id: m.team1Id, team2Id: m.team2Id, date: m.date } });
+    } catch (e) { alert(e.message); }
   };
 
   const addMatch = async () => {
@@ -375,12 +395,14 @@ function ScheduleEditor({ schedule, teams }) {
       const r = await push(ref(db, PATHS.schedule), newM);
       // Patch with its own key as `id`
       await update(ref(db, `${PATHS.schedule}/${r.key}`), { id: r.key });
+      await logAudit(session, AUDIT_ACTIONS.SCHEDULE_ADD, { targetType: 'fixture', targetId: r.key, newValue: newM });
       setMsg('✅ Added fixture');
       setTimeout(() => setMsg(''), 1500);
     } catch (e) { setMsg('Add failed: ' + e.message); }
   };
 
   const regenerate = async () => {
+    if (!canDeleteCore) { setMsg('Only a Super Admin can regenerate the schedule.'); return; }
     if (!window.confirm('Regenerate the entire schedule from scratch? Existing fixtures will be replaced.')) return;
     const list = Object.values(teams);
     const groupA = list.filter(t => (t.group || 'A') === 'A').sort(sortByGroupOrder);
@@ -390,6 +412,7 @@ function ScheduleEditor({ schedule, teams }) {
       setBusy(true);
       const fixtures = buildScheduleFor8x2(groupA, groupB);
       await set(ref(db, PATHS.schedule), fixtures);
+      await logAudit(session, AUDIT_ACTIONS.SCHEDULE_EDIT, { targetType: 'schedule', targetId: 'all', newValue: { regenerated: true, fixtures: Object.keys(fixtures).length } });
       setMsg('✅ Schedule regenerated');
       setTimeout(() => setMsg(''), 1500);
     } catch (e) {
@@ -398,8 +421,12 @@ function ScheduleEditor({ schedule, teams }) {
   };
 
   const clearAll = async () => {
+    if (!canDeleteCore) { setMsg('Only a Super Admin can clear all fixtures.'); return; }
     if (!window.confirm('Delete ALL fixtures? Cannot be undone.')) return;
-    try { await remove(ref(db, PATHS.schedule)); } catch (e) { alert(e.message); }
+    try {
+      await remove(ref(db, PATHS.schedule));
+      await logAudit(session, AUDIT_ACTIONS.SCHEDULE_DELETE, { targetType: 'schedule', targetId: 'all', oldValue: { cleared: true } });
+    } catch (e) { alert(e.message); }
   };
 
   return (
@@ -409,10 +436,11 @@ function ScheduleEditor({ schedule, teams }) {
       <div className="card">
         <h2>Schedule Tools</h2>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.4rem' }}>
-          <button className="btn small" onClick={regenerate} disabled={busy} data-testid="admin-schedule-regenerate">🔁 Regenerate KOC3 Schedule</button>
+          {canDeleteCore && <button className="btn small" onClick={regenerate} disabled={busy} data-testid="admin-schedule-regenerate">🔁 Regenerate KOC3 Schedule</button>}
           <button className="btn small ghost" onClick={addMatch} data-testid="admin-schedule-add">＋ Add Fixture</button>
-          <button className="btn small danger" onClick={clearAll} data-testid="admin-schedule-clear">🗑 Clear All</button>
+          {canDeleteCore && <button className="btn small danger" onClick={clearAll} data-testid="admin-schedule-clear">🗑 Clear All</button>}
         </div>
+        {!canDeleteCore && <p className="hint" style={{ marginTop: '.5rem' }}>Regenerate and Clear All are restricted to Super Admin.</p>}
         <p className="hint" style={{ marginTop: '.5rem' }}>{matchList.filter(m => m.type !== 'buffer').length} fixtures · Group A Saturdays, Group B Sundays, with July 4 buffer week.</p>
       </div>
 
@@ -457,7 +485,7 @@ function ScheduleEditor({ schedule, teams }) {
                   </div>
                   <div style={{ display: 'flex', gap: '.35rem' }}>
                     <button className="btn small success" onClick={() => saveMatch(m)} disabled={busy} data-testid={`admin-fixture-${m.id}-save`}>Save</button>
-                    <button className="btn small danger" onClick={() => deleteMatch(m)} data-testid={`admin-fixture-${m.id}-del`}>Delete</button>
+                    {canDeleteCore && <button className="btn small danger" onClick={() => deleteMatch(m)} data-testid={`admin-fixture-${m.id}-del`}>Delete</button>}
                   </div>
                 </div>
               );
@@ -468,14 +496,249 @@ function ScheduleEditor({ schedule, teams }) {
   );
 }
 
-export default function Admin({ teams, adminConfig, matches, previousMatches = [], schedule, playerRatings = {} }) {
-  const [tab, setTab] = useState('teams');
+function ScoresApproval({ matches, teams, session }) {
+  const [msg, setMsg] = useState('');
+  const pending = (matches || []).filter(m => m.status === 'pending');
+
+  const decide = async (m, approve) => {
+    try {
+      await update(ref(db, `${PATHS.matches}/${m.id}`), { status: approve ? 'approved' : 'rejected' });
+      await logAudit(session, approve ? AUDIT_ACTIONS.SCORE_APPROVAL : AUDIT_ACTIONS.SCORE_REJECTION, {
+        targetType: 'match',
+        targetId: m.id,
+        oldValue: { status: m.status || 'pending' },
+        newValue: { status: approve ? 'approved' : 'rejected' }
+      });
+      setMsg(`✅ ${approve ? 'Approved' : 'Rejected'}: ${m.t1} vs ${m.t2}`);
+      setTimeout(() => setMsg(''), 2000);
+    } catch (e) {
+      setMsg('Action failed: ' + e.message);
+    }
+  };
+
+  return (
+    <div data-testid="admin-scores-approval">
+      {msg && <div className={msg.startsWith('✅') ? 'success-box' : 'error-box'}>{msg}</div>}
+      <div className="card">
+        <h2>🧾 Pending Scores</h2>
+        <p className="hint">Captain-entered results awaiting approval. Approve to count them; reject disputed scores.</p>
+        {pending.length === 0 && <div className="center muted" data-testid="admin-scores-empty">No pending scores.</div>}
+        {pending.map(m => (
+          <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '.5rem', padding: '.55rem 0', borderBottom: '1px solid var(--ring)' }} data-testid={`admin-pending-${m.id}`}>
+            <div>
+              <strong>{m.t1} vs {m.t2}</strong>
+              <div className="muted" style={{ fontSize: '.8rem' }}>Winner: {m.win || '—'} · Courts {m.courtsWon1}-{m.courtsWon2} · by {m.enteredBy || 'Unknown'}</div>
+            </div>
+            <div style={{ display: 'flex', gap: '.35rem' }}>
+              <button className="btn small success" onClick={() => decide(m, true)} data-testid={`admin-approve-${m.id}`}>Approve</button>
+              <button className="btn small danger" onClick={() => decide(m, false)} data-testid={`admin-reject-${m.id}`}>Reject</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AdminUsersManager({ adminUsers, session }) {
+  const [msg, setMsg] = useState('');
+  const [newUser, setNewUser] = useState({ username: '', name: '', role: ROLES.ADMIN, password: '' });
+  const users = Object.entries(adminUsers || {}).map(([username, u]) => ({ username, ...(u || {}) }));
+
+  const changeRole = async (username, oldUser, role) => {
+    try {
+      await update(ref(db, `${PATHS.adminUsers}/${username}`), { role });
+      await logAudit(session, AUDIT_ACTIONS.ADMIN_ROLE_CHANGE, {
+        targetType: 'adminUser',
+        targetId: username,
+        oldValue: { role: oldUser.role },
+        newValue: { role }
+      });
+      setMsg(`✅ Updated role for ${username}`);
+      setTimeout(() => setMsg(''), 2000);
+    } catch (e) {
+      setMsg('Update failed: ' + e.message);
+    }
+  };
+
+  const addUser = async () => {
+    const username = newUser.username.trim().toLowerCase();
+    if (!username || !newUser.password.trim()) { setMsg('Username and password are required.'); return; }
+    try {
+      await set(ref(db, `${PATHS.adminUsers}/${username}`), {
+        name: newUser.name.trim() || username,
+        role: newUser.role,
+        password: newUser.password.trim()
+      });
+      await logAudit(session, AUDIT_ACTIONS.ADMIN_ROLE_CHANGE, {
+        targetType: 'adminUser',
+        targetId: username,
+        newValue: { role: newUser.role, created: true }
+      });
+      setMsg(`✅ Added ${username}`);
+      setNewUser({ username: '', name: '', role: ROLES.ADMIN, password: '' });
+      setTimeout(() => setMsg(''), 2000);
+    } catch (e) {
+      setMsg('Add failed: ' + e.message);
+    }
+  };
+
+  const removeUser = async (u) => {
+    if (u.username === session?.username) { setMsg('You cannot remove your own account.'); return; }
+    if (!window.confirm(`Remove admin user ${u.username}?`)) return;
+    try {
+      await remove(ref(db, `${PATHS.adminUsers}/${u.username}`));
+      await logAudit(session, AUDIT_ACTIONS.ADMIN_ROLE_CHANGE, {
+        targetType: 'adminUser',
+        targetId: u.username,
+        oldValue: { role: u.role },
+        newValue: { removed: true }
+      });
+    } catch (e) {
+      setMsg('Remove failed: ' + e.message);
+    }
+  };
+
+  return (
+    <div data-testid="admin-users-manager">
+      {msg && <div className={msg.startsWith('✅') ? 'success-box' : 'error-box'}>{msg}</div>}
+      <div className="card">
+        <h2>🛡️ Admin & Captain Roles</h2>
+        <p className="hint">Manage admin accounts and their roles. Captains sign in with their team password.</p>
+        <div className="table-wrap">
+          <table className="std" data-testid="admin-users-table">
+            <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Action</th></tr></thead>
+            <tbody>
+              {users.map(u => (
+                <tr key={u.username} data-testid={`admin-user-${u.username}`}>
+                  <td><strong>{u.username}</strong></td>
+                  <td>{u.name || '—'}</td>
+                  <td>
+                    <select className="select" value={u.role} onChange={e => changeRole(u.username, u, e.target.value)} data-testid={`admin-user-${u.username}-role`}>
+                      <option value={ROLES.SUPER_ADMIN}>{ROLE_LABELS.SUPER_ADMIN}</option>
+                      <option value={ROLES.ADMIN}>{ROLE_LABELS.ADMIN}</option>
+                    </select>
+                  </td>
+                  <td><button className="btn small danger" onClick={() => removeUser(u)} data-testid={`admin-user-${u.username}-remove`}>Remove</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="card">
+        <h2>➕ Add Admin User</h2>
+        <div className="field">
+          <div className="field-label">Username</div>
+          <input className="input" value={newUser.username} onChange={e => setNewUser({ ...newUser, username: e.target.value })} data-testid="admin-user-new-username" />
+        </div>
+        <div className="field">
+          <div className="field-label">Display Name</div>
+          <input className="input" value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} data-testid="admin-user-new-name" />
+        </div>
+        <div className="field">
+          <div className="field-label">Role</div>
+          <select className="select" value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })} data-testid="admin-user-new-role">
+            <option value={ROLES.SUPER_ADMIN}>{ROLE_LABELS.SUPER_ADMIN}</option>
+            <option value={ROLES.ADMIN}>{ROLE_LABELS.ADMIN}</option>
+          </select>
+        </div>
+        <div className="field">
+          <div className="field-label">Password</div>
+          <input className="input" type="password" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} data-testid="admin-user-new-password" />
+        </div>
+        <button className="btn full success" onClick={addUser} data-testid="admin-user-add-btn">Add User</button>
+      </div>
+    </div>
+  );
+}
+
+function AuditLogViewer({ auditLog }) {
+  const [actionFilter, setActionFilter] = useState('all');
+  const entries = auditLog || [];
+  const actionTypes = Array.from(new Set(entries.map(e => e.actionType))).sort();
+  const visible = actionFilter === 'all' ? entries : entries.filter(e => e.actionType === actionFilter);
+
+  const describe = (value) => {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+  };
+
+  return (
+    <div className="card" data-testid="admin-audit-log">
+      <h2>📋 Audit Log</h2>
+      <p className="hint">Full history of important actions performed by admins and captains. Visible to Super Admin only.</p>
+      <div className="field">
+        <div className="field-label">Filter by action</div>
+        <select className="select" value={actionFilter} onChange={e => setActionFilter(e.target.value)} data-testid="admin-audit-filter">
+          <option value="all">All actions ({entries.length})</option>
+          {actionTypes.map(a => <option key={a} value={a}>{AUDIT_ACTION_LABELS[a] || a}</option>)}
+        </select>
+      </div>
+      <div className="table-wrap">
+        <table className="std" data-testid="admin-audit-table">
+          <thead>
+            <tr><th>When</th><th>Action</th><th>By</th><th>Role</th><th>Target</th><th>Change</th></tr>
+          </thead>
+          <tbody>
+            {visible.length === 0 && <tr><td colSpan="6" className="center muted">No audit entries yet.</td></tr>}
+            {visible.map(e => (
+              <tr key={e.id} data-testid={`admin-audit-row-${e.id}`}>
+                <td><small>{e.timestamp ? new Date(e.timestamp).toLocaleString() : '—'}</small></td>
+                <td>{AUDIT_ACTION_LABELS[e.actionType] || e.actionType}</td>
+                <td>{e.performedByName}</td>
+                <td><span className="tag">{ROLE_LABELS[e.performedByRole] || e.performedByRole}</span></td>
+                <td><small>{e.targetType ? `${e.targetType}${e.targetId ? `: ${e.targetId}` : ''}` : '—'}</small></td>
+                <td><small className="muted">{[describe(e.oldValue), describe(e.newValue)].filter(Boolean).join(' → ')}</small></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export default function Admin({ teams, adminConfig, adminUsers = {}, auditLog = [], matches, previousMatches = [], schedule, playerRatings = {} }) {
+  const { session } = useAuth();
+  const role = roleOf(session);
+
+  const allowed = useMemo(() => ({
+    teams: can(session, PERMISSIONS.MANAGE_TEAMS),
+    schedule: can(session, PERMISSIONS.MANAGE_SCHEDULE),
+    scores: can(session, PERMISSIONS.APPROVE_SCORE),
+    ratings: can(session, PERMISSIONS.MANAGE_RATINGS),
+    passwords: can(session, PERMISSIONS.MANAGE_ADMINS),
+    admins: can(session, PERMISSIONS.MANAGE_ADMINS),
+    settings: can(session, PERMISSIONS.DELETE_CORE_DATA),
+    audit: can(session, PERMISSIONS.VIEW_AUDIT)
+  }), [session]);
+
+  const tabs = useMemo(() => {
+    const list = [];
+    if (allowed.teams) list.push({ key: 'teams', label: 'Teams', testid: 'admin-tab-teams' });
+    if (allowed.schedule) list.push({ key: 'schedule', label: 'Schedule', testid: 'admin-tab-schedule' });
+    if (allowed.scores) list.push({ key: 'scores', label: 'Scores', testid: 'admin-tab-scores' });
+    if (allowed.settings) list.push({ key: 'settings', label: 'Settings', testid: 'admin-tab-settings' });
+    if (allowed.ratings) list.push({ key: 'nameMapping', label: 'PPRC Name Mapping', testid: 'admin-tab-name-mapping' });
+    if (allowed.passwords) list.push({ key: 'passwords', label: 'Passwords', testid: 'admin-tab-passwords' });
+    if (allowed.admins) list.push({ key: 'admins', label: 'Admins', testid: 'admin-tab-admins' });
+    if (allowed.audit) list.push({ key: 'audit', label: 'Audit Log', testid: 'admin-tab-audit' });
+    return list;
+  }, [allowed]);
+
+  const [tab, setTab] = useState(() => tabs[0]?.key || 'scores');
+  const activeTab = tabs.some(t => t.key === tab) ? tab : (tabs[0]?.key || '');
+
   const [newAdminPwd, setNewAdminPwd] = useState('');
   const [adminMsg, setAdminMsg] = useState('');
 
   const teamList = Object.values(teams || {}).sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
 
   const saveAdminPwd = async () => {
+    if (!allowed.settings) return;
     if (!newAdminPwd.trim()) { setAdminMsg('Password cannot be empty.'); return; }
     try {
       await update(ref(db, PATHS.admin), { password: newAdminPwd.trim() });
@@ -488,9 +751,11 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
   };
 
   const handleClearMatches = async () => {
+    if (!allowed.settings) return;
     if (!window.confirm('Delete ALL match results? This cannot be undone.')) return;
     try {
       await remove(ref(db, PATHS.matches));
+      await logAudit(session, AUDIT_ACTIONS.SCORE_REJECTION, { targetType: 'matches', targetId: 'all', oldValue: { count: matches.length }, newValue: { cleared: true } });
     } catch (e) {
       alert('Failed: ' + e.message);
     }
@@ -500,29 +765,29 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
     <main className="container">
       <div className="page-title">
         <h1>Admin Dashboard</h1>
-        <p>Manage teams, passwords, and matches</p>
+        <p>Signed in as <strong>{session?.adminName || 'Admin'}</strong> · <span className="tag" data-testid="admin-role-badge">{ROLE_LABELS[role] || role}</span></p>
       </div>
 
       <div className="tabs">
-        <button className={`tab ${tab === 'teams' ? 'active' : ''}`} onClick={() => setTab('teams')} data-testid="admin-tab-teams">Teams</button>
-        <button className={`tab ${tab === 'schedule' ? 'active' : ''}`} onClick={() => setTab('schedule')} data-testid="admin-tab-schedule">Schedule</button>
-        <button className={`tab ${tab === 'settings' ? 'active' : ''}`} onClick={() => setTab('settings')} data-testid="admin-tab-settings">Settings</button>
-        <button className={`tab ${tab === 'nameMapping' ? 'active' : ''}`} onClick={() => setTab('nameMapping')} data-testid="admin-tab-name-mapping">PPRC Name Mapping</button>
-        <button className={`tab ${tab === 'passwords' ? 'active' : ''}`} onClick={() => setTab('passwords')} data-testid="admin-tab-passwords">Passwords</button>
+        {tabs.map(t => (
+          <button key={t.key} className={`tab ${activeTab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)} data-testid={t.testid}>{t.label}</button>
+        ))}
       </div>
 
-      {tab === 'teams' && (
+      {activeTab === 'teams' && allowed.teams && (
         <>
           <TeamJsonImporter />
-          {teamList.map(t => <TeamEditor key={t.id} team={t} />)}
+          {teamList.map(t => <TeamEditor key={t.id} team={t} session={session} />)}
         </>
       )}
 
-      {tab === 'schedule' && <ScheduleEditor schedule={schedule} teams={teams} />}
+      {activeTab === 'schedule' && allowed.schedule && <ScheduleEditor schedule={schedule} teams={teams} session={session} />}
 
-      {tab === 'nameMapping' && <NameMappingAdmin teams={teams} matches={matches} previousMatches={previousMatches} playerRatings={playerRatings} />}
+      {activeTab === 'scores' && allowed.scores && <ScoresApproval matches={matches} teams={teams} session={session} />}
 
-      {tab === 'passwords' && (
+      {activeTab === 'nameMapping' && allowed.ratings && <NameMappingAdmin teams={teams} matches={matches} previousMatches={previousMatches} playerRatings={playerRatings} session={session} />}
+
+      {activeTab === 'passwords' && allowed.passwords && (
         <div className="card">
           <h2>🔑 Team Passwords</h2>
           <p className="hint" style={{ marginBottom: '.6rem' }}>Share these with each team captain.</p>
@@ -537,7 +802,11 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
         </div>
       )}
 
-      {tab === 'settings' && (
+      {activeTab === 'admins' && allowed.admins && <AdminUsersManager adminUsers={adminUsers} session={session} />}
+
+      {activeTab === 'audit' && allowed.audit && <AuditLogViewer auditLog={auditLog} />}
+
+      {activeTab === 'settings' && allowed.settings && (
         <>
           <div className="card">
             <h2>🔐 Admin Password</h2>

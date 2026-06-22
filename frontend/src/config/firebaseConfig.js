@@ -23,7 +23,9 @@ export const PATHS = {
   teams: 'koc_s3/teams',         // KOC3 teams
   matches: 'koc_s3/matches',     // KOC3 match results
   playerRatings: 'koc_s3/playerRatings', // UTR lookup table used by PPRC
-  admin: 'koc_s3/admin',         // { password }
+  admin: 'koc_s3/admin',         // { password } – legacy single admin password
+  adminUsers: 'koc_s3/adminUsers', // named admin accounts { username: { name, role, password } }
+  auditLog: 'koc_s3/auditLog',   // audit trail of important actions (SUPER_ADMIN only)
   schedule: 'koc_s3/schedule',   // KOC3 fixtures
   season2: 'koc_s2/matches',     // Season 2 archive / PPRC history (read-only)
   koc2db: 'koc_s2/matches',      // Existing Season 2 match path for PPRC rating history

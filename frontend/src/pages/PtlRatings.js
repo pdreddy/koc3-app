@@ -4,6 +4,8 @@ import { buildPprcRatings } from '../utils/pprcRating';
 import { UTR_RATINGS, matchUtrRating, normalizeNameKey, suggestUtrMatches } from '../data/utrRatings';
 import { db, PATHS } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { can, PERMISSIONS } from '../config/roles';
+import { AUDIT_ACTIONS, logAudit } from '../utils/audit';
 
 function formatRating(value) {
   return value == null ? '—' : Number(value).toFixed(2);
@@ -19,7 +21,7 @@ function uniqueValues(values) {
   return Array.from(new Set(values.map(value => String(value || '').trim()).filter(Boolean)));
 }
 
-function NameMappingRow({ sourceName, lookupRows, onSaved, canSave }) {
+function NameMappingRow({ sourceName, lookupRows, onSaved, canSave, session }) {
   const suggestions = useMemo(() => suggestUtrMatches(sourceName, lookupRows, 5), [sourceName, lookupRows]);
   const initialTarget = suggestions[0]?.row.fullName || lookupRows[0]?.fullName || '';
   const [targetName, setTargetName] = useState(initialTarget);
@@ -27,6 +29,7 @@ function NameMappingRow({ sourceName, lookupRows, onSaved, canSave }) {
   const targetRow = lookupRows.find(row => row.fullName === targetName) || suggestions[0]?.row;
 
   async function saveMapping() {
+    if (!canSave) { setStatus('Only a Super Admin can save rating mappings.'); return; }
     if (!sourceName || !targetRow) return;
     const id = ratingRowId(targetRow);
     if (!id) {
@@ -36,6 +39,11 @@ function NameMappingRow({ sourceName, lookupRows, onSaved, canSave }) {
     const keys = uniqueValues([...(targetRow.keys || []), normalizeNameKey(sourceName)]);
     try {
       await update(ref(db, `${PATHS.playerRatings}/${id}`), { keys, aliases: null });
+      await logAudit(session, AUDIT_ACTIONS.RATING_RECALCULATION, {
+        targetType: 'playerRating',
+        targetId: id,
+        newValue: { source: sourceName, mappedTo: targetRow.fullName }
+      });
       setStatus(`Saved clean key → ${targetRow.fullName}`);
       onSaved?.(sourceName);
     } catch (error) {
@@ -192,7 +200,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
     ];
     return uniqueValues(names).filter(name => !savedMappings.includes(name)).sort((a, b) => a.localeCompare(b));
   }, [legacyNameMap, savedMappings, unmappedPlayers]);
-  const isAdmin = session.role === 'admin';
+  const isAdmin = can(session, PERMISSIONS.MANAGE_RATINGS);
 
   return (
     <main className="container">
@@ -316,7 +324,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
           <p className="hint">
             Admins can map misspelled, short, or legacy PPRC names to the actual UTR lookup player. Saving writes only a normalized key under /koc_s3/playerRatings and deletes any alias field, so you can keep the DB clean.
           </p>
-          {!isAdmin && <div className="error-box">Sign in as admin to save name mappings. You can still review fuzzy suggestions here.</div>}
+          {!isAdmin && <div className="error-box">Sign in as Super Admin to save name mappings. You can still review fuzzy suggestions here.</div>}
           <div className="table-wrap">
             <table className="std ptl-table" data-testid="ptl-name-correction-table">
               <thead>
@@ -336,6 +344,7 @@ export default function PtlRatings({ teams, matches, previousMatches = [], ratin
                     lookupRows={lookupRows}
                     onSaved={savedName => setSavedMappings(prev => uniqueValues([...prev, savedName]))}
                     canSave={isAdmin}
+                    session={session}
                   />
                 ))}
               </tbody>

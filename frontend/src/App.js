@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { onValue, ref, set, get } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { DEFAULT_ADMIN_USERS } from './config/roles';
 import { buildInitialTeams, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD } from './data/initialTeams';
 import { buildUtrRatingsTable } from './data/utrRatings';
 import { sortByGroupOrder } from './data/auctionTeams';
@@ -51,6 +52,8 @@ function Shell() {
   const [legacyMatches, setLegacyMatches] = useState([]);
   const [playerRatings, setPlayerRatings] = useState({});
   const [adminConfig, setAdminConfig] = useState({ password: '' });
+  const [adminUsers, setAdminUsers] = useState({});
+  const [auditLog, setAuditLog] = useState([]);
   const [schedule, setSchedule] = useState({});
   const [loaded, setLoaded] = useState(false);
 
@@ -87,6 +90,11 @@ function Shell() {
         const aSnap = await get(ref(db, PATHS.admin));
         if (!aSnap.exists()) {
           await set(ref(db, PATHS.admin), { password: DEFAULT_ADMIN_PASSWORD });
+        }
+
+        const auSnap = await get(ref(db, PATHS.adminUsers));
+        if (!auSnap.exists()) {
+          await set(ref(db, PATHS.adminUsers), DEFAULT_ADMIN_USERS);
         }
 
         const rSnap = await get(ref(db, PATHS.playerRatings));
@@ -140,13 +148,22 @@ function Shell() {
     const unsubA = onValue(ref(db, PATHS.admin), (snap) => {
       setAdminConfig(snap.val() || { password: '' });
     });
+    const unsubAU = onValue(ref(db, PATHS.adminUsers), (snap) => {
+      setAdminUsers(snap.val() || {});
+    });
+    const unsubAudit = onValue(ref(db, PATHS.auditLog), (snap) => {
+      const data = snap.val() || {};
+      const list = Object.entries(data).map(([id, e]) => ({ id, ...(e || {}) }));
+      list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      setAuditLog(list);
+    });
     const unsubR = onValue(ref(db, PATHS.playerRatings), (snap) => {
       setPlayerRatings(snap.val() || buildUtrRatingsTable());
     });
     const unsubS = onValue(ref(db, PATHS.schedule), (snap) => {
       setSchedule(snap.val() || {});
     });
-    return () => { unsubT(); unsubM(); unsubLegacy(); unsubA(); unsubR(); unsubS(); };
+    return () => { unsubT(); unsubM(); unsubLegacy(); unsubA(); unsubAU(); unsubAudit(); unsubR(); unsubS(); };
   }, []);
 
   return (
@@ -163,7 +180,7 @@ function Shell() {
         <Route path="/season2" element={<Season2 />} />
         <Route path="/rules" element={<Rules />} />
         <Route path="/more" element={<More />} />
-        <Route path="/login" element={<Login teams={teams} adminConfig={adminConfig} />} />
+        <Route path="/login" element={<Login teams={teams} adminConfig={adminConfig} adminUsers={adminUsers} />} />
         <Route path="/score" element={
           <ProtectedTeam>
             <ScoreEntry teams={teams} matches={matches} />
@@ -171,7 +188,7 @@ function Shell() {
         } />
         <Route path="/admin" element={
           <ProtectedAdmin>
-            <Admin teams={teams} adminConfig={adminConfig} matches={matches} previousMatches={legacyMatches} schedule={schedule} playerRatings={playerRatings} />
+            <Admin teams={teams} adminConfig={adminConfig} adminUsers={adminUsers} auditLog={auditLog} matches={matches} previousMatches={legacyMatches} schedule={schedule} playerRatings={playerRatings} />
           </ProtectedAdmin>
         } />
         <Route path="*" element={<Navigate to="/teams" replace />} />
