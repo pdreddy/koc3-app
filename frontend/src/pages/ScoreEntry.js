@@ -4,6 +4,9 @@ import { db, PATHS, ensureAuth } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { matchName } from '../utils/nameMatch';
 import { parseQuickScore } from '../utils/quickScoreParser';
+import { MAX_MATCH_DAYS, MAX_PARTNER_DAYS, MAX_SINGLES_DAYS, buildEligibilityStats, validateEligibilityForMatch } from '../utils/playerEligibility';
+import { ScoreProcessingService } from '../services/ScoreProcessingService';
+import { ROLES, isAdminRole, normalizeRole } from '../utils/roles';
 
 const COURT_TEMPLATES = [
   { label: 'Singles', type: 'singles', setCount: 5 },
@@ -95,6 +98,34 @@ function getQuickGuidance(text, parsed, teams) {
   return Array.from(new Set(tips)).slice(0, 6);
 }
 
+
+function CaptainEligibilityCard({ team, teams, matches }) {
+  const stats = useMemo(() => buildEligibilityStats(matches, teams).statsByTeam[team?.id] || {}, [matches, teams, team?.id]);
+  if (!team) return null;
+  const rows = (team.players || []).map(player => {
+    const id = String(player.name || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    return stats[id] || { name: player.name, totalMatchDays: 0, singlesDays: 0, doublesDays: 0 };
+  });
+  return (
+    <div className="card" data-testid="captain-eligibility-card">
+      <h2>Player Eligibility — {team.abbreviation}</h2>
+      <p className="hint">Before choosing a lineup: max {MAX_MATCH_DAYS} match days, max {MAX_SINGLES_DAYS} singles days, same doubles partner max {MAX_PARTNER_DAYS} match days. A doubles selection must play both doubles and reverse doubles that day.</p>
+      <div className="table-wrap">
+        <table className="std" data-testid="captain-eligibility-table">
+          <thead><tr><th>Player</th><th>Match Days</th><th>Singles</th><th>Doubles</th></tr></thead>
+          <tbody>{rows.map(row => (
+            <tr key={row.name}>
+              <td><strong>{row.name}</strong></td>
+              <td>{row.totalMatchDays}/{MAX_MATCH_DAYS}</td>
+              <td>{row.singlesDays}/{MAX_SINGLES_DAYS}</td>
+              <td>{row.doublesDays}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 function selectedNamesFromIndexes(team, indexes) {
   return indexes.map(index => team?.players?.[Number(index)]?.name).filter(Boolean);
@@ -480,14 +511,24 @@ function getQuickNameContext(text, cursor, parsed, teams) {
 }
 
 export default function ScoreEntry({ teams, matches }) {
+  const { session } = useAuth();
   const [mode, setMode] = useState('form');
   const [sharedTeam1Id, setSharedTeam1IdRaw] = useState('');
   const [sharedTeam2Id, setSharedTeam2IdRaw] = useState('');
+  const [scoreGroup, setScoreGroupRaw] = useState('A');
   const [team1Lineup, setTeam1Lineup] = useState([]);
   const [team2Lineup, setTeam2Lineup] = useState([]);
   const setSharedTeam1Id = (value) => { setSharedTeam1IdRaw(value); setTeam1Lineup([]); };
   const setSharedTeam2Id = (value) => { setSharedTeam2IdRaw(value); setTeam2Lineup([]); };
+  const setScoreGroup = (value) => { setScoreGroupRaw(value); setSharedTeam1IdRaw(''); setSharedTeam2IdRaw(''); setTeam1Lineup([]); setTeam2Lineup([]); };
   const lineupState = { team1Lineup, setTeam1Lineup, team2Lineup, setTeam2Lineup };
+  const myTeam = normalizeRole(session.role) === ROLES.CAPTAIN ? teams[session.teamId] : null;
+
+  useEffect(() => {
+    if (myTeam?.group) setScoreGroupRaw(myTeam.group);
+    if (myTeam?.id) setSharedTeam1IdRaw(myTeam.id);
+  }, [myTeam?.group, myTeam?.id]);
+
   return (
     <main className="container">
       <div className="page-title">
@@ -506,10 +547,13 @@ export default function ScoreEntry({ teams, matches }) {
           data-testid="score-tab-paste"
         >⚡ Quick Paste</button>
       </div>
+      {normalizeRole(session.role) === ROLES.CAPTAIN && <CaptainEligibilityCard team={teams[session.teamId]} teams={teams} matches={matches} />}
       {mode === 'form' ? (
         <FormEntry
           teams={teams}
           matches={matches}
+          scoreGroup={scoreGroup}
+          setScoreGroup={setScoreGroup}
           team1Id={sharedTeam1Id}
           setTeam1Id={setSharedTeam1Id}
           team2Id={sharedTeam2Id}
@@ -519,6 +563,9 @@ export default function ScoreEntry({ teams, matches }) {
       ) : (
         <QuickEntry
           teams={teams}
+          matches={matches}
+          scoreGroup={scoreGroup}
+          setScoreGroup={setScoreGroup}
           team1Id={sharedTeam1Id}
           setTeam1Id={setSharedTeam1Id}
           team2Id={sharedTeam2Id}
@@ -530,11 +577,14 @@ export default function ScoreEntry({ teams, matches }) {
   );
 }
 
-function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
+function FormEntry({ teams, matches, scoreGroup, setScoreGroup, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const teamList = Object.values(teams || {});
-  const myTeam = session.role === 'team' ? teams[session.teamId] : null;
-  const isAdmin = session.role === 'admin';
+  const myTeam = normalizeRole(session.role) === ROLES.CAPTAIN ? teams[session.teamId] : null;
+  const isAdmin = isAdminRole(session);
+  const groupTeams = teamList.filter(t => (t.group || 'A') === scoreGroup);
+  const team1Options = isAdmin ? groupTeams : (myTeam ? [myTeam] : groupTeams);
+  const opponentOptions = groupTeams.filter(t => t.id !== team1Id);
 
 
   const [courts, setCourts] = useState(() => COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
@@ -571,7 +621,7 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
     if (team1.id === team2.id) { setError('Teams must be different.'); return; }
 
     // For team captains, must include their own team
-    if (session.role === 'team' && team1.id !== session.teamId && team2.id !== session.teamId) {
+    if (normalizeRole(session.role) === ROLES.CAPTAIN && team1.id !== session.teamId && team2.id !== session.teamId) {
       setError('Your team must be involved in the match.');
       return;
     }
@@ -628,6 +678,12 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
       return;
     }
 
+    const eligibility = validateEligibilityForMatch({ lines, team1, team2, matches, teams });
+    if (!eligibility.valid) {
+      setError(eligibility.errors.join('\n'));
+      return;
+    }
+
     const winner = totals.w1 > totals.w2 ? team1.name : (totals.w2 > totals.w1 ? team2.name : null);
     if (!winner) { setError('Match is tied on courts won. Please verify scores.'); return; }
 
@@ -644,14 +700,16 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
       courtsWon1: totals.w1, courtsWon2: totals.w2,
       win: winner,
       ts: Date.now(),
-      enteredBy: session.role === 'team' ? session.teamName : 'Admin',
-      lines
+      enteredBy: normalizeRole(session.role) === ROLES.CAPTAIN ? session.teamName : 'Admin',
+      lines,
+      eligibility: eligibility.snapshots
     };
 
     try {
       setSaving(true);
       await ensureAuth();
-      await push(ref(db, PATHS.matches), record);
+      const matchRef = push(ref(db, PATHS.matches));
+      await ScoreProcessingService.saveMatch({ ...record, id: matchRef.key }, { session });
       setSuccess(`✅ Saved: ${team1.name} vs ${team2.name} — Winner: ${winner}`);
       setCourts(COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
     } catch (e) {
@@ -670,6 +728,13 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
 
       <div className="card score-teams-card">
         <h2>Match teams</h2>
+        <div className="field" style={{ marginBottom: '.7rem' }}>
+          <div className="field-label">Group</div>
+          <select className="select" value={scoreGroup} onChange={e => setScoreGroup(e.target.value)} disabled={!isAdmin && !!myTeam} data-testid="score-group-select">
+            <option value="A">Group A</option>
+            <option value="B">Group B</option>
+          </select>
+        </div>
         <div className="row score-teams-row">
           <div>
             <div className="field-label">Your team</div>
@@ -681,7 +746,7 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
               data-testid="team1-select"
             >
               <option value="">— Select —</option>
-              {teamList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {team1Options.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
           <span className="vs">vs</span>
@@ -694,7 +759,7 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
               data-testid="team2-select"
             >
               <option value="">— Select —</option>
-              {teamList.filter(t => t.id !== team1Id).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {opponentOptions.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
         </div>
@@ -795,7 +860,7 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
 
 // ==================== QUICK PASTE ENTRY ====================
 
-function QuickEntry({ teams, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
+function QuickEntry({ teams, matches, scoreGroup, setScoreGroup, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const textareaRef = useRef(null);
   const [text, setText] = useState('');
@@ -804,6 +869,11 @@ function QuickEntry({ teams, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupSta
   const [success, setSuccess] = useState('');
   const [saving, setSaving] = useState(false);
   const teamList = Object.values(teams || {});
+  const myTeam = normalizeRole(session.role) === ROLES.CAPTAIN ? teams[session.teamId] : null;
+  const isAdmin = isAdminRole(session);
+  const groupTeams = teamList.filter(t => (t.group || 'A') === scoreGroup);
+  const team1Options = isAdmin ? groupTeams : (myTeam ? [myTeam] : groupTeams);
+  const opponentOptions = groupTeams.filter(t => t.id !== team1Id);
   const selectedTeam1 = teams[team1Id];
   const selectedTeam2 = teams[team2Id];
 
@@ -858,7 +928,7 @@ function QuickEntry({ teams, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupSta
     if (results.length === 0) { setError('No valid courts parsed.'); return; }
 
     // Team-captain restriction
-    if (session.role === 'team' && team1.id !== session.teamId && team2.id !== session.teamId) {
+    if (normalizeRole(session.role) === ROLES.CAPTAIN && team1.id !== session.teamId && team2.id !== session.teamId) {
       setError('Your team must be involved in the match.');
       return;
     }
@@ -880,6 +950,12 @@ function QuickEntry({ teams, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupSta
       };
     });
 
+    const eligibility = validateEligibilityForMatch({ lines, team1, team2, matches, teams });
+    if (!eligibility.valid) {
+      setError(eligibility.errors.join('\n'));
+      return;
+    }
+
     const winner = w1 > w2 ? team1.name : (w2 > w1 ? team2.name : null);
     if (!winner) { setError('Match is tied on courts won. Please verify scores.'); return; }
 
@@ -893,14 +969,16 @@ function QuickEntry({ teams, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupSta
       courtsWon1: w1, courtsWon2: w2,
       win: winner,
       ts: Date.now(),
-      enteredBy: session.role === 'team' ? session.teamName : 'Admin',
-      lines
+      enteredBy: normalizeRole(session.role) === ROLES.CAPTAIN ? session.teamName : 'Admin',
+      lines,
+      eligibility: eligibility.snapshots
     };
 
     try {
       setSaving(true);
       await ensureAuth();
-      await push(ref(db, PATHS.matches), record);
+      const matchRef = push(ref(db, PATHS.matches));
+      await ScoreProcessingService.saveMatch({ ...record, id: matchRef.key }, { session });
       setSuccess(`✅ Saved: ${team1.name} vs ${team2.name} — Winner: ${winner}`);
       setText('');
     } catch (e) {
@@ -942,12 +1020,19 @@ Final: KC won 3-2`;
 
       <div className="card score-teams-card">
         <h2>Match teams</h2>
+        <div className="field" style={{ marginBottom: '.7rem' }}>
+          <div className="field-label">Group</div>
+          <select className="select" value={scoreGroup} onChange={e => setScoreGroup(e.target.value)} disabled={!isAdmin && !!myTeam} data-testid="quick-score-group-select">
+            <option value="A">Group A</option>
+            <option value="B">Group B</option>
+          </select>
+        </div>
         <div className="row score-teams-row">
           <div>
             <div className="field-label">Team 1</div>
             <select className="select" value={team1Id} onChange={e => setTeam1Id(e.target.value)} data-testid="quick-team1-select">
               <option value="">— Select —</option>
-              {teamList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {team1Options.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
           <span className="vs">vs</span>
@@ -955,7 +1040,7 @@ Final: KC won 3-2`;
             <div className="field-label">Team 2</div>
             <select className="select" value={team2Id} onChange={e => setTeam2Id(e.target.value)} data-testid="quick-team2-select">
               <option value="">— Select —</option>
-              {teamList.filter(t => t.id !== team1Id).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {opponentOptions.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
         </div>

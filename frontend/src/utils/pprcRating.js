@@ -40,7 +40,27 @@ function expectedWinChance(rating, opponentRating) {
   return 1 / (1 + Math.pow(10, (opponentRating - rating) / 4));
 }
 
-function ptlScoreForCourt({ won, gamesFor, gamesAgainst }) {
+
+function seasonLabel(source) {
+  const clean = String(source || '').trim();
+  if (!clean) return 'Unknown season';
+  if (/koc3/i.test(clean)) return 'KOC3';
+  if (/season\s*2|koc2/i.test(clean)) return 'Season 2';
+  return clean;
+}
+
+function teamLabel(team) {
+  return team?.abbreviation || team?.name || '?';
+}
+
+function addSeasonTeam(player, source, team) {
+  if (!player) return;
+  const label = `${seasonLabel(source)} / ${teamLabel(team)}`;
+  if (!player.seasonTeams) player.seasonTeams = new Set();
+  player.seasonTeams.add(label);
+}
+
+function pprcScoreForCourt({ won, gamesFor, gamesAgainst }) {
   const totalGames = Math.max(1, gamesFor + gamesAgainst);
   const gameMargin = clamp((gamesFor - gamesAgainst) / totalGames, -1, 1);
   return clamp((won ? 1 : 0) + gameMargin * 0.18, 0, 1);
@@ -62,15 +82,14 @@ function buildPlayerIndex(teams, ratingRows) {
       }
       players[key] = {
         name: canonical.displayName,
-        aliases: player.name === canonical.displayName ? [] : [player.name],
         team: team.name,
         teamAbbr: team.abbreviation,
         currentSinglesUtr: singlesUtr,
         currentDoublesUtr: doublesUtr,
         hasUtrLookup: canonical.hasUtrLookup,
         lookupName: canonical.lookup?.fullName || '',
-        ptlSinglesRating: singlesUtr || DEFAULT_BASE_RATING,
-        ptlDoublesRating: doublesUtr || DEFAULT_BASE_RATING,
+        pprcSinglesRating: singlesUtr || DEFAULT_BASE_RATING,
+        pprcDoublesRating: doublesUtr || DEFAULT_BASE_RATING,
         courts: 0,
         wins: 0,
         losses: 0,
@@ -78,7 +97,8 @@ function buildPlayerIndex(teams, ratingRows) {
         doubles: 0,
         gamesFor: 0,
         gamesAgainst: 0,
-        ratingDelta: 0
+        ratingDelta: 0,
+        seasonTeams: new Set([`KOC3 / ${teamLabel(team)}`])
       };
     });
   });
@@ -91,15 +111,14 @@ function ensurePlayer(players, name, team, ratingRows) {
   if (!players[key]) {
     players[key] = {
       name: canonical.displayName,
-      aliases: name === canonical.displayName ? [] : [name],
       team: team?.name || 'Unknown',
       teamAbbr: team?.abbreviation || '?',
       currentSinglesUtr: canonical.lookup?.singlesUtr ?? null,
       currentDoublesUtr: canonical.lookup?.doublesUtr ?? null,
       hasUtrLookup: canonical.hasUtrLookup,
       lookupName: canonical.lookup?.fullName || '',
-      ptlSinglesRating: canonical.lookup?.singlesUtr || DEFAULT_BASE_RATING,
-      ptlDoublesRating: canonical.lookup?.doublesUtr || DEFAULT_BASE_RATING,
+      pprcSinglesRating: canonical.lookup?.singlesUtr || DEFAULT_BASE_RATING,
+      pprcDoublesRating: canonical.lookup?.doublesUtr || DEFAULT_BASE_RATING,
       courts: 0,
       wins: 0,
       losses: 0,
@@ -107,10 +126,9 @@ function ensurePlayer(players, name, team, ratingRows) {
       doubles: 0,
       gamesFor: 0,
       gamesAgainst: 0,
-      ratingDelta: 0
+      ratingDelta: 0,
+      seasonTeams: new Set()
     };
-  } else if (name !== players[key].name && !(players[key].aliases || []).includes(name)) {
-    players[key].aliases = [...(players[key].aliases || []), name];
   }
   return players[key];
 }
@@ -118,14 +136,16 @@ function ensurePlayer(players, name, team, ratingRows) {
 function applyCourtRating(players, playerNames, opponentNames, context, ratingRows) {
   const playerRecords = playerNames.map(name => ensurePlayer(players, name, context.team, ratingRows));
   const opponentRecords = opponentNames.map(name => ensurePlayer(players, name, context.opponentTeam, ratingRows));
-  const ratingKey = context.type === 'singles' ? 'ptlSinglesRating' : 'ptlDoublesRating';
+  playerRecords.forEach(player => addSeasonTeam(player, context.source, context.team));
+  opponentRecords.forEach(player => addSeasonTeam(player, context.source, context.opponentTeam));
+  const ratingKey = context.type === 'singles' ? 'pprcSinglesRating' : 'pprcDoublesRating';
   const deltaKey = context.type === 'singles' ? 'singlesRatingDelta' : 'doublesRatingDelta';
   const opponentAverage = opponentRecords.reduce((sum, p) => sum + p[ratingKey], 0) / Math.max(1, opponentRecords.length);
 
   playerRecords.forEach(player => {
     const before = player[ratingKey];
     const expected = expectedWinChance(before, opponentAverage);
-    const actual = ptlScoreForCourt(context);
+    const actual = pprcScoreForCourt(context);
     const confidence = Math.min(player.courts, 12);
     const kFactor = 0.34 - confidence * 0.012;
     const delta = clamp((actual - expected) * kFactor, -0.22, 0.22);
@@ -143,7 +163,7 @@ function applyCourtRating(players, playerNames, opponentNames, context, ratingRo
   });
 }
 
-export function buildPtlRatings(teams, matches, ratingRows) {
+export function buildPprcRatings(teams, matches, ratingRows) {
   const players = buildPlayerIndex(teams, ratingRows);
   const chronological = [...(matches || [])].sort((a, b) => (a.ts || 0) - (b.ts || 0));
 
@@ -164,7 +184,8 @@ export function buildPtlRatings(teams, matches, ratingRows) {
         won: team1Won,
         gamesFor: g1,
         gamesAgainst: g2,
-        type: line.type
+        type: line.type,
+        source: match.source
       }, ratingRows);
       applyCourtRating(players, t2Players, t1Players, {
         team: team2,
@@ -172,22 +193,27 @@ export function buildPtlRatings(teams, matches, ratingRows) {
         won: !team1Won,
         gamesFor: g2,
         gamesAgainst: g1,
-        type: line.type
+        type: line.type,
+        source: match.source
       }, ratingRows);
     });
   });
 
   return Object.values(players)
-    .map(player => ({
-      ...player,
+    .map(player => {
+      const { seasonTeams, ...publicPlayer } = player;
+      return {
+      ...publicPlayer,
       winPct: player.courts ? Math.round((player.wins / player.courts) * 100) : 0,
       gameDiff: player.gamesFor - player.gamesAgainst,
-      ptlSinglesRating: Number(player.ptlSinglesRating.toFixed(2)),
-      ptlDoublesRating: Number(player.ptlDoublesRating.toFixed(2)),
-      ptlRating: Number((((player.ptlSinglesRating || DEFAULT_BASE_RATING) + (player.ptlDoublesRating || DEFAULT_BASE_RATING)) / 2).toFixed(2)),
+      pprcSinglesRating: Number(player.pprcSinglesRating.toFixed(2)),
+      pprcDoublesRating: Number(player.pprcDoublesRating.toFixed(2)),
+      pprcRating: Number((((player.pprcSinglesRating || DEFAULT_BASE_RATING) + (player.pprcDoublesRating || DEFAULT_BASE_RATING)) / 2).toFixed(2)),
+      seasonTeamSummary: Array.from(player.seasonTeams || []).sort().join(', '),
       ratingDelta: Number(player.ratingDelta.toFixed(2)),
       singlesRatingDelta: Number((player.singlesRatingDelta || 0).toFixed(2)),
       doublesRatingDelta: Number((player.doublesRatingDelta || 0).toFixed(2))
-    }))
-    .sort((a, b) => b.ptlRating - a.ptlRating || b.wins - a.wins || a.name.localeCompare(b.name));
+      };
+    })
+    .sort((a, b) => b.pprcRating - a.pprcRating || b.wins - a.wins || a.name.localeCompare(b.name));
 }

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { ref, remove } from 'firebase/database';
-import { db, PATHS } from '../firebase';
+
 import { matchTeamNames, matchWinnerId } from '../utils/matchTeams';
+import { ScoreProcessingService } from '../services/ScoreProcessingService';
+import { isAdminRole } from '../utils/roles';
 
 export default function History({ matches, teams }) {
   const [openId, setOpenId] = useState(null);
@@ -11,7 +12,7 @@ export default function History({ matches, teams }) {
   const handleDelete = async (m, names) => {
     if (!window.confirm(`Delete match ${names.t1Name} vs ${names.t2Name}?`)) return;
     try {
-      await remove(ref(db, `${PATHS.matches}/${m.id}`));
+      await ScoreProcessingService.deleteMatch(m.id, { session, oldValue: m });
     } catch (e) {
       alert('Delete failed: ' + e.message);
     }
@@ -70,7 +71,7 @@ export default function History({ matches, teams }) {
                 )}
               </>
             )}
-            {session.role === 'admin' && (
+            {isAdminRole(session) && (
               <button
                 className="btn small danger"
                 style={{ marginTop: '.5rem', marginLeft: '.4rem' }}

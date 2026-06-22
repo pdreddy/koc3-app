@@ -1,20 +1,32 @@
-import { initializeApp } from 'firebase/app';
+import { getApps, initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
+import { firebaseConfig, PATHS } from './config/firebaseConfig.js';
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDbO0eP52i4t3V94bEiDcl7WoKbSrrM9VA",
-  authDomain: "koc2-20fb8.firebaseapp.com",
-  databaseURL: "https://koc2-20fb8-default-rtdb.firebaseio.com",
-  projectId: "koc2-20fb8",
-  storageBucket: "koc2-20fb8.firebasestorage.app",
-  messagingSenderId: "317734341461",
-  appId: "1:317734341461:web:1bcad5a1792fac0e46bddc"
-};
+export { PATHS };
 
-export const app = initializeApp(firebaseConfig);
+if (!firebaseConfig.projectId || !firebaseConfig.databaseURL) {
+  throw new Error('Firebase configuration is missing projectId or databaseURL. Check VITE_FIREBASE_PROJECT_ID and VITE_FIREBASE_DATABASE_URL.');
+}
+
+const parsedDatabaseUrl = new URL(firebaseConfig.databaseURL);
+const databaseURL = parsedDatabaseUrl.toString();
+const firebaseGlobal = typeof window !== 'undefined' ? window : null;
+if (firebaseGlobal) {
+  const currentDefaults = firebaseGlobal.__FIREBASE_DEFAULTS__ || {};
+  firebaseGlobal.__FIREBASE_DEFAULTS__ = {
+    ...currentDefaults,
+    config: {
+      ...(currentDefaults.config || {}),
+      ...firebaseConfig,
+      databaseURL
+    }
+  };
+}
+
+export const app = getApps().find(existingApp => existingApp.name === '[DEFAULT]') || initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getDatabase(app);
+export const db = getDatabase(app, databaseURL);
 
 let authPromise = null;
 export function ensureAuth() {
@@ -25,15 +37,3 @@ export function ensureAuth() {
   }
   return authPromise;
 }
-
-// Firebase RTDB paths
-export const PATHS = {
-  teams: 'koc_s3/teams',         // KOC3 teams
-  matches: 'koc_s3/matches',     // KOC3 match results
-  playerRatings: 'koc_s3/playerRatings', // UTR lookup table used by PTL
-  admin: 'koc_s3/admin',         // { password }
-  schedule: 'koc_s3/schedule',   // KOC3 fixtures
-  season2: 'koc_s2/matches',     // Season 2 archive (read-only)
-  koc2db: 'KOC2DB',              // Legacy KOC2 database for PTL rating history
-  season1: 'KOC2DBPONEW'         // Older legacy archive fallback (read-only)
-};

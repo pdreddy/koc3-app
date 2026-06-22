@@ -1,24 +1,29 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { ROLES, isAdminRole, normalizeRole } from '../utils/roles';
 
 export default function More() {
   const { session, logout } = useAuth();
 
   const items = [
-    { to: '/ptl', icon: '📈', label: 'PTL Rating', desc: 'Current UTR beside KOC performance rating', testid: 'more-ptl' },
+    { to: '/ptl', icon: '📈', label: 'PPRC Rating', desc: 'Neat KOC performance rating beside current UTR', testid: 'more-ptl' },
     { to: '/history', icon: '📜', label: 'Match History', desc: 'View past results', testid: 'more-history' },
-    { to: '/season2', icon: '🏆', label: 'Season 2 Archive', desc: 'Previous season standings & matches', testid: 'more-season2' },
     { to: '/rules', icon: '📋', label: 'Rules', desc: 'Format, scoring & tiebreakers', testid: 'more-rules' }
   ];
 
-  if (session.role === 'guest') {
+  const role = normalizeRole(session.role);
+
+  if (role === ROLES.GUEST) {
     items.push({ to: '/login', icon: '🔒', label: 'Captain / Admin Login', desc: 'Sign in to enter scores', testid: 'more-login' });
-  } else if (session.role === 'team') {
+  } else if (role === ROLES.CAPTAIN) {
     items.push({ to: '/score', icon: '✍️', label: 'Enter Score', desc: `Logged in as ${session.teamName}`, testid: 'more-score' });
-  } else if (session.role === 'admin') {
+  } else if (isAdminRole(session)) {
     items.push({ to: '/score', icon: '✍️', label: 'Enter Score', desc: 'Admin score entry', testid: 'more-score' });
     items.push({ to: '/admin', icon: '⚙️', label: 'Admin Dashboard', desc: 'Manage teams & passwords', testid: 'more-admin' });
+    if (role === ROLES.SUPER_ADMIN) {
+      items.push({ to: '/audit', icon: '🧾', label: 'Audit Logs', desc: 'Review system and data changes', testid: 'more-audit' });
+    }
   }
 
   return (
@@ -54,7 +59,7 @@ export default function More() {
           </Link>
         ))}
 
-        {session.role !== 'guest' && (
+        {role !== ROLES.GUEST && (
           <button
             className="btn ghost full"
             onClick={logout}

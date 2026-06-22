@@ -5,8 +5,10 @@ import { db, ensureAuth, PATHS } from './firebase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { buildInitialTeams, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD } from './data/initialTeams';
 import { buildUtrRatingsTable } from './data/utrRatings';
+import { sortByGroupOrder } from './data/auctionTeams';
 import { auctionPlayerRatingUpdates, buildAuctionPlayerRatingsTable } from './data/auctionPlayers';
-import { buildScheduleFor8x2, firstSundayOnOrAfter } from './utils/roundRobin';
+import { buildScheduleFor8x2, KOC3_SCHEDULE_VERSION } from './utils/roundRobin';
+import { cleanMatchList } from './utils/legacyMatches';
 
 import BottomNav from './components/BottomNav';
 import AppHeader from './components/Header';
@@ -21,8 +23,9 @@ import Rules from './pages/Rules';
 import Schedule from './pages/Schedule';
 import Matchups from './pages/Matchups';
 import More from './pages/More';
-import Season2 from './pages/Season2';
 import PtlRatings from './pages/PtlRatings';
+import AuditLogs from './pages/AuditLogs';
+import { isAdminRole, isCaptainRole } from './utils/roles';
 
 function firebaseObjectToList(data, source) {
   if (!data) return [];
@@ -47,7 +50,6 @@ function Shell() {
   const [teams, setTeams] = useState({});
   const [matches, setMatches] = useState([]);
   const [legacyMatches, setLegacyMatches] = useState([]);
-  const [legacyFallbackMatches, setLegacyFallbackMatches] = useState([]);
   const [playerRatings, setPlayerRatings] = useState({});
   const [adminConfig, setAdminConfig] = useState({ password: '' });
   const [schedule, setSchedule] = useState({});
@@ -85,7 +87,7 @@ function Shell() {
 
         const aSnap = await get(ref(db, PATHS.admin));
         if (!aSnap.exists()) {
-          await set(ref(db, PATHS.admin), { password: DEFAULT_ADMIN_PASSWORD });
+          await set(ref(db, PATHS.admin), { password: DEFAULT_ADMIN_PASSWORD, superAdminPassword: DEFAULT_ADMIN_PASSWORD });
         }
 
         const rSnap = await get(ref(db, PATHS.playerRatings));
@@ -98,13 +100,20 @@ function Shell() {
 
         // Seed schedule on first run
         const sSnap = await get(ref(db, PATHS.schedule));
-        if (!sSnap.exists()) {
-          const list = Object.values(teamsData);
-          const groupA = list.filter(t => (t.group || 'A') === 'A').sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
-          const groupB = list.filter(t => t.group === 'B').sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
+        const scheduleData = sSnap.val() || {};
+        const scheduleMatches = Object.values(scheduleData).filter(item => item?.type !== 'buffer');
+        const shouldSeedSchedule = !sSnap.exists() || scheduleMatches.length === 0 || scheduleMatches.some(item => item?.scheduleVersion !== KOC3_SCHEDULE_VERSION);
+        if (shouldSeedSchedule) {
+          const list = Object.values(buildInitialTeams()).map(canonical => ({
+            ...canonical,
+            ...(teamsData[canonical.id] || {}),
+            group: canonical.group,
+            groupOrder: canonical.groupOrder
+          }));
+          const groupA = list.filter(t => (t.group || 'A') === 'A').sort(sortByGroupOrder);
+          const groupB = list.filter(t => t.group === 'B').sort(sortByGroupOrder);
           if (groupA.length === 8 && groupB.length === 8) {
-            const startSunday = firstSundayOnOrAfter(new Date(2026, 5, 30)); // June = month 5
-            const fixtures = buildScheduleFor8x2(groupA, groupB, startSunday);
+            const fixtures = buildScheduleFor8x2(groupA, groupB);
             await set(ref(db, PATHS.schedule), fixtures);
           }
         }
@@ -124,20 +133,10 @@ function Shell() {
       setMatches(list);
     });
     const unsubLegacy = onValue(ref(db, PATHS.koc2db), (snap) => {
-      const list = firebaseObjectToList(snap.val(), 'KOC2DB');
-      list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
-      setLegacyMatches(list);
+      setLegacyMatches(cleanMatchList(firebaseObjectToList(snap.val(), 'Season 2')));
     }, (error) => {
-      console.error('Legacy KOC2DB load failed', error);
+      console.error('Legacy Season 2 load failed', error);
       setLegacyMatches([]);
-    });
-    const unsubLegacyFallback = onValue(ref(db, PATHS.season1), (snap) => {
-      const list = firebaseObjectToList(snap.val(), 'KOC2DBPONEW');
-      list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
-      setLegacyFallbackMatches(list);
-    }, (error) => {
-      console.error('Legacy KOC2DBPONEW fallback load failed', error);
-      setLegacyFallbackMatches([]);
     });
     const unsubA = onValue(ref(db, PATHS.admin), (snap) => {
       setAdminConfig(snap.val() || { password: '' });
@@ -148,7 +147,7 @@ function Shell() {
     const unsubS = onValue(ref(db, PATHS.schedule), (snap) => {
       setSchedule(snap.val() || {});
     });
-    return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubR(); unsubS(); };
+    return () => { unsubT(); unsubM(); unsubLegacy(); unsubA(); unsubR(); unsubS(); };
   }, []);
 
   return (
@@ -160,9 +159,8 @@ function Shell() {
         <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} />} />
         <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />
         <Route path="/matchups" element={<Matchups matches={matches} teams={teams} />} />
-        <Route path="/ptl" element={<PtlRatings matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} teams={teams} ratingLookup={playerRatings} />} />
+        <Route path="/ptl" element={<PtlRatings matches={matches} previousMatches={legacyMatches} teams={teams} ratingLookup={playerRatings} />} />
         <Route path="/history" element={<History matches={matches} teams={teams} />} />
-        <Route path="/season2" element={<Season2 />} />
         <Route path="/rules" element={<Rules />} />
         <Route path="/more" element={<More />} />
         <Route path="/login" element={<Login teams={teams} adminConfig={adminConfig} />} />
@@ -173,8 +171,13 @@ function Shell() {
         } />
         <Route path="/admin" element={
           <ProtectedAdmin>
-            <Admin teams={teams} adminConfig={adminConfig} matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} schedule={schedule} playerRatings={playerRatings} />
+            <Admin teams={teams} adminConfig={adminConfig} matches={matches} schedule={schedule} />
           </ProtectedAdmin>
+        } />
+        <Route path="/audit" element={
+          <ProtectedSuperAdmin>
+            <AuditLogs />
+          </ProtectedSuperAdmin>
         } />
         <Route path="*" element={<Navigate to="/teams" replace />} />
       </Routes>
@@ -185,7 +188,7 @@ function Shell() {
 
 function ProtectedTeam({ children }) {
   const { session } = useAuth();
-  if (session.role !== 'team' && session.role !== 'admin') {
+  if (!isCaptainRole(session)) {
     return <Navigate to="/login" replace state={{ next: '/score' }} />;
   }
   return children;
@@ -193,8 +196,17 @@ function ProtectedTeam({ children }) {
 
 function ProtectedAdmin({ children }) {
   const { session } = useAuth();
-  if (session.role !== 'admin') {
+  if (!isAdminRole(session)) {
     return <Navigate to="/login" replace state={{ next: '/admin' }} />;
+  }
+  return children;
+}
+
+
+function ProtectedSuperAdmin({ children }) {
+  const { session } = useAuth();
+  if (session.role !== 'SUPER_ADMIN') {
+    return <Navigate to="/login" replace state={{ next: '/audit' }} />;
   }
   return children;
 }

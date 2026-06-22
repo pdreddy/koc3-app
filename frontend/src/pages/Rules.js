@@ -2,26 +2,32 @@ import React from 'react';
 
 const ruleCards = [
   {
-    num: '01', color: 'var(--rules-c1)', icon: '⚙️', title: 'Player Match Limits',
+    num: '01', color: 'var(--rules-c1)', icon: '✅', title: 'Player Eligibility Rules',
     items: [
-      ['👥', 'Doubles Combo (RR only)', 'Max 3 days / 6 matches. Any Player1–Player2 pairing is capped at 3 days.'],
-      ['🎾', 'Singles (RR only)', 'A player can play singles a max of 2 days.'],
-      ['📊', 'Overall (RR only)', 'Max 5 days total across Singles + Doubles.']
+      ['📅', 'Total Match Days', 'A player may participate in a maximum of 5 match days during Round Robin.'],
+      ['🎾', 'Singles Day', '1 singles match. A player can play a maximum of 2 singles days.'],
+      ['👥', 'Doubles Day', '2 matches: Doubles + Reverse Doubles. If selected for doubles, the player must play both.'],
+      ['🔁', 'Doubles Days', 'No fixed doubles-day limit as long as total match days stay at 5 or below.'],
+      ['🤝', 'Same Partner', 'The same doubles pair can partner together for a maximum of 3 match days.'],
+      ['🧾', 'Score Validation', 'Before lineup or score submission: totalMatchDays ≤ 5, singlesDays ≤ 2, samePartnerDays ≤ 3, and every player belongs to the selected team.']
     ],
-    flag: ['warn', '⚠️', 'Violation: zero points for that match. Caps apply to round-robin only.']
+    flag: ['warn', '⚠️', 'Not allowed: 3 singles days, more than 5 total match days, or same doubles pair for 4 match days.']
   },
   {
-    num: '02', color: 'var(--rules-c2)', icon: '🏁', title: 'Competition Rules',
+    num: '02', color: 'var(--rules-c2)', icon: '📋', title: 'Valid Eligibility Examples',
     items: [
-      ['👥', 'Team Size', '7 players.'],
-      ['❗', 'Minimum Participation', 'Each player must play 3 matches, or the team is ineligible for playoffs.'],
-      ['🩺', 'Injury Replacement', 'Committee call — requires approval from captains & Uma.']
+      ['✅', '5 Doubles Days', 'Allowed.'],
+      ['✅', '4 Doubles + 1 Singles', 'Allowed.'],
+      ['✅', '3 Doubles + 2 Singles', 'Allowed.'],
+      ['✅', '2 Doubles + 2 Singles', 'Allowed.'],
+      ['✅', '1 Doubles + 2 Singles', 'Allowed.'],
+      ['❌', '2 Singles + 4 Doubles', 'Not allowed because it is 6 total match days.']
     ]
   },
   {
     num: '03', color: 'var(--rules-c3)', icon: '🏆', title: 'Format, Scoring & Match Play',
     groups: [
-      ['Format & Calendar', [['🏟️', 'Format', '16 Teams • Round Robin.'], ['🗓️', 'Duration', 'Jun 30 – Sep 15.'], ['📆', 'Matches / Week', '8 lines per week: 4 Sunday, 4 Saturday.']]],
+      ['Format & Calendar', [['🏟️', 'Format', '16 Teams • Round Robin.'], ['🗓️', 'Schedule', 'Group A Saturdays, Group B Sundays, all at 7:15 PM.'], ['📆', 'Buffer', 'July 4 weekend is a buffer week.']]],
       ['Match Format', [['🧍', 'Singles', 'Best of 5 mini-sets.'], ['👥', 'Doubles', 'Best of 3 sets. At 3–3, a 7-point tiebreaker. The 3rd set is a 15-point tiebreaker.']]],
       ['Scoring', [['✅', 'Win', 'Win 3 of 5 lines on a match day → 1 point.'], ['❌', 'Loss', 'Loss → 0 points.'], ['📊', 'Tiebreak', 'Points → Sets → Games → Head-to-Head.']]]
     ]
@@ -29,7 +35,7 @@ const ruleCards = [
   {
     num: '04', color: 'var(--rules-c4)', icon: '📅', title: 'Scheduling',
     items: [
-      ['🕒', 'Match Days', 'Sunday & Saturday.'],
+      ['🕒', 'Match Days', 'Saturday & Sunday at 7:15 PM.'],
       ['🤝', 'Weekday Play', "Captains may choose a weekday if both teams' players are available."],
       ['📝', 'Share Lineups', "Both captains must share lines in the captains' group to avoid unwanted situations."],
       ['⏱️', 'Missed Lineups', "If you miss the schedule and don't share lineups by 9:00 PM on the scheduled day."],
@@ -93,16 +99,16 @@ export default function Rules() {
     <main className="rules-wrap">
       <section className="rules-hero">
         <div className="rules-hero-text">
-          <span className="rules-eyebrow">● KOC Season 2 — The Rulebook</span>
+          <span className="rules-eyebrow">● KOC Season 3 — The Rulebook</span>
           <h1><span>Rules &amp;</span><em>Format</em></h1>
-          <p>Everything captains and players need: match limits, scoring, scheduling, and the road to the playoffs.</p>
+          <p>Everything captains and players need: eligibility limits, scoring, scheduling, and the road to the playoffs.</p>
           <div className="rules-energy" />
         </div>
         <div className="rules-visual" aria-hidden="true"><div className="rules-orbit" /><div className="rules-ball" /><div className="rules-racket" /></div>
         <div className="rules-stats">
           <div className="rules-stat"><b>16</b><small>Teams</small></div>
           <div className="rules-stat"><b>RR</b><small>Round Robin</small></div>
-          <div className="rules-stat"><b>Jun 30</b><small>→ Sep 15</small></div>
+          <div className="rules-stat"><b>7:15</b><small>PM Matches</small></div>
           <div className="rules-stat"><b>Bo5</b><small>Singles Format</small></div>
         </div>
       </section>

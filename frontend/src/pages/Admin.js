@@ -1,139 +1,56 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { ref, set, update, remove, push } from 'firebase/database';
 import { db, PATHS } from '../firebase';
-import { buildScheduleFor8x2, firstSundayOnOrAfter } from '../utils/roundRobin';
-import { UTR_RATINGS, matchUtrRating, normalizeNameKey, suggestUtrMatches } from '../data/utrRatings';
+import { buildScheduleFor8x2 } from '../utils/roundRobin';
+import { useAuth } from '../contexts/AuthContext';
+import { ROLES, normalizeRole } from '../utils/roles';
+import { ScoreProcessingService } from '../services/ScoreProcessingService';
+import { groupInfoForTeamId, normalizeAuctionTeam, sortByGroupOrder } from '../data/auctionTeams';
 
 
-function ratingRowId(row) {
-  return row?._id || String(row?.fullName || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-}
-
-function uniqueValues(values) {
-  return Array.from(new Set(values.map(value => String(value || '').trim()).filter(Boolean)));
-}
-
-function collectPlayerNames(teams, matches, previousMatches) {
-  const names = new Map();
-  const add = (name, source) => {
-    const clean = String(name || '').trim();
-    if (!clean) return;
-    const current = names.get(clean) || { name: clean, sources: new Set(), count: 0 };
-    current.sources.add(source);
-    current.count += 1;
-    names.set(clean, current);
-  };
-
-  Object.values(teams || {}).forEach(team => {
-    (team.players || []).forEach(player => add(player.name, `Roster ${team.abbreviation || team.name || ''}`.trim()));
-  });
-  [...(matches || []), ...(previousMatches || [])].forEach(match => {
-    (match.lines || []).forEach(line => {
-      [...(line.players?.team1 || []), ...(line.players?.team2 || [])].forEach(name => add(name, match.source || 'Match'));
-    });
-  });
-
-  return Array.from(names.values()).map(row => ({
-    ...row,
-    sources: Array.from(row.sources).join(', ')
-  })).sort((a, b) => a.name.localeCompare(b.name));
-}
-
-function AdminNameMapRow({ sourceName, sourceInfo, lookupRows }) {
-  const suggestions = useMemo(() => suggestUtrMatches(sourceName, lookupRows, 5), [sourceName, lookupRows]);
-  const [targetName, setTargetName] = useState(suggestions[0]?.row.fullName || lookupRows[0]?.fullName || '');
+function TeamJsonImporter() {
   const [msg, setMsg] = useState('');
-  const targetRow = lookupRows.find(row => row.fullName === targetName) || suggestions[0]?.row;
 
-  const saveMapping = async () => {
-    if (!targetRow) { setMsg('Select an actual UTR player first.'); return; }
-    const id = ratingRowId(targetRow);
-    if (!id) { setMsg('Selected rating row has no Firebase id.'); return; }
-    const aliases = uniqueValues([...(targetRow.aliases || []), sourceName]);
-    const keys = uniqueValues([...(targetRow.keys || []), normalizeNameKey(sourceName)]);
+  const saveTeamsFromJson = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setMsg('');
     try {
-      await update(ref(db, `${PATHS.playerRatings}/${id}`), { aliases, keys });
-      setMsg(`✅ DB updated: ${sourceName} → ${targetRow.fullName}`);
+      const parsed = JSON.parse(await file.text());
+      const sourceTeams = Array.isArray(parsed) ? parsed : Object.values(parsed.teams || parsed);
+      if (!Array.isArray(sourceTeams) || sourceTeams.length === 0) {
+        setMsg('JSON must contain an array of teams or a { "teams": [...] } object.');
+        return;
+      }
+      const updates = {};
+      sourceTeams.forEach((team, index) => {
+        const normalized = normalizeAuctionTeam(team, index);
+        if (!normalized.name || !normalized.abbreviation || normalized.players.length === 0) {
+          throw new Error(`Team ${index + 1} is missing name, abbreviation, or players.`);
+        }
+        const groupInfo = groupInfoForTeamId(normalized.id, index);
+        updates[normalized.id] = {
+          ...normalized,
+          password: team.password || `KOC${normalized.abbreviation}#3`,
+          gradient: team.gradient || index + 1,
+          group: team.group || groupInfo.group,
+          groupOrder: team.groupOrder || groupInfo.groupOrder
+        };
+      });
+      await update(ref(db, PATHS.teams), updates);
+      setMsg(`✅ Updated ${sourceTeams.length} team${sourceTeams.length === 1 ? '' : 's'} from JSON`);
     } catch (e) {
-      setMsg(`Save failed: ${e.message}`);
+      setMsg('Import failed: ' + e.message);
     }
   };
 
   return (
-    <tr data-testid={`admin-name-map-${sourceName}`}>
-      <td>
-        <strong>{sourceName}</strong>
-        <div className="muted" style={{ fontSize: '.72rem' }}>{sourceInfo.sources} · {sourceInfo.count} occurrence{sourceInfo.count === 1 ? '' : 's'}</div>
-      </td>
-      <td>
-        {suggestions.length === 0 ? '—' : suggestions.map(item => (
-          <button
-            type="button"
-            key={item.row.fullName}
-            className={`tag ${item.score >= 0.72 ? 'tie' : ''}`}
-            onClick={() => setTargetName(item.row.fullName)}
-            title={item.reason}
-            style={{ marginRight: '.25rem', marginBottom: '.25rem' }}
-          >
-            {item.row.fullName} · {Math.round(item.score * 100)}%
-          </button>
-        ))}
-      </td>
-      <td>
-        <select className="select" value={targetName} onChange={e => setTargetName(e.target.value)} data-testid={`admin-name-map-${sourceName}-select`}>
-          {lookupRows.map(row => <option key={row.fullName} value={row.fullName}>{row.fullName}</option>)}
-        </select>
-      </td>
-      <td>
-        <button type="button" className="btn small success" onClick={saveMapping} data-testid={`admin-name-map-${sourceName}-save`}>Update DB Mapping</button>
-        {msg && <div className={msg.startsWith('✅') ? 'success-box' : 'error-box'} style={{ marginTop: '.35rem' }}>{msg}</div>}
-      </td>
-    </tr>
-  );
-}
-
-function NameMappingAdmin({ teams, matches, previousMatches, playerRatings }) {
-  const [filter, setFilter] = useState('unmapped');
-  const lookupRows = useMemo(() => {
-    const rows = Object.entries(playerRatings || {}).map(([id, row]) => ({ _id: id, ...(row || {}) }));
-    return rows.length > 0 ? rows : UTR_RATINGS;
-  }, [playerRatings]);
-  const sourceNames = useMemo(() => collectPlayerNames(teams, matches, previousMatches), [teams, matches, previousMatches]);
-  const rows = useMemo(() => sourceNames.map(row => {
-    const matched = matchUtrRating(row.name, lookupRows);
-    return {
-      ...row,
-      matchedName: matched?.row.fullName || '',
-      confidence: matched ? Math.round(matched.score * 100) : 0,
-      reason: matched?.reason || 'Needs mapping'
-    };
-  }), [lookupRows, sourceNames]);
-  const visibleRows = rows.filter(row => filter === 'all' || !row.matchedName);
-
-  return (
-    <div className="card" data-testid="admin-name-mapping-card">
-      <h2>PTL Name Mapping</h2>
-      <p className="hint">Map roster, KOC3 match, and KOC2 history names to actual UTR players. Clicking <strong>Update DB Mapping</strong> writes aliases and normalized keys directly to /koc_s3/playerRatings.</p>
-      <div style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap', marginBottom: '.7rem' }}>
-        <button className={`btn small ${filter === 'unmapped' ? '' : 'ghost'}`} onClick={() => setFilter('unmapped')} data-testid="admin-name-map-filter-unmapped">Needs mapping ({rows.filter(row => !row.matchedName).length})</button>
-        <button className={`btn small ${filter === 'all' ? '' : 'ghost'}`} onClick={() => setFilter('all')} data-testid="admin-name-map-filter-all">All names ({rows.length})</button>
-      </div>
-      <div className="table-wrap">
-        <table className="std ptl-table" data-testid="admin-name-mapping-table">
-          <thead>
-            <tr>
-              <th>Source name</th>
-              <th>Fuzzy suggestions</th>
-              <th>Actual UTR player</th>
-              <th>DB action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleRows.length === 0 && <tr><td colSpan="4" className="center muted">No names need mapping.</td></tr>}
-            {visibleRows.map(row => <AdminNameMapRow key={row.name} sourceName={row.name} sourceInfo={row} lookupRows={lookupRows} />)}
-          </tbody>
-        </table>
-      </div>
+    <div className="card" data-testid="admin-team-json-importer">
+      <h2>📥 Bulk Team JSON Update</h2>
+      <p className="hint">Upload a JSON array (or an object with a <code>teams</code> array) to update all team records, including roster, UTR, base price, auctioned money, captain slot, total spent, and money left.</p>
+      <input className="input" type="file" accept="application/json,.json" onChange={saveTeamsFromJson} data-testid="admin-team-json-file" />
+      {msg && <div className={msg.startsWith('✅') ? 'success-box' : 'error-box'} style={{ marginTop: '.6rem' }}>{msg}</div>}
     </div>
   );
 }
@@ -274,7 +191,7 @@ function ScheduleEditor({ schedule, teams }) {
   const [busy, setBusy] = useState(false);
 
   const teamList = Object.values(teams || {}).sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
-  const matchList = Object.values(schedule || {});
+  const matchList = Object.values(schedule || {}).filter(item => item?.type !== 'buffer');
 
   // Group by round
   const rounds = {};
@@ -318,10 +235,11 @@ function ScheduleEditor({ schedule, teams }) {
       group: 'A',
       round: 1,
       date: new Date().toISOString().slice(0, 10),
-      time: '5:00 PM',
+      time: '7:15 PM',
       team1Id: teamList[0].id,
       team2Id: teamList[1].id,
-      status: 'scheduled'
+      status: 'scheduled',
+      type: 'match'
     };
     try {
       const r = await push(ref(db, PATHS.schedule), newM);
@@ -335,13 +253,12 @@ function ScheduleEditor({ schedule, teams }) {
   const regenerate = async () => {
     if (!window.confirm('Regenerate the entire schedule from scratch? Existing fixtures will be replaced.')) return;
     const list = Object.values(teams);
-    const groupA = list.filter(t => (t.group || 'A') === 'A').sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
-    const groupB = list.filter(t => t.group === 'B').sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
+    const groupA = list.filter(t => (t.group || 'A') === 'A').sort(sortByGroupOrder);
+    const groupB = list.filter(t => t.group === 'B').sort(sortByGroupOrder);
     if (groupA.length !== 8 || groupB.length !== 8) { setMsg('Need exactly 8 teams in each group.'); return; }
     try {
       setBusy(true);
-      const start = firstSundayOnOrAfter(new Date(2026, 5, 30));
-      const fixtures = buildScheduleFor8x2(groupA, groupB, start);
+      const fixtures = buildScheduleFor8x2(groupA, groupB);
       await set(ref(db, PATHS.schedule), fixtures);
       setMsg('✅ Schedule regenerated');
       setTimeout(() => setMsg(''), 1500);
@@ -362,11 +279,11 @@ function ScheduleEditor({ schedule, teams }) {
       <div className="card">
         <h2>Schedule Tools</h2>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.4rem' }}>
-          <button className="btn small" onClick={regenerate} disabled={busy} data-testid="admin-schedule-regenerate">🔁 Regenerate (Jun 30 + Sundays)</button>
+          <button className="btn small" onClick={regenerate} disabled={busy} data-testid="admin-schedule-regenerate">🔁 Regenerate KOC3 Schedule</button>
           <button className="btn small ghost" onClick={addMatch} data-testid="admin-schedule-add">＋ Add Fixture</button>
           <button className="btn small danger" onClick={clearAll} data-testid="admin-schedule-clear">🗑 Clear All</button>
         </div>
-        <p className="hint" style={{ marginTop: '.5rem' }}>{matchList.length} fixtures · auto-seeds 56 matches (Group A & B round-robin) starting first Sunday on/after June 30.</p>
+        <p className="hint" style={{ marginTop: '.5rem' }}>{matchList.filter(m => m.type !== 'buffer').length} fixtures · Group A Saturdays, Group B Sundays, with July 4 buffer week.</p>
       </div>
 
       {roundList.length === 0 && (
@@ -421,7 +338,10 @@ function ScheduleEditor({ schedule, teams }) {
   );
 }
 
-export default function Admin({ teams, adminConfig, matches, previousMatches = [], schedule, playerRatings = {} }) {
+export default function Admin({ teams, adminConfig, matches, schedule }) {
+  const { session } = useAuth();
+  const role = normalizeRole(session.role);
+  const isSuperAdmin = role === ROLES.SUPER_ADMIN;
   const [tab, setTab] = useState('teams');
   const [newAdminPwd, setNewAdminPwd] = useState('');
   const [adminMsg, setAdminMsg] = useState('');
@@ -444,6 +364,7 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
     if (!window.confirm('Delete ALL match results? This cannot be undone.')) return;
     try {
       await remove(ref(db, PATHS.matches));
+      await ScoreProcessingService.recalculateAll({ session });
     } catch (e) {
       alert('Failed: ' + e.message);
     }
@@ -453,28 +374,27 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
     <main className="container">
       <div className="page-title">
         <h1>Admin Dashboard</h1>
-        <p>Manage teams, passwords, and matches</p>
+        <p>{isSuperAdmin ? 'Full league administration' : 'Operational admin tools'}</p>
       </div>
 
       <div className="tabs">
         <button className={`tab ${tab === 'teams' ? 'active' : ''}`} onClick={() => setTab('teams')} data-testid="admin-tab-teams">Teams</button>
         <button className={`tab ${tab === 'schedule' ? 'active' : ''}`} onClick={() => setTab('schedule')} data-testid="admin-tab-schedule">Schedule</button>
-        <button className={`tab ${tab === 'settings' ? 'active' : ''}`} onClick={() => setTab('settings')} data-testid="admin-tab-settings">Settings</button>
-        <button className={`tab ${tab === 'nameMapping' ? 'active' : ''}`} onClick={() => setTab('nameMapping')} data-testid="admin-tab-name-mapping">PTL Name Mapping</button>
-        <button className={`tab ${tab === 'passwords' ? 'active' : ''}`} onClick={() => setTab('passwords')} data-testid="admin-tab-passwords">Passwords</button>
+        {isSuperAdmin && <button className={`tab ${tab === 'settings' ? 'active' : ''}`} onClick={() => setTab('settings')} data-testid="admin-tab-settings">Settings</button>}
+        {isSuperAdmin && <button className={`tab ${tab === 'passwords' ? 'active' : ''}`} onClick={() => setTab('passwords')} data-testid="admin-tab-passwords">Passwords</button>}
       </div>
 
       {tab === 'teams' && (
         <>
+          <TeamJsonImporter />
           {teamList.map(t => <TeamEditor key={t.id} team={t} />)}
         </>
       )}
 
       {tab === 'schedule' && <ScheduleEditor schedule={schedule} teams={teams} />}
 
-      {tab === 'nameMapping' && <NameMappingAdmin teams={teams} matches={matches} previousMatches={previousMatches} playerRatings={playerRatings} />}
 
-      {tab === 'passwords' && (
+      {tab === 'passwords' && isSuperAdmin && (
         <div className="card">
           <h2>🔑 Team Passwords</h2>
           <p className="hint" style={{ marginBottom: '.6rem' }}>Share these with each team captain.</p>
@@ -489,7 +409,7 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
         </div>
       )}
 
-      {tab === 'settings' && (
+      {tab === 'settings' && isSuperAdmin && (
         <>
           <div className="card">
             <h2>🔐 Admin Password</h2>

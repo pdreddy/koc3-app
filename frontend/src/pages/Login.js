@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { ROLES } from '../utils/roles';
 
 export default function Login({ teams, adminConfig }) {
   const [mode, setMode] = useState('team'); // 'team' | 'admin'
@@ -19,12 +20,16 @@ export default function Login({ teams, adminConfig }) {
     setError('');
     if (mode === 'admin') {
       const expected = (adminConfig?.password || '').trim();
-      if (!expected) {
+      const superExpected = (adminConfig?.superAdminPassword || '').trim();
+      if (!expected && !superExpected) {
         setError('Admin password not configured yet.');
         return;
       }
-      if (password.trim() === expected) {
-        loginAdmin();
+      if (superExpected && password.trim() === superExpected) {
+        loginAdmin(ROLES.SUPER_ADMIN);
+        navigate(next, { replace: true });
+      } else if (expected && password.trim() === expected) {
+        loginAdmin(ROLES.ADMIN);
         navigate(next, { replace: true });
       } else {
         setError('Incorrect admin password.');

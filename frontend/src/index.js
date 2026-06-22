@@ -14,6 +14,9 @@ root.render(
 // Register service worker for PWA
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    const swUrl = `${process.env.PUBLIC_URL || ''}/sw.js`;
+    navigator.serviceWorker.register(swUrl).catch((error) => {
+      console.warn('Service worker registration failed', error);
+    });
   });
 }

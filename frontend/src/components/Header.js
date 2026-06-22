@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { ROLES, isAdminRole, normalizeRole, roleLabel } from '../utils/roles';
 
 const PRIMARY_LINKS = [
   { to: '/teams', label: 'Teams' },
@@ -12,13 +13,14 @@ const PRIMARY_LINKS = [
 
 export default function AppHeader() {
   const { session, logout } = useAuth();
+  const role = normalizeRole(session.role);
   return (
     <header className="app-header" data-testid="app-header">
       <Link to="/teams" className="brand" data-testid="header-home" aria-label="KOC3 home">
         <span className="logo" aria-hidden="true">🏆</span>
         <span className="brand-copy">
           <strong>KOC3</strong>
-          <small>Table Tennis League</small>
+          <small>Team Tennis League</small>
         </span>
       </Link>
 
@@ -35,16 +37,16 @@ export default function AppHeader() {
       </nav>
 
       <div className="header-actions">
-        {session.role === 'admin' && (
-          <span className="user-pill" data-testid="user-pill">ADMIN</span>
+        {isAdminRole(session) && (
+          <span className="user-pill" data-testid="user-pill">{roleLabel(role)}</span>
         )}
-        {session.role === 'team' && (
+        {role === ROLES.CAPTAIN && (
           <span className="user-pill" data-testid="user-pill">{session.teamName}</span>
         )}
-        {session.role === 'guest' && (
+        {role === ROLES.GUEST && (
           <Link to="/login" className="user-pill" data-testid="header-login-link">LOGIN</Link>
         )}
-        {session.role !== 'guest' && (
+        {role !== ROLES.GUEST && (
           <button onClick={logout} className="btn small ghost" data-testid="header-logout-btn">Logout</button>
         )}
       </div>

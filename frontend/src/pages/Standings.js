@@ -9,9 +9,10 @@ function statsForGroup(teamsInGroup, matches, allTeams) {
       id: t.id, team: t.name, abbr: t.abbreviation,
       matches: 0, wins: 0, losses: 0,
       setsFor: 0, setsAgainst: 0,
-      gamesFor: 0, gamesAgainst: 0, points: 0
+      gamesFor: 0, gamesAgainst: 0, points: 0, singlesWins: 0
     };
   });
+  const headToHead = {};
   for (const m of matches || []) {
     const { team1, team2 } = resolveMatchTeams(m, allTeams);
     if (!team1 || !team2) continue;
@@ -22,16 +23,27 @@ function statsForGroup(teamsInGroup, matches, allTeams) {
     stats[team2.id].gamesFor += Number(m.g2) || 0; stats[team2.id].gamesAgainst += Number(m.g1) || 0;
     stats[team1.id].setsFor += Number(m.s1) || 0; stats[team1.id].setsAgainst += Number(m.s2) || 0;
     stats[team2.id].setsFor += Number(m.s2) || 0; stats[team2.id].setsAgainst += Number(m.s1) || 0;
+    (m.lines || []).forEach(line => {
+      if (line.type !== 'singles') return;
+      const g1 = Number(line.g1) || 0;
+      const g2 = Number(line.g2) || 0;
+      if (g1 > g2) stats[team1.id].singlesWins++;
+      if (g2 > g1) stats[team2.id].singlesWins++;
+    });
     if (winId === team1.id) { stats[team1.id].wins++; stats[team2.id].losses++; stats[team1.id].points++; }
     else if (winId === team2.id) { stats[team2.id].wins++; stats[team1.id].losses++; stats[team2.id].points++; }
+    const h2hKey = [team1.id, team2.id].sort().join('__');
+    headToHead[h2hKey] = headToHead[h2hKey] || {};
+    if (winId) headToHead[h2hKey][winId] = (headToHead[h2hKey][winId] || 0) + 1;
   }
   return Object.values(stats).map(s => ({
     ...s,
     setDiff: s.setsFor - s.setsAgainst,
     gameDiff: s.gamesFor - s.gamesAgainst
   })).sort((a, b) =>
-    (b.points - a.points) || (b.setDiff - a.setDiff) || (b.setsFor - a.setsFor) ||
-    (b.gameDiff - a.gameDiff) || (b.gamesFor - a.gamesFor) || a.team.localeCompare(b.team)
+    (b.points - a.points) || (b.setsFor - a.setsFor) || (b.singlesWins - a.singlesWins) ||
+    ((headToHead[[a.id, b.id].sort().join('__')]?.[b.id] || 0) - (headToHead[[a.id, b.id].sort().join('__')]?.[a.id] || 0)) ||
+    (b.gameDiff - a.gameDiff) || a.team.localeCompare(b.team)
   );
 }
 

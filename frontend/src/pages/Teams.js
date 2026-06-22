@@ -14,12 +14,16 @@ function TeamCard({ t, isOpen, onToggle }) {
       </div>
       {isOpen && (
         <div className="team-body">
-          {(t.players || []).map((p, i) => (
-            <div key={i} className={`player-row ${p.isCaptain ? 'captain' : ''}`} data-testid={`team-${t.abbreviation}-player-${i}`}>
-              <span className="player-badge">{p.isCaptain ? '🏆' : '🎾'}</span>
-              <span className="player-name">{p.name}</span>
-            </div>
-          ))}
+          {(t.players || []).map((p, i) => {
+            const utr = p.actualUtr || p.utr || '';
+            return (
+              <div key={i} className={`player-row ${p.isCaptain ? 'captain' : ''}`} data-testid={`team-${t.abbreviation}-player-${i}`}>
+                <span className="player-badge">{p.isCaptain ? '🏆' : '🎾'}</span>
+                <span className="player-name">{p.name}</span>
+                {utr && <span className="player-utr">UTR {utr}</span>}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
