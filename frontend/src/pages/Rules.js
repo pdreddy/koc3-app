@@ -1,12 +1,5 @@
 import React from 'react';
 
-const STATS = [
-  ['16', 'Teams'],
-  ['RR', 'Round Robin'],
-  ['7:15', 'PM Matches'],
-  ['Bo5', 'Singles Format']
-];
-
 const ruleCards = [
   {
     num: '01', icon: '✅', title: 'Player Eligibility Rules',
@@ -135,23 +128,6 @@ export default function Rules() {
         <h1>Rules &amp; Format</h1>
         <p>Everything captains and players need — eligibility, scoring, scheduling and the road to the playoffs.</p>
       </div>
-
-      <div className="rl-stats">
-        {STATS.map(([value, label]) => (
-          <div className="rl-stat" key={label}>
-            <b>{value}</b>
-            <small>{label}</small>
-          </div>
-        ))}
-      </div>
-
-      <nav className="rl-toc" aria-label="Rules sections">
-        {ruleCards.map(card => (
-          <a key={card.num} href={`#rule-${card.num}`}>
-            <span>{card.num}</span>{card.title}
-          </a>
-        ))}
-      </nav>
 
       <div className="rl-sec-head"><h2>The Rules</h2><div className="ln" /></div>
       <section className="rl-grid">

@@ -839,16 +839,6 @@ button:focus-visible,
    Rules page — white & blue redesign
    Clean cards, blue accents, navy text, fully responsive.
    ============================================================ */
-.rl-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: .7rem; margin-bottom: .9rem; }
-.rl-stat { background: var(--white); border: 1px solid var(--border-light); border-radius: 16px; padding: .85rem .6rem; text-align: center; box-shadow: var(--shadow-soft); }
-.rl-stat b { display: block; font-size: clamp(1.25rem, 4.5vw, 1.6rem); font-weight: 900; color: var(--primary-blue); line-height: 1; letter-spacing: -.02em; }
-.rl-stat small { display: block; margin-top: .35rem; font-size: .66rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
-
-.rl-toc { position: sticky; top: 78px; z-index: 8; display: flex; gap: .45rem; overflow-x: auto; padding: .55rem; margin-bottom: 1rem; background: rgba(255,255,255,.92); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid var(--border-light); border-radius: 14px; box-shadow: var(--shadow-soft); -webkit-overflow-scrolling: touch; }
-.rl-toc a { flex: 0 0 auto; display: inline-flex; align-items: center; gap: .4rem; padding: .42rem .7rem; border-radius: 999px; font-size: .78rem; font-weight: 800; color: var(--muted); border: 1px solid transparent; white-space: nowrap; }
-.rl-toc a span { display: inline-grid; place-items: center; min-width: 1.45rem; height: 1.45rem; border-radius: 999px; background: #e0edff; color: var(--primary-blue-dark); font-size: .68rem; }
-.rl-toc a:hover, .rl-toc a:focus-visible { color: var(--primary-blue-dark); background: #eff4ff; border-color: var(--border-light); }
-
 .rl-sec-head { display: flex; align-items: center; gap: .7rem; margin: 1.5rem .15rem .85rem; }
 .rl-sec-head h2 { font-size: 1.15rem; font-weight: 900; color: var(--text-dark); white-space: nowrap; }
 .rl-sec-head .ln { flex: 1; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--border-light), transparent); }
@@ -893,12 +883,10 @@ button:focus-visible,
 .rl-motto { margin: 1.5rem 0 .4rem; text-align: center; font-weight: 900; font-size: 1.05rem; color: #fff; border-radius: 16px; padding: 1.05rem; background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark)); box-shadow: 0 12px 28px rgba(37,99,235,.28); }
 
 @media (max-width: 760px) {
-  .rl-stats { grid-template-columns: repeat(2, 1fr); }
   .rl-grid { grid-template-columns: 1fr; }
   .rl-flow { grid-template-columns: 1fr 1fr; }
   .rl-step::after { display: none; }
   .rl-cross { grid-template-columns: 1fr; }
-  .rl-toc { top: 64px; }
 }
 @media (max-width: 430px) {
   .rl-flow { grid-template-columns: 1fr; }
