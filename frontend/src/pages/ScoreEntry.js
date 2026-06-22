@@ -513,11 +513,20 @@ export default function ScoreEntry({ teams, matches }) {
   const [mode, setMode] = useState('form');
   const [sharedTeam1Id, setSharedTeam1IdRaw] = useState('');
   const [sharedTeam2Id, setSharedTeam2IdRaw] = useState('');
+  const [scoreGroup, setScoreGroupRaw] = useState('A');
   const [team1Lineup, setTeam1Lineup] = useState([]);
   const [team2Lineup, setTeam2Lineup] = useState([]);
   const setSharedTeam1Id = (value) => { setSharedTeam1IdRaw(value); setTeam1Lineup([]); };
   const setSharedTeam2Id = (value) => { setSharedTeam2IdRaw(value); setTeam2Lineup([]); };
+  const setScoreGroup = (value) => { setScoreGroupRaw(value); setSharedTeam1IdRaw(''); setSharedTeam2IdRaw(''); setTeam1Lineup([]); setTeam2Lineup([]); };
   const lineupState = { team1Lineup, setTeam1Lineup, team2Lineup, setTeam2Lineup };
+  const myTeam = session.role === 'team' ? teams[session.teamId] : null;
+
+  useEffect(() => {
+    if (myTeam?.group) setScoreGroupRaw(myTeam.group);
+    if (myTeam?.id) setSharedTeam1IdRaw(myTeam.id);
+  }, [myTeam?.group, myTeam?.id]);
+
   return (
     <main className="container">
       <div className="page-title">
@@ -541,6 +550,8 @@ export default function ScoreEntry({ teams, matches }) {
         <FormEntry
           teams={teams}
           matches={matches}
+          scoreGroup={scoreGroup}
+          setScoreGroup={setScoreGroup}
           team1Id={sharedTeam1Id}
           setTeam1Id={setSharedTeam1Id}
           team2Id={sharedTeam2Id}
@@ -551,6 +562,8 @@ export default function ScoreEntry({ teams, matches }) {
         <QuickEntry
           teams={teams}
           matches={matches}
+          scoreGroup={scoreGroup}
+          setScoreGroup={setScoreGroup}
           team1Id={sharedTeam1Id}
           setTeam1Id={setSharedTeam1Id}
           team2Id={sharedTeam2Id}
@@ -562,11 +575,14 @@ export default function ScoreEntry({ teams, matches }) {
   );
 }
 
-function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
+function FormEntry({ teams, matches, scoreGroup, setScoreGroup, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const teamList = Object.values(teams || {});
   const myTeam = session.role === 'team' ? teams[session.teamId] : null;
   const isAdmin = session.role === 'admin';
+  const groupTeams = teamList.filter(t => (t.group || 'A') === scoreGroup);
+  const team1Options = isAdmin ? groupTeams : (myTeam ? [myTeam] : groupTeams);
+  const opponentOptions = groupTeams.filter(t => t.id !== team1Id);
 
 
   const [courts, setCourts] = useState(() => COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
@@ -709,6 +725,13 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
 
       <div className="card score-teams-card">
         <h2>Match teams</h2>
+        <div className="field" style={{ marginBottom: '.7rem' }}>
+          <div className="field-label">Group</div>
+          <select className="select" value={scoreGroup} onChange={e => setScoreGroup(e.target.value)} disabled={!isAdmin && !!myTeam} data-testid="score-group-select">
+            <option value="A">Group A</option>
+            <option value="B">Group B</option>
+          </select>
+        </div>
         <div className="row score-teams-row">
           <div>
             <div className="field-label">Your team</div>
@@ -720,7 +743,7 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
               data-testid="team1-select"
             >
               <option value="">— Select —</option>
-              {teamList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {team1Options.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
           <span className="vs">vs</span>
@@ -733,7 +756,7 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
               data-testid="team2-select"
             >
               <option value="">— Select —</option>
-              {teamList.filter(t => t.id !== team1Id).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {opponentOptions.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
         </div>
@@ -834,7 +857,7 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
 
 // ==================== QUICK PASTE ENTRY ====================
 
-function QuickEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
+function QuickEntry({ teams, matches, scoreGroup, setScoreGroup, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const textareaRef = useRef(null);
   const [text, setText] = useState('');
@@ -843,6 +866,11 @@ function QuickEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, 
   const [success, setSuccess] = useState('');
   const [saving, setSaving] = useState(false);
   const teamList = Object.values(teams || {});
+  const myTeam = session.role === 'team' ? teams[session.teamId] : null;
+  const isAdmin = session.role === 'admin';
+  const groupTeams = teamList.filter(t => (t.group || 'A') === scoreGroup);
+  const team1Options = isAdmin ? groupTeams : (myTeam ? [myTeam] : groupTeams);
+  const opponentOptions = groupTeams.filter(t => t.id !== team1Id);
   const selectedTeam1 = teams[team1Id];
   const selectedTeam2 = teams[team2Id];
 
@@ -988,12 +1016,19 @@ Final: KC won 3-2`;
 
       <div className="card score-teams-card">
         <h2>Match teams</h2>
+        <div className="field" style={{ marginBottom: '.7rem' }}>
+          <div className="field-label">Group</div>
+          <select className="select" value={scoreGroup} onChange={e => setScoreGroup(e.target.value)} disabled={!isAdmin && !!myTeam} data-testid="quick-score-group-select">
+            <option value="A">Group A</option>
+            <option value="B">Group B</option>
+          </select>
+        </div>
         <div className="row score-teams-row">
           <div>
             <div className="field-label">Team 1</div>
             <select className="select" value={team1Id} onChange={e => setTeam1Id(e.target.value)} data-testid="quick-team1-select">
               <option value="">— Select —</option>
-              {teamList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {team1Options.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
           <span className="vs">vs</span>
@@ -1001,7 +1036,7 @@ Final: KC won 3-2`;
             <div className="field-label">Team 2</div>
             <select className="select" value={team2Id} onChange={e => setTeam2Id(e.target.value)} data-testid="quick-team2-select">
               <option value="">— Select —</option>
-              {teamList.filter(t => t.id !== team1Id).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {opponentOptions.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
         </div>
