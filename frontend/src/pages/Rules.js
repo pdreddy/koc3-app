@@ -15,8 +15,7 @@ const ruleCards = [
       ['🎾', 'Singles Day', '1 singles match. A player can play a maximum of 2 singles days.'],
       ['👥', 'Doubles Day', '2 matches: Doubles + Reverse Doubles. If selected for doubles, the player must play both.'],
       ['🔁', 'Doubles Days', 'No fixed doubles-day limit as long as total match days stay at 5 or below.'],
-      ['🤝', 'Same Partner', 'The same doubles pair can partner together for a maximum of 3 match days.'],
-      ['🧾', 'Score Validation', 'Before lineup or score submission: totalMatchDays ≤ 5, singlesDays ≤ 2, samePartnerDays ≤ 3, and every player belongs to the selected team.']
+      ['🤝', 'Same Partner', 'The same doubles pair can partner together for a maximum of 3 match days.']
     ],
     flag: ['warn', '⚠️', 'Not allowed: 3 singles days, more than 5 total match days, or same doubles pair for 4 match days.']
   },
