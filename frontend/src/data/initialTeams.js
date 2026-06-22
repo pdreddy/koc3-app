@@ -1,4 +1,4 @@
-import { AUCTION_TEAMS, buildAuctionTeams, normalizeAuctionPlayer } from './auctionTeams';
+import { AUCTION_TEAMS, buildAuctionTeams, groupInfoForTeamId, normalizeAuctionPlayer } from './auctionTeams';
 
 const canonicalTeams = AUCTION_TEAMS.map(team => ({
   ...team,
@@ -36,7 +36,9 @@ export function canonicalTeamIdentityUpdates(teamsData = {}) {
     if (team.name !== t.name) updates[`${id}/name`] = t.name;
     if (team.abbreviation !== t.abbreviation) updates[`${id}/abbreviation`] = t.abbreviation;
     if (team.gradient !== idx + 1) updates[`${id}/gradient`] = idx + 1;
-    if ((team.group || (idx < 8 ? 'A' : 'B')) !== (idx < 8 ? 'A' : 'B')) updates[`${id}/group`] = idx < 8 ? 'A' : 'B';
+    const groupInfo = groupInfoForTeamId(id, idx);
+    if ((team.group || groupInfo.group) !== groupInfo.group) updates[`${id}/group`] = groupInfo.group;
+    if (team.groupOrder !== groupInfo.groupOrder) updates[`${id}/groupOrder`] = groupInfo.groupOrder;
     if (!team.password) updates[`${id}/password`] = `KOC${t.abbreviation}#3`;
     if (!team.id) updates[`${id}/id`] = id;
     if (team.totalSpent !== t.totalSpent) updates[`${id}/totalSpent`] = t.totalSpent;

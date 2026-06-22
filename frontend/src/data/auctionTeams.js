@@ -49,6 +49,33 @@ export const AUCTION_TEAMS = [
   ]}
 ];
 
+export const AUCTION_GROUPS = {
+  team1: { group: 'A', groupOrder: 1 },
+  team12: { group: 'A', groupOrder: 2 },
+  team3: { group: 'A', groupOrder: 3 },
+  team14: { group: 'A', groupOrder: 4 },
+  team9: { group: 'A', groupOrder: 5 },
+  team11: { group: 'A', groupOrder: 6 },
+  team4: { group: 'A', groupOrder: 7 },
+  team13: { group: 'A', groupOrder: 8 },
+  team2: { group: 'B', groupOrder: 1 },
+  team8: { group: 'B', groupOrder: 2 },
+  team16: { group: 'B', groupOrder: 3 },
+  team6: { group: 'B', groupOrder: 4 },
+  team10: { group: 'B', groupOrder: 5 },
+  team5: { group: 'B', groupOrder: 6 },
+  team15: { group: 'B', groupOrder: 7 },
+  team7: { group: 'B', groupOrder: 8 }
+};
+
+export function groupInfoForTeamId(id, fallbackIndex = 0) {
+  return AUCTION_GROUPS[id] || { group: fallbackIndex < 8 ? 'A' : 'B', groupOrder: (fallbackIndex % 8) + 1 };
+}
+
+export function sortByGroupOrder(a, b) {
+  return (a.groupOrder || 0) - (b.groupOrder || 0) || (a.gradient || 0) - (b.gradient || 0);
+}
+
 export function normalizeAuctionPlayer(row, index = 0) {
   if (Array.isArray(row)) {
     const [name, tierUtr, actualUtr, basePrice, auctionedMoney, isCaptain] = row;
@@ -85,8 +112,10 @@ export function buildAuctionTeams() {
   return AUCTION_TEAMS.reduce((teams, team, index) => {
     const normalized = normalizeAuctionTeam(team, index);
     normalized.password = `KOC${normalized.abbreviation}#3`;
+    const groupInfo = groupInfoForTeamId(normalized.id, index);
     normalized.gradient = index + 1;
-    normalized.group = index < 8 ? 'A' : 'B';
+    normalized.group = groupInfo.group;
+    normalized.groupOrder = groupInfo.groupOrder;
     teams[normalized.id] = normalized;
     return teams;
   }, {});

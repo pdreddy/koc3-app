@@ -5,8 +5,9 @@ import { db, ensureAuth, PATHS } from './firebase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { buildInitialTeams, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD } from './data/initialTeams';
 import { buildUtrRatingsTable } from './data/utrRatings';
+import { sortByGroupOrder } from './data/auctionTeams';
 import { auctionPlayerRatingUpdates, buildAuctionPlayerRatingsTable } from './data/auctionPlayers';
-import { buildScheduleFor8x2, firstSundayOnOrAfter } from './utils/roundRobin';
+import { buildScheduleFor8x2, KOC3_SCHEDULE_VERSION } from './utils/roundRobin';
 
 import BottomNav from './components/BottomNav';
 import AppHeader from './components/Header';
@@ -98,13 +99,20 @@ function Shell() {
 
         // Seed schedule on first run
         const sSnap = await get(ref(db, PATHS.schedule));
-        if (!sSnap.exists()) {
-          const list = Object.values(teamsData);
-          const groupA = list.filter(t => (t.group || 'A') === 'A').sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
-          const groupB = list.filter(t => t.group === 'B').sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
+        const scheduleData = sSnap.val() || {};
+        const scheduleMatches = Object.values(scheduleData).filter(item => item?.type !== 'buffer');
+        const shouldSeedSchedule = !sSnap.exists() || scheduleMatches.length === 0 || scheduleMatches.some(item => item?.scheduleVersion !== KOC3_SCHEDULE_VERSION);
+        if (shouldSeedSchedule) {
+          const list = Object.values(buildInitialTeams()).map(canonical => ({
+            ...canonical,
+            ...(teamsData[canonical.id] || {}),
+            group: canonical.group,
+            groupOrder: canonical.groupOrder
+          }));
+          const groupA = list.filter(t => (t.group || 'A') === 'A').sort(sortByGroupOrder);
+          const groupB = list.filter(t => t.group === 'B').sort(sortByGroupOrder);
           if (groupA.length === 8 && groupB.length === 8) {
-            const startSunday = firstSundayOnOrAfter(new Date(2026, 5, 30)); // June = month 5
-            const fixtures = buildScheduleFor8x2(groupA, groupB, startSunday);
+            const fixtures = buildScheduleFor8x2(groupA, groupB);
             await set(ref(db, PATHS.schedule), fixtures);
           }
         }

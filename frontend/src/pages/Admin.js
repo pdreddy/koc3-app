@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { ref, set, update, remove, push } from 'firebase/database';
 import { db, PATHS } from '../firebase';
-import { buildScheduleFor8x2, firstSundayOnOrAfter } from '../utils/roundRobin';
+import { buildScheduleFor8x2 } from '../utils/roundRobin';
 import { UTR_RATINGS, matchUtrRating, normalizeNameKey, suggestUtrMatches } from '../data/utrRatings';
-import { normalizeAuctionTeam } from '../data/auctionTeams';
+import { groupInfoForTeamId, normalizeAuctionTeam, sortByGroupOrder } from '../data/auctionTeams';
 
 
 function ratingRowId(row) {
@@ -160,11 +160,13 @@ function TeamJsonImporter() {
         if (!normalized.name || !normalized.abbreviation || normalized.players.length === 0) {
           throw new Error(`Team ${index + 1} is missing name, abbreviation, or players.`);
         }
+        const groupInfo = groupInfoForTeamId(normalized.id, index);
         updates[normalized.id] = {
           ...normalized,
           password: team.password || `KOC${normalized.abbreviation}#3`,
           gradient: team.gradient || index + 1,
-          group: team.group || (index < 8 ? 'A' : 'B')
+          group: team.group || groupInfo.group,
+          groupOrder: team.groupOrder || groupInfo.groupOrder
         };
       });
       await update(ref(db, PATHS.teams), updates);
@@ -320,7 +322,7 @@ function ScheduleEditor({ schedule, teams }) {
   const [busy, setBusy] = useState(false);
 
   const teamList = Object.values(teams || {}).sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
-  const matchList = Object.values(schedule || {});
+  const matchList = Object.values(schedule || {}).filter(item => item?.type !== 'buffer');
 
   // Group by round
   const rounds = {};
@@ -367,7 +369,8 @@ function ScheduleEditor({ schedule, teams }) {
       time: '5:00 PM',
       team1Id: teamList[0].id,
       team2Id: teamList[1].id,
-      status: 'scheduled'
+      status: 'scheduled',
+      type: 'match'
     };
     try {
       const r = await push(ref(db, PATHS.schedule), newM);
@@ -381,13 +384,12 @@ function ScheduleEditor({ schedule, teams }) {
   const regenerate = async () => {
     if (!window.confirm('Regenerate the entire schedule from scratch? Existing fixtures will be replaced.')) return;
     const list = Object.values(teams);
-    const groupA = list.filter(t => (t.group || 'A') === 'A').sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
-    const groupB = list.filter(t => t.group === 'B').sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
+    const groupA = list.filter(t => (t.group || 'A') === 'A').sort(sortByGroupOrder);
+    const groupB = list.filter(t => t.group === 'B').sort(sortByGroupOrder);
     if (groupA.length !== 8 || groupB.length !== 8) { setMsg('Need exactly 8 teams in each group.'); return; }
     try {
       setBusy(true);
-      const start = firstSundayOnOrAfter(new Date(2026, 5, 30));
-      const fixtures = buildScheduleFor8x2(groupA, groupB, start);
+      const fixtures = buildScheduleFor8x2(groupA, groupB);
       await set(ref(db, PATHS.schedule), fixtures);
       setMsg('✅ Schedule regenerated');
       setTimeout(() => setMsg(''), 1500);
@@ -408,11 +410,11 @@ function ScheduleEditor({ schedule, teams }) {
       <div className="card">
         <h2>Schedule Tools</h2>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.4rem' }}>
-          <button className="btn small" onClick={regenerate} disabled={busy} data-testid="admin-schedule-regenerate">🔁 Regenerate (Jun 30 + Sundays)</button>
+          <button className="btn small" onClick={regenerate} disabled={busy} data-testid="admin-schedule-regenerate">🔁 Regenerate KOC3 Schedule</button>
           <button className="btn small ghost" onClick={addMatch} data-testid="admin-schedule-add">＋ Add Fixture</button>
           <button className="btn small danger" onClick={clearAll} data-testid="admin-schedule-clear">🗑 Clear All</button>
         </div>
-        <p className="hint" style={{ marginTop: '.5rem' }}>{matchList.length} fixtures · auto-seeds 56 matches (Group A & B round-robin) starting first Sunday on/after June 30.</p>
+        <p className="hint" style={{ marginTop: '.5rem' }}>{matchList.filter(m => m.type !== 'buffer').length} fixtures · Group A Saturdays, Group B Sundays, with July 4 buffer week.</p>
       </div>
 
       {roundList.length === 0 && (
