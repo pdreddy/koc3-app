@@ -1,5 +1,6 @@
 import React from 'react';
 import { resolveMatchTeams, matchWinnerId } from '../utils/matchTeams';
+import { isApprovedMatch } from '../utils/matchStatus';
 
 function statsForGroup(teamsInGroup, matches, allTeams) {
   const groupIds = new Set(teamsInGroup.map(t => t.id));
@@ -14,7 +15,7 @@ function statsForGroup(teamsInGroup, matches, allTeams) {
   });
   const headToHead = {};
   for (const m of matches || []) {
-    if (m.status && m.status !== 'APPROVED' && m.status !== 'approved') continue;
+    if (!isApprovedMatch(m)) continue;
     const { team1, team2 } = resolveMatchTeams(m, allTeams);
     if (!team1 || !team2) continue;
     if (!groupIds.has(team1.id) || !groupIds.has(team2.id)) continue;

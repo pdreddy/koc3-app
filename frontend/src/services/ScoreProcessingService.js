@@ -3,17 +3,26 @@ import { db, PATHS } from '../firebase';
 import { buildPtlRatings } from '../utils/ptlRating';
 import { resolveMatchTeams, matchWinnerId } from '../utils/matchTeams';
 import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from '../utils/eligibilityRules';
+import { approvedMatches, isApprovedMatch } from '../utils/matchStatus';
 
-const APPROVED = new Set(['APPROVED', 'approved', undefined, null, '']);
 const keyFor = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'unknown';
 const listFrom = (val) => Object.entries(val || {}).map(([id, value]) => ({ id, ...(value || {}) }));
-const approvedMatches = (matches) => matches.filter(m => APPROVED.has(m.status));
 
 export function validateScore(match) {
   if (!match?.t1Id || !match?.t2Id) throw new Error('Score validation failed: both teams are required.');
   if (match.t1Id === match.t2Id) throw new Error('Score validation failed: teams must be different.');
   if (!Array.isArray(match.lines) || match.lines.length === 0) throw new Error('Score validation failed: at least one scored court is required.');
   if (!match.winnerId && !match.win) throw new Error('Score validation failed: winner could not be determined.');
+  let courtsWon1 = 0, courtsWon2 = 0;
+  match.lines.forEach(line => {
+    const g1 = Number(line.g1) || 0;
+    const g2 = Number(line.g2) || 0;
+    if (g1 > g2) courtsWon1 += 1;
+    if (g2 > g1) courtsWon2 += 1;
+  });
+  if (courtsWon1 === courtsWon2) throw new Error('Score validation failed: match winner is tied or unclear.');
+  const expectedWinnerId = courtsWon1 > courtsWon2 ? match.t1Id : match.t2Id;
+  if (match.winnerId && match.winnerId !== expectedWinnerId) throw new Error('Score validation failed: winner does not match court results.');
   return true;
 }
 
@@ -190,9 +199,10 @@ export class ScoreProcessingService {
     const teams = teamsSnap.val() || {};
     let matches = listFrom(matchesSnap.val());
     const current = matchRecord || matches.find(m => m.id === matchId);
-    validateScore(current);
     if (matchRecord && matchId && !matches.some(m => m.id === matchId)) matches = [...matches, { ...matchRecord, id: matchId }];
     const approved = approvedMatches(matches);
+    if (current && isApprovedMatch(current)) validateScore(current);
+    approved.forEach(validateScore);
     const playerEligibility = assertEligibilityRules(teams, approved, settingsSnap.val()?.eligibilityRules);
     const standings = computeStandings(teams, approved); const pprcRatings = buildPtlRatings(teams, approved, ratingsSnap.val() || {}); const histories = computeHistories(teams, approved);
     const updatedBy = session?.teamId || session?.role || 'system'; const meta = { updatedAt: now, updatedBy, version: now };

@@ -1,4 +1,5 @@
 import { resolveMatchTeams } from './matchTeams';
+import { isApprovedMatch } from './matchStatus';
 import { findUtrRating } from '../data/utrRatings';
 
 const DEFAULT_BASE_RATING = 3.5;
@@ -148,6 +149,7 @@ export function buildPtlRatings(teams, matches, ratingRows) {
   const chronological = [...(matches || [])].sort((a, b) => (a.ts || 0) - (b.ts || 0));
 
   chronological.forEach(match => {
+    if (!isApprovedMatch(match)) return;
     const { team1, team2 } = resolveMatchTeams(match, teams);
     (match.lines || []).forEach(line => {
       const t1Players = line.players?.team1 || [];

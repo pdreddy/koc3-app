@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { resolveMatchTeams } from '../utils/matchTeams';
+import { isApprovedMatch } from '../utils/matchStatus';
 
 // Compute player statistics from matches
 function computeStats(matches, teams) {
@@ -15,6 +16,7 @@ function computeStats(matches, teams) {
   });
 
   matches.forEach((match) => {
+    if (!isApprovedMatch(match)) return;
     if (!match.lines) return;
     const matchId = match.id;
     const { team1: m1, team2: m2 } = resolveMatchTeams(match, teams);
