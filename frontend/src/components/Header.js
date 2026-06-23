@@ -5,6 +5,7 @@ import { ROLES, hasRole, canViewAudit } from '../utils/roles';
 import { writeAuditLog } from '../services/AuditService';
 
 const PRIMARY_LINKS = [
+  { to: '/', label: 'Home' },
   { to: '/teams', label: 'Teams' },
   { to: '/schedule', label: 'Schedule' },
   { to: '/standings', label: 'Standings' },
@@ -21,7 +22,7 @@ export default function AppHeader() {
   };
   return (
     <header className="app-header" data-testid="app-header">
-      <Link to="/teams" className="brand" data-testid="header-home" aria-label="KOC3 home">
+      <Link to="/" className="brand" data-testid="header-home" aria-label="KOC3 home">
         <span className="logo" aria-hidden="true">🏆</span>
         <span className="brand-copy">
           <strong>KOC3</strong>

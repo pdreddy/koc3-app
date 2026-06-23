@@ -14,6 +14,7 @@ import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from './utils/el
 import BottomNav from './components/BottomNav';
 import AppHeader from './components/Header';
 
+import Home from './pages/Home';
 import Teams from './pages/Teams';
 import Standings from './pages/Standings';
 import History from './pages/History';
@@ -207,7 +208,7 @@ function Shell() {
       <ActivityAudit />
       {!hideChrome && <AppHeader />}
       <Routes>
-        <Route path="/" element={<Navigate to="/teams" replace />} />
+        <Route path="/" element={<Home teams={teams} schedule={schedule} matches={matches} eligibilityRules={settings.eligibilityRules} />} />
         <Route path="/teams" element={<Teams teams={teams} loaded={loaded} matches={matches} eligibilityRules={settings.eligibilityRules} />} />
         <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} />} />
         <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />

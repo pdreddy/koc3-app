@@ -9,7 +9,7 @@ function playerKey(name) {
   return String(name || '').trim().toLowerCase();
 }
 
-function buildCaptainCapacityRows(team, teams, matches, eligibilityRules) {
+export function buildCaptainCapacityRows(team, teams, matches, eligibilityRules) {
   const rules = normalizeEligibilityRules(eligibilityRules);
   const rows = new Map((team?.players || []).map(player => [playerKey(player.name), {
     name: player.name, singlesDays: 0, doublesDays: 0, totalMatchDays: 0, partnerCounts: {}
@@ -60,7 +60,7 @@ function buildCaptainCapacityRows(team, teams, matches, eligibilityRules) {
   });
 }
 
-function CaptainCapacityCard({ team, teams, matches, eligibilityRules }) {
+export function CaptainCapacityCard({ team, teams, matches, eligibilityRules }) {
   const rules = useMemo(() => normalizeEligibilityRules(eligibilityRules), [eligibilityRules]);
   const rows = useMemo(() => buildCaptainCapacityRows(team, teams, matches, eligibilityRules), [team, teams, matches, eligibilityRules]);
   if (!team) return null;

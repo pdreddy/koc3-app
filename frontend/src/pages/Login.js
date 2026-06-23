@@ -56,7 +56,7 @@ export default function Login({ teams, adminConfig }) {
         const nextSession = { role: ROLES.CAPTAIN, teamId: team.id, teamName: team.name, loginAt: Date.now() };
         loginTeam(team.id, team.name);
         await writeAuditLog({ actionType: 'Login', session: nextSession, targetType: 'team', targetId: team.id });
-        navigate('/score', { replace: true });
+        navigate('/', { replace: true });
       } else {
         setError('Incorrect team password.');
       }
