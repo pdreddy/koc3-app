@@ -111,25 +111,28 @@ function computePlayerEligibility(teams, matches) {
   approvedMatches(matches).forEach(match => {
     const { team1, team2 } = resolveMatchTeams(match, teams); if (!team1 || !team2) return;
     const dayPlayers = new Map();
+    const dayPairs = new Map();
     (match.lines || []).forEach(line => {
       const type = line.type === 'singles' ? 'singles' : 'doubles';
       [[team1, line.players?.team1 || []], [team2, line.players?.team2 || []]].forEach(([team, names]) => {
         names.forEach(name => {
           const key = eligibilityKey(team.id, name);
-          const row = dayPlayers.get(key) || { key, teamId: team.id, name, singles: false, doubles: false };
+          const row = dayPlayers.get(key) || { key, teamId: team.id, name, singles: false, doubles: false, doublesCount: 0 };
           if (type === 'singles') row.singles = true;
-          if (type === 'doubles') row.doubles = true;
+          if (type === 'doubles') { row.doubles = true; row.doublesCount += 1; }
           dayPlayers.set(key, row);
         });
         if (type === 'doubles' && names.length === 2) {
-          const pairKey = eligibilityPairKey(team.id, names);
-          names.forEach(name => {
-            const key = eligibilityKey(team.id, name);
-            const base = rows[key] || { playerId: key, playerName: name, teamId: team.id, seasonId: 'koc_s3', totalMatchDays: 0, singlesDays: 0, doublesDays: 0, partnerHistory: {} };
-            base.partnerHistory[pairKey] = (base.partnerHistory[pairKey] || 0) + 1;
-            rows[key] = base;
-          });
+          dayPairs.set(eligibilityPairKey(team.id, names), { teamId: team.id, names });
         }
+      });
+    });
+    dayPairs.forEach((pair, pairKey) => {
+      pair.names.forEach(name => {
+        const key = eligibilityKey(pair.teamId, name);
+        const base = rows[key] || { playerId: key, playerName: name, teamId: pair.teamId, seasonId: 'koc_s3', totalMatchDays: 0, singlesDays: 0, doublesDays: 0, partnerHistory: {} };
+        base.partnerHistory[pairKey] = (base.partnerHistory[pairKey] || 0) + 1;
+        rows[key] = base;
       });
     });
     dayPlayers.forEach(day => {
@@ -143,14 +146,53 @@ function computePlayerEligibility(teams, matches) {
   return rows;
 }
 
+
+function assertEligibilityRules(teams, matches) {
+  const rows = computePlayerEligibility(teams, matches);
+  const errors = [];
+  Object.values(rows).forEach(row => {
+    if (row.singlesDays > 2) errors.push(`${row.playerName}: singles limit exceeded (${row.singlesDays}/2 Singles Days)`);
+    if (row.totalMatchDays > 5) errors.push(`${row.playerName}: match-day limit exceeded (${row.totalMatchDays}/5 Match Days)`);
+    Object.values(row.partnerHistory || {}).forEach(count => {
+      if (count > 3) errors.push(`${row.playerName}: doubles partner limit exceeded (${count}/3 Match Days)`);
+    });
+  });
+  approvedMatches(matches).forEach(match => {
+    const { team1, team2 } = resolveMatchTeams(match, teams); if (!team1 || !team2) return;
+    const dayPlayers = new Map();
+    (match.lines || []).forEach(line => {
+      const type = line.type === 'singles' ? 'singles' : 'doubles';
+      [[team1, line.players?.team1 || []], [team2, line.players?.team2 || []]].forEach(([team, names]) => {
+        names.forEach(name => {
+          const key = eligibilityKey(team.id, name);
+          const row = dayPlayers.get(key) || { name, singles: false, doublesCount: 0 };
+          if (type === 'singles') row.singles = true;
+          if (type === 'doubles') row.doublesCount += 1;
+          dayPlayers.set(key, row);
+        });
+      });
+    });
+    dayPlayers.forEach(row => {
+      if (row.singles && row.doublesCount > 0) errors.push(`${row.name}: cannot play singles and doubles on the same match day`);
+      if (row.doublesCount > 0 && row.doublesCount !== 2) errors.push(`${row.name}: doubles players must play both Doubles and Reverse Doubles`);
+    });
+  });
+  if (errors.length > 0) throw new Error(`Player eligibility validation failed:\n${Array.from(new Set(errors)).join('\n')}`);
+  return rows;
+}
+
 export class ScoreProcessingService {
   static async processMatchResult(matchId, { session = {}, matchRecord = null } = {}) {
     const now = Date.now();
     const [teamsSnap, matchesSnap, ratingsSnap] = await Promise.all([get(ref(db, PATHS.teams)), get(ref(db, PATHS.matches)), get(ref(db, PATHS.playerRatings))]);
-    const teams = teamsSnap.val() || {}; const matches = listFrom(matchesSnap.val()); const current = matchRecord || matches.find(m => m.id === matchId);
+    const teams = teamsSnap.val() || {};
+    let matches = listFrom(matchesSnap.val());
+    const current = matchRecord || matches.find(m => m.id === matchId);
     validateScore(current);
+    if (matchRecord && matchId && !matches.some(m => m.id === matchId)) matches = [...matches, { ...matchRecord, id: matchId }];
     const approved = approvedMatches(matches);
-    const standings = computeStandings(teams, approved); const pprcRatings = buildPtlRatings(teams, approved, ratingsSnap.val() || {}); const histories = computeHistories(teams, approved); const playerEligibility = computePlayerEligibility(teams, approved);
+    const playerEligibility = assertEligibilityRules(teams, approved);
+    const standings = computeStandings(teams, approved); const pprcRatings = buildPtlRatings(teams, approved, ratingsSnap.val() || {}); const histories = computeHistories(teams, approved);
     const updatedBy = session?.teamId || session?.role || 'system'; const meta = { updatedAt: now, updatedBy, version: now };
     await update(ref(db), {
       [PATHS.standings]: Object.fromEntries(standings.map(r => [r.teamId, { ...r, ...meta }])),
