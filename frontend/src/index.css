@@ -13,15 +13,24 @@
   --warn: #f59e0b;
 }
 
-html, body, #root { min-height: 100vh; }
+html { height: auto; }
+html, body, #root {
+  min-height: 100vh;
+  min-height: 100dvh; /* dynamic viewport height: avoids mobile address-bar clipping */
+}
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   background: linear-gradient(135deg, var(--bg1), var(--bg2));
+  background-attachment: fixed;
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
-  padding-bottom: env(safe-area-inset-bottom);
+  /* Allow natural page scrolling on every device */
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
 
 input, button, textarea, select { font-family: inherit; font-size: 1rem; }
@@ -33,9 +42,13 @@ a { color: inherit; text-decoration: none; }
 /* ===== App Layout ===== */
 .app-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  padding-bottom: 84px; /* leave room for bottom nav */
+  /* Reserve room for the fixed bottom nav PLUS the device safe-area inset,
+     so the last rows (Group B standings, latest history, MAXED rows) are
+     never hidden behind the nav and can always be scrolled into view. */
+  padding-bottom: calc(84px + env(safe-area-inset-bottom));
 }
 
 /* ===== Top Header ===== */
