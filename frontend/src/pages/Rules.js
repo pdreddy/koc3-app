@@ -54,10 +54,7 @@ const ruleCards = [
     ]
   }
 ];
-function RuleItem({ item, solo = false }) {
-  if (solo) {
-    return <div className="rl-item solo"><span className="rl-ic" aria-hidden="true">🎾</span><div className="rl-val">{item}</div></div>;
-  }
+function RuleItem({ item }) {
   const [icon, label, value] = item;
   return (
     <div className="rl-item">
@@ -72,14 +69,6 @@ function RuleCard({ card }) {
     <article id={`rule-${card.num}`} className="card rl-card" data-testid={`rule-card-${card.num}`}>
       <div className="rl-card-head"><span className="rl-num">{card.num}</span><span className="rl-chip" aria-hidden="true">{card.icon}</span><h3>{card.title}</h3></div>
       {card.items?.map(item => <RuleItem key={`${card.num}-${item[1]}`} item={item} />)}
-      {card.groups?.map(([name, items]) => (
-        <div key={name}>
-          <div className="rl-sub">{name}</div>
-          {items.map(item => <RuleItem key={`${name}-${item[1]}`} item={item} />)}
-        </div>
-      ))}
-      {card.solo?.map(value => <RuleItem key={value} item={value} solo />)}
-      {card.flag && <div className={`rl-flag ${card.flag[0]}`}><span aria-hidden="true">{card.flag[1]}</span><span>{card.flag[2]}</span></div>}
     </article>
   );
 }
