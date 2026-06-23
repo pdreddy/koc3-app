@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { onValue, ref, set, get, update } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
@@ -26,6 +26,7 @@ import Matchups from './pages/Matchups';
 import More from './pages/More';
 import PtlRatings from './pages/PtlRatings';
 import AuditLogs from './pages/AuditLogs';
+import { writeAuditLog } from './services/AuditService';
 
 function firebaseObjectToList(data, source) {
   if (!data) return [];
@@ -188,6 +189,7 @@ function Shell() {
 
   return (
     <div className="app-shell">
+      <ActivityAudit />
       {!hideChrome && <AppHeader />}
       <Routes>
         <Route path="/" element={<Navigate to="/teams" replace />} />
@@ -220,6 +222,29 @@ function Shell() {
       {!hideChrome && <BottomNav />}
     </div>
   );
+}
+
+function ActivityAudit() {
+  const location = useLocation();
+  const { session } = useAuth();
+  const lastEvent = useRef('');
+
+  useEffect(() => {
+    if (hasRole(session, [ROLES.GUEST])) return;
+    const path = `${location.pathname}${location.search || ''}`;
+    const actor = session?.teamId || session?.userId || session?.role || 'unknown';
+    const eventKey = `${actor}:${path}`;
+    if (lastEvent.current === eventKey) return;
+    lastEvent.current = eventKey;
+    writeAuditLog({
+      actionType: hasRole(session, [ROLES.CAPTAIN]) ? 'Captain Page View' : 'Admin Page View',
+      session,
+      targetType: 'route',
+      targetId: path
+    }).catch(error => console.error('Activity audit failed', error));
+  }, [location.pathname, location.search, session]);
+
+  return null;
 }
 
 function ProtectedRoles({ allowed, next, children }) {

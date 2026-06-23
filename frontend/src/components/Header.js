@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ROLES, hasRole, canViewAudit } from '../utils/roles';
+import { writeAuditLog } from '../services/AuditService';
 
 const PRIMARY_LINKS = [
   { to: '/teams', label: 'Teams' },
@@ -13,6 +14,11 @@ const PRIMARY_LINKS = [
 
 export default function AppHeader() {
   const { session, logout } = useAuth();
+  const handleLogout = async () => {
+    const currentSession = session;
+    logout();
+    await writeAuditLog({ actionType: 'Logout', session: currentSession, targetType: currentSession?.teamId ? 'team' : 'user', targetId: currentSession?.teamId || currentSession?.userId || currentSession?.role }).catch(() => {});
+  };
   return (
     <header className="app-header" data-testid="app-header">
       <Link to="/teams" className="brand" data-testid="header-home" aria-label="KOC3 home">
@@ -46,7 +52,7 @@ export default function AppHeader() {
           <Link to="/login" className="user-pill" data-testid="header-login-link">LOGIN</Link>
         )}
         {!hasRole(session, [ROLES.GUEST]) && (
-          <button onClick={logout} className="btn small ghost" data-testid="header-logout-btn">Logout</button>
+          <button onClick={handleLogout} className="btn small ghost" data-testid="header-logout-btn">Logout</button>
         )}
       </div>
     </header>

@@ -2,9 +2,15 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ROLES, hasRole, canViewAudit } from '../utils/roles';
+import { writeAuditLog } from '../services/AuditService';
 
 export default function More() {
   const { session, logout } = useAuth();
+  const handleLogout = async () => {
+    const currentSession = session;
+    logout();
+    await writeAuditLog({ actionType: 'Logout', session: currentSession, targetType: currentSession?.teamId ? 'team' : 'user', targetId: currentSession?.teamId || currentSession?.userId || currentSession?.role }).catch(() => {});
+  };
 
   const items = [
     { to: '/ptl', icon: '📈', label: 'PTL Rating', desc: 'Current UTR beside KOC performance rating', testid: 'more-ptl' },
@@ -58,7 +64,7 @@ export default function More() {
         {!hasRole(session, [ROLES.GUEST]) && (
           <button
             className="btn ghost full"
-            onClick={logout}
+            onClick={handleLogout}
             data-testid="more-logout-btn"
             style={{ marginTop: '.4rem' }}
           >
