@@ -52,7 +52,8 @@ export const DEFAULT_ADMIN_PASSWORD = 'KOCPO#ADMIN';
 
 export const ADMIN_USERNAME_ALIASES = {
   damureddi: 'damuredii',
-  vinoda: 'viona'
+  vinoda: 'vionda',
+  viona: 'vionda'
 };
 
 export function normalizeAdminUsername(username) {
@@ -66,9 +67,9 @@ export const DEFAULT_ADMIN_USERS = {
     name: 'Damureddi',
     role: 'SUPER_ADMIN'
   },
-  viona: {
-    username: 'viona',
-    name: 'Viona',
+  vionda: {
+    username: 'vionda',
+    name: 'Vionda',
     role: 'ADMIN'
   },
   umav: {

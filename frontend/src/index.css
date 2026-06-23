@@ -975,3 +975,39 @@ table.std tr.q { background: linear-gradient(90deg, #dbeafe 0%, rgba(255,255,255
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+
+/* Scroll safety: keep long app pages scrollable in browser and installed PWA modes. */
+html,
+body,
+#root {
+  min-height: 100%;
+  height: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+body {
+  touch-action: pan-y;
+  overscroll-behavior-y: auto;
+}
+
+.app-shell {
+  min-height: 100svh;
+  height: auto;
+  overflow: visible;
+}
+
+main.container,
+.rules-wrap,
+.login-shell {
+  min-height: 0;
+  height: auto;
+  overflow: visible;
+}
+
+.login-shell {
+  align-items: flex-start;
+  padding-top: max(1rem, env(safe-area-inset-top));
+  padding-bottom: max(6rem, calc(1rem + env(safe-area-inset-bottom)));
+}
