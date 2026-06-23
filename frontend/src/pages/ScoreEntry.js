@@ -654,6 +654,19 @@ export default function ScoreEntry({ teams, matches, eligibilityRules = DEFAULT_
   );
 }
 
+function teamGroup(team) {
+  return team?.group || 'A';
+}
+
+function teamsShareGroup(team1, team2) {
+  if (!team1 || !team2) return true;
+  return teamGroup(team1) === teamGroup(team2);
+}
+
+function groupFilteredOpponents(teamList, selectedTeam) {
+  return teamList.filter(team => team.id !== selectedTeam?.id && (!selectedTeam || teamsShareGroup(team, selectedTeam)));
+}
+
 function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const teamList = Object.values(teams || {});
@@ -672,6 +685,11 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
 
   const team1 = teams[team1Id];
   const team2 = teams[team2Id];
+  const opponentList = groupFilteredOpponents(teamList, team1);
+
+  useEffect(() => {
+    if (team2 && !teamsShareGroup(team1, team2)) setTeam2Id('');
+  }, [team1, team2, setTeam2Id]);
 
   const updateCourt = (idx, patch) => {
     setCourts(cs => cs.map((c, i) => i === idx ? { ...c, ...patch } : c));
@@ -693,6 +711,7 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
     setError(''); setSuccess('');
     if (!team1 || !team2) { setError('Please choose both teams.'); return; }
     if (team1.id === team2.id) { setError('Teams must be different.'); return; }
+    if (!teamsShareGroup(team1, team2)) { setError('Teams can only play opponents in the same group.'); return; }
 
     // For team captains, must include their own team
     if (session.role === ROLES.CAPTAIN && team1.id !== session.teamId && team2.id !== session.teamId) {
@@ -821,7 +840,7 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
           </div>
           <span className="vs">vs</span>
           <div>
-            <div className="field-label">Opponent</div>
+            <div className="field-label">Opponent {team1 ? `· Group ${teamGroup(team1)}` : ''}</div>
             <select
               className="select"
               value={team2Id}
@@ -829,7 +848,7 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
               data-testid="team2-select"
             >
               <option value="">— Select —</option>
-              {teamList.filter(t => t.id !== team1Id).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {opponentList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
         </div>
@@ -939,8 +958,19 @@ function QuickEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, s
   const [success, setSuccess] = useState('');
   const [saving, setSaving] = useState(false);
   const teamList = Object.values(teams || {});
+  const myTeam = session.role === ROLES.CAPTAIN ? teams[session.teamId] : null;
+  const isAdmin = isAdminRole(session);
   const selectedTeam1 = teams[team1Id];
   const selectedTeam2 = teams[team2Id];
+  const opponentList = groupFilteredOpponents(teamList, selectedTeam1);
+
+  useEffect(() => {
+    if (myTeam?.id && !team1Id) setTeam1Id(myTeam.id);
+  }, [myTeam, setTeam1Id, team1Id]);
+
+  useEffect(() => {
+    if (selectedTeam2 && !teamsShareGroup(selectedTeam1, selectedTeam2)) setTeam2Id('');
+  }, [selectedTeam1, selectedTeam2, setTeam2Id]);
 
   const parsed = useMemo(() => parseQuickScore(text, teams), [text, teams]);
   const quickTemplate = useMemo(() => getQuickTemplate(teams), [teams]);
@@ -990,6 +1020,7 @@ function QuickEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, s
     const { results, errors, team1, team2 } = parsed;
     if (!team1 || !team2) { setError(errors.join('\n') || 'Could not detect teams.'); return; }
     if (errors.length > 0) { setError(errors.join('\n')); return; }
+    if (!teamsShareGroup(team1, team2)) { setError('Teams can only play opponents in the same group.'); return; }
     if (results.length === 0) { setError('No valid courts parsed.'); return; }
 
     // Team-captain restriction
@@ -1092,17 +1123,17 @@ Final: KC won 3-2`;
         <div className="row score-teams-row">
           <div>
             <div className="field-label">Team 1</div>
-            <select className="select" value={team1Id} onChange={e => setTeam1Id(e.target.value)} data-testid="quick-team1-select">
+            <select className="select" value={team1Id} onChange={e => setTeam1Id(e.target.value)} disabled={!isAdmin && !!myTeam} data-testid="quick-team1-select">
               <option value="">— Select —</option>
               {teamList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
           <span className="vs">vs</span>
           <div>
-            <div className="field-label">Team 2</div>
+            <div className="field-label">Team 2 {selectedTeam1 ? `· Group ${teamGroup(selectedTeam1)}` : ''}</div>
             <select className="select" value={team2Id} onChange={e => setTeam2Id(e.target.value)} data-testid="quick-team2-select">
               <option value="">— Select —</option>
-              {teamList.filter(t => t.id !== team1Id).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {opponentList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
         </div>
