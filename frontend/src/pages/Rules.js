@@ -2,57 +2,58 @@ import React from 'react';
 
 const ruleCards = [
   {
-    num: '01', icon: '✅', title: 'Player Eligibility Rules',
+    num: '01', icon: '🏃', title: 'Player Participation (Round-Robin)',
     items: [
-      ['📅', 'Total Match Days', 'A player may participate in a maximum of 5 match days during Round Robin.'],
-      ['🎾', 'Singles Day', '1 singles match. A player can play a maximum of 2 singles days.'],
-      ['👥', 'Doubles Day', '2 matches: Doubles + Reverse Doubles. If selected for doubles, the player must play both.'],
-      ['🔁', 'Doubles Days', 'No fixed doubles-day limit as long as total match days stay at 5 or below.'],
-      ['🤝', 'Same Partner', 'The same doubles pair can partner together for a maximum of 3 match days.']
-    ],
-    flag: ['warn', '⚠️', 'Not allowed: 3 singles days, more than 5 total match days, or same doubles pair for 4 match days.']
-  },
-  {
-    num: '02', icon: '📋', title: 'Valid Eligibility Examples',
-    items: [
-      ['✅', '5 Doubles Days', 'Allowed.'],
-      ['✅', '4 Doubles + 1 Singles', 'Allowed.'],
-      ['✅', '3 Doubles + 2 Singles', 'Allowed.'],
-      ['✅', '2 Doubles + 2 Singles', 'Allowed.'],
-      ['✅', '1 Doubles + 2 Singles', 'Allowed.'],
-      ['❌', '2 Singles + 4 Doubles', 'Not allowed because it is 6 total match days.']
+      ['👤', 'Regular Season', 'Each player must play a minimum of 3 matches and a maximum of 6 matches in the regular season.'],
+      ['🎾', 'Singles Cap', 'Each player can play a maximum of 2 singles matches.'],
+      ['🤝', 'Same Doubles Pair', 'The same doubles pair can partner together a maximum of 3 times — 3 match days or 6 matches.']
     ]
   },
   {
-    num: '03', icon: '🏆', title: 'Format, Scoring & Match Play',
-    groups: [
-      ['Format & Calendar', [['🏟️', 'Format', '16 Teams • Round Robin.'], ['🗓️', 'Schedule', 'Group A Saturdays, Group B Sundays, all at 7:15 PM.'], ['📆', 'Buffer', 'July 4 weekend is a buffer week.']]],
-      ['Match Format', [['🧍', 'Singles', 'Best of 5 mini-sets.'], ['👥', 'Doubles', 'Best of 3 sets. At 3–3, a 7-point tiebreaker. The 3rd set is a 15-point tiebreaker.']]],
-      ['Scoring', [['✅', 'Win', 'Win 3 of 5 lines on a match day → 1 point.'], ['❌', 'Loss', 'Loss → 0 points.'], ['📊', 'Tiebreak', 'Points → Sets → Games → Head-to-Head.']]]
+    num: '02', icon: '📝', title: 'Lines',
+    items: [
+      ['🗓️', 'Sunday Deadline', 'Lines are due every Sunday by 9 PM — mandatory, even if you play later in the week.'],
+      ['😄', 'Missed Deadline', 'Miss it? Vinod, Uma, or I will set your lines. Yes, that includes their own teams.']
     ]
   },
   {
-    num: '04', icon: '📅', title: 'Scheduling',
+    num: '03', icon: '📅', title: 'Scheduling',
     items: [
-      ['🕒', 'Match Days', 'Saturday & Sunday at 7:15 PM.'],
-      ['🤝', 'Weekday Play', "Captains may choose a weekday if both teams' players are available."],
-      ['📝', 'Share Lineups', "Both captains must share lines in the captains' group to avoid unwanted situations."],
-      ['⏱️', 'Missed Lineups', "If you miss the schedule and don't share lineups by 9:00 PM on the scheduled day."],
-      ['🔁', 'Mutual Reschedule Priority', "Current week's matches take priority. Backlog can be played later."],
-      ['🚫', 'Change Deadline', 'No changes after the scheduled day.'],
-      ['📣', 'Score Reporting', 'If both teams fail to post scores before Sunday morning → 0 points for both. Winning captain must post.']
-    ],
-    flag: ['warn', '⚠️', 'No-show = forfeit.']
+      ['🤝', 'Mutual Agreement', "Postpone only by mutual agreement. The current week's match comes first."],
+      ['✅', 'Before RR Ends', 'All postponed matches must be completed before the round-robin ends.'],
+      ['🌦️', 'Buffer Week', 'There is an extra buffer week at the end of round-robin for weather make-ups.']
+    ]
   },
-  { num: '05', icon: '📋', title: 'Match Day Protocol', solo: ['Arrive 15 minutes early.', 'Exchange lineups before play.', 'No lineup changes once started.', 'All lines must finish the same day.'] },
   {
-    num: '06', icon: '🏥', title: 'Injuries',
-    items: [['📃', 'League (Round-Robin)', 'Replace with a similar UTR player or .5 lower level; requires Committee approval.'], ['🏅', 'Playoffs', 'Only if 2+ players are ruled out; requires Committee approval.']]
+    num: '04', icon: '📊', title: 'Scores',
+    items: [
+      ['🏆', 'Winning Captain', 'Winning captain posts the score by the immediate Monday EOD — strictly enforced.'],
+      ['⏱️', 'Split Days', 'Splitting matches across days? Scores are still all due by that Monday.']
+    ]
   },
-  { num: '07', icon: '⚡', title: 'No-Ad Scoring', solo: ['Deciding point at deuce.', 'Receiver chooses side (no 2-point advantage).'] },
-  { num: '08', icon: '🤝', title: 'Conduct & Fair Play', solo: ['Players make their own line calls.', 'Disputes → Committee decision.', 'Respectful behavior is mandatory.'], flag: ['warn', '⚠️', 'Misconduct = penalty.'] }
+  {
+    num: '05', icon: '🌧️', title: 'Weather',
+    items: [
+      ['🌧️', 'Full Washout', 'A full washout gives teams a window to reschedule, play, and post.'],
+      ['0️⃣', 'No Completion', "Can't make it happen? Zero points for that fixture."]
+    ]
+  },
+  {
+    num: '06', icon: '⚠️', title: 'Postponement (Non-Weather)',
+    items: [
+      ['🚫', 'No Mutual Agreement', 'Postpone or no-show for a non-weather reason without mutual agreement? The opponent can raise it.'],
+      ['📉', 'Penalty', 'Penalty: 4 games (or a set) deducted — and the match still gets played on a later day.']
+    ]
+  },
+  {
+    num: '07', icon: '🏆', title: 'Playoffs',
+    items: [
+      ['7️⃣', 'Roster Usage', 'No 3–6 limit here — all 7 players play in semis and finals.'],
+      ['🗓️', 'Windows', 'Semifinals: 5-day window. Finals: 10-day window.'],
+      ['☀️', 'Extra Buffer', 'Extra buffer is included for summer and Labor Day weekend.']
+    ]
+  }
 ];
-
 function RuleItem({ item, solo = false }) {
   if (solo) {
     return <div className="rl-item solo"><span className="rl-ic" aria-hidden="true">🎾</span><div className="rl-val">{item}</div></div>;
@@ -88,31 +89,19 @@ export default function Rules() {
     <main className="container" data-testid="rules-page">
       <div className="page-title">
         <h1>Rules &amp; Format</h1>
-        <p>Everything captains and players need — eligibility, scoring, scheduling and the road to the playoffs.</p>
+        <p>Welcome to the season! Quick rundown before Week 1 — participation, lines, scores, weather and playoffs.</p>
       </div>
 
       <div className="rl-sec-head"><h2>The Rules</h2><div className="ln" /></div>
       <section className="rl-grid">{ruleCards.map(card => <RuleCard key={card.num} card={card} />)}</section>
 
-      <div className="rl-sec-head"><h2>How a Match Day Works</h2><div className="ln" /></div>
-      <section className="rl-flow">
-        <div className="rl-step"><b>1</b><strong>Share lineup</strong><small>Captains post lines before play.</small></div>
-        <div className="rl-step"><b>2</b><strong>Play 5 lines</strong><small>Singles, doubles and reverse doubles.</small></div>
-        <div className="rl-step"><b>3</b><strong>Post scores</strong><small>Winning captain reports before Sunday morning.</small></div>
-        <div className="rl-step"><b>4</b><strong>Standings update</strong><small>Points, sets, games and head-to-head decide rank.</small></div>
+      <div className="rl-sec-head"><h2>Remember</h2><div className="ln" /></div>
+      <section className="rl-flow rl-reminders">
+        <div className="rl-step"><b>🗓️</b><strong>Sunday 9 PM</strong><small>Lines are due.</small></div>
+        <div className="rl-step"><b>📊</b><strong>Monday EOD</strong><small>Scores are due.</small></div>
       </section>
 
-      <div className="rl-sec-head"><h2>Playoffs</h2><div className="ln" /></div>
-      <section className="card rl-playoffs">
-        <p className="rl-bracket-intro"><strong>Top 4 from both groups qualify.</strong> Quarterfinal crossovers pit each group's high seeds against the other group's lowest.</p>
-        <div className="rl-cross">
-          <div><div className="rl-bracket-sub">Quarterfinals — Top half</div><div className="rl-qf"><span>QF1</span><b>A1 <i>vs</i> B4</b></div><div className="rl-qf"><span>QF2</span><b>A2 <i>vs</i> B3</b></div></div>
-          <div><div className="rl-bracket-sub">Quarterfinals — Bottom half</div><div className="rl-qf"><span>QF3</span><b>A3 <i>vs</i> B2</b></div><div className="rl-qf"><span>QF4</span><b>A4 <i>vs</i> B1</b></div></div>
-        </div>
-        <div className="rl-bracket-sub">Semifinals</div>
-        <div className="rl-cross"><div className="rl-qf"><span>SF1</span><b>QF1 <i>vs</i> QF4</b></div><div className="rl-qf"><span>SF2</span><b>QF2 <i>vs</i> QF3</b></div></div>
-      </section>
-      <div className="rl-motto">Play fair · Win big · Repeat · Celebrate 🎾</div>
+      <div className="rl-motto">Let's go! 🎾</div>
     </main>
   );
 }
