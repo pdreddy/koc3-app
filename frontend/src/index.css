@@ -1011,3 +1011,165 @@ main.container,
   padding-top: max(1rem, env(safe-area-inset-top));
   padding-bottom: max(6rem, calc(1rem + env(safe-area-inset-bottom)));
 }
+
+/* Rules page compact card style. */
+.rl-sec-head {
+  display: flex;
+  align-items: center;
+  gap: .85rem;
+  margin: 1.35rem 0 .85rem;
+}
+.rl-sec-head h2 {
+  color: var(--primary-blue-dark);
+  font-size: clamp(1.15rem, 3vw, 1.65rem);
+  font-weight: 900;
+  letter-spacing: -.03em;
+}
+.rl-sec-head .ln {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border-light), transparent);
+}
+.rl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 1rem;
+}
+.rl-card {
+  position: relative;
+  overflow: hidden;
+  padding: 1.15rem;
+  border-radius: 18px;
+}
+.rl-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: linear-gradient(180deg, var(--primary-blue), var(--accent));
+}
+.rl-card-head {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  margin-bottom: .85rem;
+}
+.rl-num {
+  color: var(--primary-blue-dark);
+  font-weight: 950;
+  font-size: 1rem;
+  letter-spacing: .04em;
+}
+.rl-chip {
+  width: 2.15rem;
+  height: 2.15rem;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--light-blue-bg);
+  border: 1px solid var(--border-light);
+}
+.rl-card h3 {
+  color: var(--text-dark);
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1.2;
+}
+.rl-item {
+  display: flex;
+  gap: .65rem;
+  padding: .58rem 0;
+  border-top: 1px dashed var(--border-light);
+}
+.rl-item:first-of-type { border-top: 0; }
+.rl-ic { line-height: 1.35; flex: 0 0 auto; }
+.rl-lbl { color: var(--text-dark); font-weight: 850; font-size: .92rem; }
+.rl-val { color: var(--muted); font-size: .9rem; line-height: 1.42; }
+.rl-item.solo .rl-val { color: var(--text-dark); }
+.rl-sub {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin: .95rem 0 .2rem;
+  color: var(--primary-blue-dark);
+  font-size: .75rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.rl-sub::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-light);
+}
+.rl-flag {
+  display: flex;
+  gap: .5rem;
+  margin-top: .75rem;
+  padding: .7rem .8rem;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: .84rem;
+}
+.rl-flag.warn { color: #92400e; background: #fffbeb; border: 1px solid #fde68a; }
+.rl-flow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: .85rem;
+}
+.rl-step {
+  position: relative;
+  min-height: 104px;
+  padding: .9rem .9rem .9rem 3.15rem;
+  border: 1px solid var(--border-light);
+  border-radius: 16px;
+  background: rgba(255,255,255,.96);
+  box-shadow: 0 14px 34px rgba(37,99,235,.09);
+}
+.rl-step b {
+  position: absolute;
+  left: .85rem;
+  top: .85rem;
+  width: 1.8rem;
+  height: 1.8rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--primary-blue);
+}
+.rl-step strong { display: block; color: var(--text-dark); font-size: .92rem; text-transform: uppercase; }
+.rl-step small { display: block; color: var(--muted); margin-top: .35rem; line-height: 1.35; }
+.rl-playoffs { padding: 1.15rem; }
+.rl-bracket-intro { color: var(--muted); line-height: 1.45; margin-bottom: 1rem; }
+.rl-bracket-intro strong { color: var(--primary-blue-dark); }
+.rl-cross { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.rl-bracket-sub { color: var(--muted); font-weight: 900; font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; margin: 1rem 0 .55rem; }
+.rl-qf {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: .75rem;
+  padding: .75rem .85rem;
+  margin-bottom: .55rem;
+  border-radius: 12px;
+  background: var(--light-blue-bg);
+  border: 1px solid var(--border-light);
+}
+.rl-qf span { color: var(--muted); font-size: .75rem; font-weight: 900; letter-spacing: .1em; }
+.rl-qf b { color: var(--primary-blue-dark); }
+.rl-motto {
+  margin: 1.35rem 0 1rem;
+  padding: 1.15rem;
+  border-radius: 18px;
+  text-align: center;
+  color: #fff;
+  font-weight: 950;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, var(--primary-blue), var(--primary-blue-dark), var(--accent));
+  box-shadow: 0 16px 36px rgba(37,99,235,.18);
+}
+@media (max-width: 880px) { .rl-flow, .rl-cross { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 620px) { .rl-grid, .rl-flow, .rl-cross { grid-template-columns: 1fr; } }
