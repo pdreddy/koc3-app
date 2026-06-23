@@ -50,6 +50,16 @@ export function canonicalTeamIdentityUpdates(teamsData = {}) {
 
 export const DEFAULT_ADMIN_PASSWORD = 'KOCPO#ADMIN';
 
+export const ADMIN_USERNAME_ALIASES = {
+  damureddi: 'damuredii',
+  vinoda: 'viona'
+};
+
+export function normalizeAdminUsername(username) {
+  const normalized = String(username || '').trim().toLowerCase();
+  return ADMIN_USERNAME_ALIASES[normalized] || normalized;
+}
+
 export const DEFAULT_ADMIN_USERS = {
   damuredii: {
     username: 'damuredii',

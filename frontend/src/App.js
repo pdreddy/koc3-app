@@ -4,7 +4,7 @@ import { onValue, ref, set, get, update } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ROLES, hasRole } from './utils/roles';
-import { buildInitialTeams, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERS } from './data/initialTeams';
+import { buildInitialTeams, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERS, normalizeAdminUsername } from './data/initialTeams';
 import { buildUtrRatingsTable } from './data/utrRatings';
 import { sortByGroupOrder } from './data/auctionTeams';
 import { auctionPlayerRatingUpdates, buildAuctionPlayerRatingsTable } from './data/auctionPlayers';
@@ -93,8 +93,12 @@ function Shell() {
 
         const auSnap = await get(ref(db, PATHS.adminUsers));
         const adminUsers = auSnap.val() || {};
+        const existingAdminUsers = Object.keys(adminUsers).reduce((lookup, username) => {
+          lookup[normalizeAdminUsername(username)] = true;
+          return lookup;
+        }, {});
         const missingAdminUsers = Object.entries(DEFAULT_ADMIN_USERS).reduce((updates, [username, user]) => {
-          if (!adminUsers[username]) updates[username] = user;
+          if (!existingAdminUsers[username]) updates[username] = user;
           return updates;
         }, {});
         if (Object.keys(missingAdminUsers).length > 0) {

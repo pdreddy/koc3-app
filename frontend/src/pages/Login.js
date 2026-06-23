@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ROLES } from '../utils/roles';
-import { DEFAULT_ADMIN_USERS } from '../data/initialTeams';
+import { DEFAULT_ADMIN_USERS, normalizeAdminUsername } from '../data/initialTeams';
 import { writeAuditLog } from '../services/AuditService';
 
 export default function Login({ teams, adminConfig }) {
@@ -22,10 +22,11 @@ export default function Login({ teams, adminConfig }) {
     e.preventDefault();
     setError('');
     if (mode === 'admin') {
-      const username = adminUsername.trim().toLowerCase();
+      const username = normalizeAdminUsername(adminUsername);
       const users = adminConfig?.users || {};
+      const configuredUserEntry = Object.entries(users).find(([key]) => normalizeAdminUsername(key) === username);
+      const configuredUser = configuredUserEntry?.[1] || null;
       const defaultUser = username ? DEFAULT_ADMIN_USERS[username] : null;
-      const configuredUser = username ? users[username] : null;
       const adminUser = configuredUser || defaultUser;
       if (!username || !adminUser) {
         setError('Incorrect admin username or password.');
