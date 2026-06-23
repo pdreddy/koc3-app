@@ -1,9 +1,10 @@
-import { get, ref, update } from 'firebase/database';
+import { get, push, ref, update } from 'firebase/database';
 import { db, PATHS } from '../firebase';
 import { buildPtlRatings } from '../utils/ptlRating';
 import { resolveMatchTeams, matchWinnerId } from '../utils/matchTeams';
 import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from '../utils/eligibilityRules';
 import { approvedMatches, isApprovedMatch } from '../utils/matchStatus';
+import { validateLineScore } from '../utils/tennisScoreRules';
 
 const keyFor = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'unknown';
 const listFrom = (val) => Object.entries(val || {}).map(([id, value]) => ({ id, ...(value || {}) }));
@@ -23,6 +24,9 @@ export function validateScore(match) {
   if (courtsWon1 === courtsWon2) throw new Error('Score validation failed: match winner is tied or unclear.');
   const expectedWinnerId = courtsWon1 > courtsWon2 ? match.t1Id : match.t2Id;
   if (match.winnerId && match.winnerId !== expectedWinnerId) throw new Error('Score validation failed: winner does not match court results.');
+  const lineErrors = match.lines.flatMap(line => validateLineScore(line));
+  if (lineErrors.length > 0) throw new Error(`Score validation failed:
+${Array.from(new Set(lineErrors)).join('\n')}`);
   return true;
 }
 
@@ -193,7 +197,14 @@ function assertEligibilityRules(teams, matches, eligibilityRules = DEFAULT_ELIGI
 }
 
 export class ScoreProcessingService {
-  static async processMatchResult(matchId, { session = {}, matchRecord = null } = {}) {
+  static async updateAfterScoreEntry(matchResult, { session = {} } = {}) {
+    const matchRef = push(ref(db, PATHS.matches));
+    const matchRecord = { ...matchResult, id: matchRef.key };
+    await this.processMatchResult(matchRef.key, { session, matchRecord, writeMatchRecord: true });
+    return { key: matchRef.key, matchRecord };
+  }
+
+  static async processMatchResult(matchId, { session = {}, matchRecord = null, writeMatchRecord = false } = {}) {
     const now = Date.now();
     const [teamsSnap, matchesSnap, ratingsSnap, settingsSnap] = await Promise.all([get(ref(db, PATHS.teams)), get(ref(db, PATHS.matches)), get(ref(db, PATHS.playerRatings)), get(ref(db, PATHS.settings))]);
     const teams = teamsSnap.val() || {};
@@ -206,6 +217,9 @@ export class ScoreProcessingService {
     const playerEligibility = assertEligibilityRules(teams, approved, settingsSnap.val()?.eligibilityRules);
     const standings = computeStandings(teams, approved); const pprcRatings = buildPtlRatings(teams, approved, ratingsSnap.val() || {}); const histories = computeHistories(teams, approved);
     const updatedBy = session?.teamId || session?.role || 'system'; const meta = { updatedAt: now, updatedBy, version: now };
+    const matchUpdates = matchId ? (writeMatchRecord
+      ? { [`${PATHS.matches}/${matchId}`]: { ...matchRecord, ...meta, processedAt: now, scoreEnteredBy: matchRecord?.enteredBy || updatedBy, approvedBy: matchRecord?.approvedBy || session?.role || updatedBy } }
+      : { [`${PATHS.matches}/${matchId}/processedAt`]: now, [`${PATHS.matches}/${matchId}/updatedAt`]: now, [`${PATHS.matches}/${matchId}/updatedBy`]: updatedBy, [`${PATHS.matches}/${matchId}/version`]: now }) : {};
     await update(ref(db), {
       [PATHS.standings]: Object.fromEntries(standings.map(r => [r.teamId, { ...r, ...meta }])),
       [PATHS.pprcRatings]: Object.fromEntries(pprcRatings.map(r => [keyFor(r.name), { ...r, ...meta }])),
@@ -215,7 +229,7 @@ export class ScoreProcessingService {
       [PATHS.teamMatchups]: Object.fromEntries(Object.entries(histories.teamMatchups).map(([k, v]) => [k, { ...v, ...meta }])),
       [PATHS.playerEligibility]: Object.fromEntries(Object.entries(playerEligibility).map(([k, v]) => [k, { ...v, ...meta }])),
       [PATHS.cachedSummaries]: { updatedAt: now, updatedBy, version: now, matchCount: approved.length },
-      ...(matchId ? { [`${PATHS.matches}/${matchId}/processedAt`]: now, [`${PATHS.matches}/${matchId}/updatedAt`]: now, [`${PATHS.matches}/${matchId}/updatedBy`]: updatedBy, [`${PATHS.matches}/${matchId}/version`]: now } : {})
+      ...matchUpdates
     });
     return { standings, pprcRatings, playerEligibility, ...histories };
   }

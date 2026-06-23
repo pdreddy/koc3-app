@@ -170,15 +170,18 @@ function parseLine(line, team1, team2, team1Abbr, team2Abbr, abbrLookup) {
   const setsData = [];
   for (let i = 0; i < sets.length; i++) {
     const s = sets[i];
-    g1 += s.left; g2 += s.right;
-    if (s.left > s.right) s1++;
-    else if (s.right > s.left) s2++;
-    else if (s.tiebreak) {
-      if (s.tiebreak.left > s.tiebreak.right) { s1++; g1++; }
-      else { s2++; g2++; }
-    }
+    const splitBeforeThird = isDoubles && i === 2 && setsData.length >= 2 && setsData[0].team1 !== setsData[0].team2 && setsData[1].team1 !== setsData[1].team2 && ((setsData[0].team1 > setsData[0].team2) !== (setsData[1].team1 > setsData[1].team2));
     const setData = { set: i + 1, team1: s.left, team2: s.right };
-    if (s.tiebreak) setData.tieBreak = { team1: s.tiebreak.left, team2: s.tiebreak.right };
+    if (splitBeforeThird) {
+      setData.matchTieBreak = true;
+      if (s.left > s.right) s1++;
+      else if (s.right > s.left) s2++;
+    } else {
+      g1 += s.left; g2 += s.right;
+      if (s.left > s.right) s1++;
+      else if (s.right > s.left) s2++;
+      if (s.tiebreak) setData.tieBreak = { team1: s.tiebreak.left, team2: s.tiebreak.right };
+    }
     setsData.push(setData);
   }
 

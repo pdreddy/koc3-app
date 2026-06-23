@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { push, ref } from 'firebase/database';
-import { db, PATHS, ensureAuth } from '../firebase';
+import { ensureAuth } from '../firebase';
 import { ScoreProcessingService } from '../services/ScoreProcessingService';
 import { writeAuditLog } from '../services/AuditService';
 import { ROLES, isAdminRole } from '../utils/roles';
@@ -9,6 +8,7 @@ import { matchName } from '../utils/nameMatch';
 import { resolveMatchTeams } from '../utils/matchTeams';
 import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from '../utils/eligibilityRules';
 import { parseQuickScore } from '../utils/quickScoreParser';
+import { regularSetWinner, validateLineScore } from '../utils/tennisScoreRules';
 
 const COURT_TEMPLATES = [
   { label: 'Singles', type: 'singles', setCount: 5 },
@@ -280,10 +280,11 @@ function PlayerInput({ value, onChange, roster, teamAbbr, testid }) {
 
 function buildDefaultWinnerSets(court, winnerTeamNum) {
   const nextSets = court.sets.map(() => ({ a: '', b: '', tieA: '', tieB: '' }));
-  [0, 1].forEach(idx => {
+  const straightSets = court.type === 'singles' ? 3 : 2;
+  Array.from({ length: straightSets }).forEach((_, idx) => {
     nextSets[idx] = winnerTeamNum === 1
-      ? { a: '4', b: '3', tieA: '', tieB: '' }
-      : { a: '3', b: '4', tieA: '', tieB: '' };
+      ? { a: '4', b: '2', tieA: '', tieB: '' }
+      : { a: '2', b: '4', tieA: '', tieB: '' };
   });
   return nextSets;
 }
@@ -297,17 +298,17 @@ function LineResultButtons({ court, teamAbbr, winnerTeamNum, loserTeamNum, onApp
   );
 }
 
-function SetRow({ idx, set, onChange, disabled }) {
+function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false }) {
   return (
     <div className="set-input">
-      <span className="label">Set {idx + 1}</span>
+      <span className="label">{isMatchTieBreak ? 'Match TB' : `Set ${idx + 1}`}</span>
       <input
         className="input"
         type="number"
         inputMode="numeric"
         value={set.a}
         min="0"
-        max="7"
+        max={isMatchTieBreak ? "30" : "4"}
         disabled={disabled}
         onChange={e => onChange({ ...set, a: e.target.value })}
         placeholder="0"
@@ -320,13 +321,13 @@ function SetRow({ idx, set, onChange, disabled }) {
         inputMode="numeric"
         value={set.b}
         min="0"
-        max="7"
+        max={isMatchTieBreak ? "30" : "4"}
         disabled={disabled}
         onChange={e => onChange({ ...set, b: e.target.value })}
         placeholder="0"
         data-testid={`set-${idx}-b`}
       />
-      {(Number(set.a) === Number(set.b) && set.a !== '' && set.b !== '') && (
+      {(!isMatchTieBreak && ((Number(set.a) === 4 && Number(set.b) === 3) || (Number(set.a) === 3 && Number(set.b) === 4))) && (
         <>
           <span style={{ fontSize: '.75rem', color: '#92400e' }}>TB</span>
           <input
@@ -365,14 +366,21 @@ function computeCourt(c) {
     const s = c.sets[i];
     if (s.a === '' && s.b === '') continue;
     const a = Number(s.a) || 0, b = Number(s.b) || 0;
-    g1 += a; g2 += b;
+    const firstTwoSplit = c.type === 'doubles' && i === 2 && sets.length >= 2 && regularSetWinner(sets[0].team1, sets[0].team2) !== regularSetWinner(sets[1].team1, sets[1].team2);
     const setEntry = { set: i + 1, team1: a, team2: b };
-    if (a > b) s1++;
-    else if (b > a) s2++;
-    else if (s.tieA !== '' || s.tieB !== '') {
-      const ta = Number(s.tieA) || 0, tb = Number(s.tieB) || 0;
-      setEntry.tieBreak = { team1: ta, team2: tb };
-      if (ta > tb) { s1++; g1++; } else { s2++; g2++; }
+    if (firstTwoSplit) {
+      setEntry.matchTieBreak = true;
+      if (a > b) s1++;
+      else if (b > a) s2++;
+    } else {
+      g1 += a; g2 += b;
+      if (a > b) s1++;
+      else if (b > a) s2++;
+      if ((a === 4 && b === 3) || (a === 3 && b === 4)) {
+        const ta = s.tieA === '' ? null : Number(s.tieA);
+        const tb = s.tieB === '' ? null : Number(s.tieB);
+        if (ta != null && tb != null) setEntry.tieBreak = { team1: ta, team2: tb };
+      }
     }
     sets.push(setEntry);
   }
@@ -398,10 +406,8 @@ function validateCourtShape(court, result, validationErrors) {
     const hasA = set.a !== '';
     const hasB = set.b !== '';
     if (hasA !== hasB) validationErrors.push(`${court.label}: set ${idx + 1} needs both team scores`);
-    if (hasA && hasB && Number(set.a) === Number(set.b) && set.tieA === '' && set.tieB === '') {
-      validationErrors.push(`${court.label}: tied set ${idx + 1} needs tiebreak scores`);
-    }
   });
+  validationErrors.push(...validateLineScore({ label: court.label, type: court.type, sets: result.sets }));
 }
 
 
@@ -801,11 +807,10 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
     try {
       setSaving(true);
       await ensureAuth();
-      const saved = await push(ref(db, PATHS.matches), record);
-      const savedRecord = { ...record, id: saved.key };
+      const saved = await ScoreProcessingService.updateAfterScoreEntry(record, { session });
+      const savedRecord = saved.matchRecord;
       onScoreSaved?.(savedRecord);
-      await ScoreProcessingService.processMatchResult(saved.key, { session, matchRecord: savedRecord });
-      await writeAuditLog({ actionType: 'Score Entry', session, targetType: 'match', targetId: saved.key, newValue: record });
+      await writeAuditLog({ actionType: 'Score Entry', session, targetType: 'match', targetId: saved.key, newValue: savedRecord });
       setSuccess(`✅ Saved and synchronized ratings, standings, histories, and dashboard:  ${team1.name} vs ${team2.name} — Winner: ${winner}`);
       setCourts(COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
     } catch (e) {
@@ -911,7 +916,7 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
           <div className="field-label">Sets ({team1.abbreviation} – {team2.abbreviation})</div>
           {c.sets.map((s, i) => (
             <div key={i} data-testid={`court-${idx}-set-${i}-row`}>
-              <SetRow idx={i} set={s} disabled={i > 0 && c.sets[i - 1].a === '' && c.sets[i - 1].b === ''} onChange={(ns) => updateCourt(idx, { sets: c.sets.map((x, j) => j === i ? ns : x) })} />
+              <SetRow idx={i} set={s} isMatchTieBreak={c.type === 'doubles' && i === 2 && computeCourt({ ...c, sets: c.sets.slice(0, 2) }).s1 === 1 && computeCourt({ ...c, sets: c.sets.slice(0, 2) }).s2 === 1} disabled={i > 0 && c.sets[i - 1].a === '' && c.sets[i - 1].b === ''} onChange={(ns) => updateCourt(idx, { sets: c.sets.map((x, j) => j === i ? ns : x) })} />
             </div>
           ))}
           </div>
@@ -1046,6 +1051,9 @@ function QuickEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, s
       };
     });
 
+    const scoreErrors = lines.flatMap(line => validateLineScore(line));
+    if (scoreErrors.length > 0) { setError(scoreErrors.join('\n')); return; }
+
     const eligibilityErrors = validateEligibilityForLines(lines, team1, team2, matches, teams, eligibilityRules);
     if (eligibilityErrors.length > 0) { setError(eligibilityErrors.join('\n')); return; }
 
@@ -1074,11 +1082,10 @@ function QuickEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, s
     try {
       setSaving(true);
       await ensureAuth();
-      const saved = await push(ref(db, PATHS.matches), record);
-      const savedRecord = { ...record, id: saved.key };
+      const saved = await ScoreProcessingService.updateAfterScoreEntry(record, { session });
+      const savedRecord = saved.matchRecord;
       onScoreSaved?.(savedRecord);
-      await ScoreProcessingService.processMatchResult(saved.key, { session, matchRecord: savedRecord });
-      await writeAuditLog({ actionType: 'Score Entry', session, targetType: 'match', targetId: saved.key, newValue: record });
+      await writeAuditLog({ actionType: 'Score Entry', session, targetType: 'match', targetId: saved.key, newValue: savedRecord });
       setSuccess(`✅ Saved and synchronized ratings, standings, histories, and dashboard:  ${team1.name} vs ${team2.name} — Winner: ${winner}`);
       setText('');
     } catch (e) {
