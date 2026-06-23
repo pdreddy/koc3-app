@@ -126,6 +126,16 @@ function buildQuickLineupText(team1, team2, team1Names, team2Names) {
   return `${team1.abbreviation} vs ${team2.abbreviation}\n\n${lines.join('\n\n')}\n\nFinal: ${team1.abbreviation} won 3-2`;
 }
 
+function buildLineupValidationLines(team1Names, team2Names) {
+  const lines = [];
+  if (team1Names[0] && team2Names[0]) lines.push({ type: 'singles', players: { team1: [team1Names[0]], team2: [team2Names[0]] } });
+  if (team1Names[1] && team1Names[2] && team2Names[1] && team2Names[2]) lines.push({ type: 'doubles', players: { team1: [team1Names[1], team1Names[2]], team2: [team2Names[1], team2Names[2]] } });
+  if (team1Names[1] && team1Names[2] && team2Names[3] && team2Names[4]) lines.push({ type: 'doubles', players: { team1: [team1Names[1], team1Names[2]], team2: [team2Names[3], team2Names[4]] } });
+  if (team1Names[3] && team1Names[4] && team2Names[3] && team2Names[4]) lines.push({ type: 'doubles', players: { team1: [team1Names[3], team1Names[4]], team2: [team2Names[3], team2Names[4]] } });
+  if (team1Names[3] && team1Names[4] && team2Names[1] && team2Names[2]) lines.push({ type: 'doubles', players: { team1: [team1Names[3], team1Names[4]], team2: [team2Names[1], team2Names[2]] } });
+  return lines;
+}
+
 function lineupRoleLabel(orderIndex) {
   return ['S', 'D1', 'D1', 'D2', 'D2'][orderIndex] || '';
 }
@@ -166,10 +176,12 @@ function TeamLineupPicker({ team, selected, onChange, label }) {
   );
 }
 
-function LineupBuilder({ team1, team2, team1Selected, setTeam1Selected, team2Selected, setTeam2Selected, onPopulateForm, onPopulateQuick }) {
+function LineupBuilder({ team1, team2, teams, matches, eligibilityRules, team1Selected, setTeam1Selected, team2Selected, setTeam2Selected, onPopulateForm, onPopulateQuick }) {
   const team1Names = selectedNamesFromIndexes(team1, team1Selected);
   const team2Names = selectedNamesFromIndexes(team2, team2Selected);
-  const ready = team1Names.length === 5 && team2Names.length === 5;
+  const lineupValidationLines = buildLineupValidationLines(team1Names, team2Names);
+  const lineupErrors = lineupValidationLines.length > 0 ? validateEligibilityForLines(lineupValidationLines, team1, team2, matches, teams, eligibilityRules) : [];
+  const ready = team1Names.length === 5 && team2Names.length === 5 && lineupErrors.length === 0;
   return (
     <div className="card lineup-builder-card" data-testid="score-lineup-builder">
       <h2>Lineup builder</h2>
@@ -178,6 +190,7 @@ function LineupBuilder({ team1, team2, team1Selected, setTeam1Selected, team2Sel
         <TeamLineupPicker team={team1} selected={team1Selected} onChange={setTeam1Selected} label={team1?.abbreviation || 'Team 1'} />
         <TeamLineupPicker team={team2} selected={team2Selected} onChange={setTeam2Selected} label={team2?.abbreviation || 'Team 2'} />
       </div>
+      {lineupErrors.length > 0 && <div className="error-box" data-testid="lineup-validation-error" style={{ whiteSpace: 'pre-line', marginTop: '.75rem' }}>{lineupErrors.join('\n')}</div>}
       <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginTop: '.75rem' }}>
         {onPopulateForm && <button type="button" className="btn small success" disabled={!ready} onClick={() => onPopulateForm(buildLineupCourts(team1Names, team2Names))} data-testid="populate-form-lineup">Populate form lines</button>}
         {onPopulateQuick && <button type="button" className="btn small success" disabled={!ready} onClick={() => onPopulateQuick(buildQuickLineupText(team1, team2, team1Names, team2Names))} data-testid="populate-quick-lineup">Populate quick paste</button>}
@@ -863,6 +876,9 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
         <LineupBuilder
           team1={team1}
           team2={team2}
+          teams={teams}
+          matches={matches}
+          eligibilityRules={eligibilityRules}
           team1Selected={lineupState.team1Lineup}
           setTeam1Selected={lineupState.setTeam1Lineup}
           team2Selected={lineupState.team2Lineup}
@@ -1150,6 +1166,9 @@ Final: KC won 3-2`;
         <LineupBuilder
           team1={selectedTeam1}
           team2={selectedTeam2}
+          teams={teams}
+          matches={matches}
+          eligibilityRules={eligibilityRules}
           team1Selected={lineupState.team1Lineup}
           setTeam1Selected={lineupState.setTeam1Lineup}
           team2Selected={lineupState.team2Lineup}
