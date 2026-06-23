@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { onValue, ref, set, get, update } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
@@ -57,6 +57,21 @@ function Shell() {
   const [schedule, setSchedule] = useState({});
   const [settings, setSettings] = useState({ eligibilityRules: DEFAULT_ELIGIBILITY_RULES });
   const [loaded, setLoaded] = useState(false);
+
+
+  const syncSavedMatch = useCallback((record) => {
+    if (!record?.id) return;
+    setMatches(prev => {
+      const next = [record, ...prev.filter(match => match.id !== record.id)];
+      next.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+      return next;
+    });
+  }, []);
+
+  const syncDeletedMatch = useCallback((matchId) => {
+    if (!matchId) return;
+    setMatches(prev => prev.filter(match => match.id !== matchId));
+  }, []);
 
   useEffect(() => {
     ensureAuth();
@@ -198,13 +213,13 @@ function Shell() {
         <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />
         <Route path="/matchups" element={<Matchups matches={matches} teams={teams} />} />
         <Route path="/ptl" element={<PtlRatings matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} teams={teams} ratingLookup={playerRatings} />} />
-        <Route path="/history" element={<History matches={matches} teams={teams} />} />
+        <Route path="/history" element={<History matches={matches} teams={teams} onMatchDeleted={syncDeletedMatch} />} />
         <Route path="/rules" element={<Rules />} />
         <Route path="/more" element={<More />} />
         <Route path="/login" element={<Login teams={teams} adminConfig={adminConfig} />} />
         <Route path="/score" element={
           <ProtectedTeam>
-            <ScoreEntry teams={teams} matches={matches} eligibilityRules={settings.eligibilityRules} />
+            <ScoreEntry teams={teams} matches={matches} eligibilityRules={settings.eligibilityRules} onScoreSaved={syncSavedMatch} />
           </ProtectedTeam>
         } />
         <Route path="/audit" element={

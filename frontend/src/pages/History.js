@@ -7,7 +7,7 @@ import { writeAuditLog } from '../services/AuditService';
 import { isAdminRole } from '../utils/roles';
 import { matchTeamNames, matchWinnerId } from '../utils/matchTeams';
 
-export default function History({ matches, teams }) {
+export default function History({ matches, teams, onMatchDeleted }) {
   const [openId, setOpenId] = useState(null);
   const { session } = useAuth();
 
@@ -15,6 +15,7 @@ export default function History({ matches, teams }) {
     if (!window.confirm(`Delete match ${names.t1Name} vs ${names.t2Name}?`)) return;
     try {
       await remove(ref(db, `${PATHS.matches}/${m.id}`));
+      onMatchDeleted?.(m.id);
       await ScoreProcessingService.processMatchResult(null, { session, matchRecord: { ...m, id: m.id } });
       await writeAuditLog({ actionType: 'Score Delete', session, targetType: 'match', targetId: m.id, oldValue: m });
     } catch (e) {

@@ -598,7 +598,7 @@ function getQuickNameContext(text, cursor, parsed, teams) {
   return { query, suggestions, teamAbbr: team?.abbreviation || 'all teams', replaceStart, replaceEnd: cursor };
 }
 
-export default function ScoreEntry({ teams, matches, eligibilityRules = DEFAULT_ELIGIBILITY_RULES }) {
+export default function ScoreEntry({ teams, matches, eligibilityRules = DEFAULT_ELIGIBILITY_RULES, onScoreSaved }) {
   const [mode, setMode] = useState('form');
   const [sharedTeam1Id, setSharedTeam1IdRaw] = useState('');
   const [sharedTeam2Id, setSharedTeam2IdRaw] = useState('');
@@ -630,6 +630,7 @@ export default function ScoreEntry({ teams, matches, eligibilityRules = DEFAULT_
           teams={teams}
           matches={matches}
           eligibilityRules={eligibilityRules}
+          onScoreSaved={onScoreSaved}
           team1Id={sharedTeam1Id}
           setTeam1Id={setSharedTeam1Id}
           team2Id={sharedTeam2Id}
@@ -641,6 +642,7 @@ export default function ScoreEntry({ teams, matches, eligibilityRules = DEFAULT_
           teams={teams}
           matches={matches}
           eligibilityRules={eligibilityRules}
+          onScoreSaved={onScoreSaved}
           team1Id={sharedTeam1Id}
           setTeam1Id={setSharedTeam1Id}
           team2Id={sharedTeam2Id}
@@ -652,7 +654,7 @@ export default function ScoreEntry({ teams, matches, eligibilityRules = DEFAULT_
   );
 }
 
-function FormEntry({ teams, matches, eligibilityRules, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
+function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const teamList = Object.values(teams || {});
   const myTeam = session.role === ROLES.CAPTAIN ? teams[session.teamId] : null;
@@ -781,7 +783,9 @@ function FormEntry({ teams, matches, eligibilityRules, team1Id, setTeam1Id, team
       setSaving(true);
       await ensureAuth();
       const saved = await push(ref(db, PATHS.matches), record);
-      await ScoreProcessingService.processMatchResult(saved.key, { session, matchRecord: { ...record, id: saved.key } });
+      const savedRecord = { ...record, id: saved.key };
+      onScoreSaved?.(savedRecord);
+      await ScoreProcessingService.processMatchResult(saved.key, { session, matchRecord: savedRecord });
       await writeAuditLog({ actionType: 'Score Entry', session, targetType: 'match', targetId: saved.key, newValue: record });
       setSuccess(`✅ Saved and synchronized ratings, standings, histories, and dashboard:  ${team1.name} vs ${team2.name} — Winner: ${winner}`);
       setCourts(COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
@@ -926,7 +930,7 @@ function FormEntry({ teams, matches, eligibilityRules, team1Id, setTeam1Id, team
 
 // ==================== QUICK PASTE ENTRY ====================
 
-function QuickEntry({ teams, matches, eligibilityRules, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
+function QuickEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const textareaRef = useRef(null);
   const [text, setText] = useState('');
@@ -1040,7 +1044,9 @@ function QuickEntry({ teams, matches, eligibilityRules, team1Id, setTeam1Id, tea
       setSaving(true);
       await ensureAuth();
       const saved = await push(ref(db, PATHS.matches), record);
-      await ScoreProcessingService.processMatchResult(saved.key, { session, matchRecord: { ...record, id: saved.key } });
+      const savedRecord = { ...record, id: saved.key };
+      onScoreSaved?.(savedRecord);
+      await ScoreProcessingService.processMatchResult(saved.key, { session, matchRecord: savedRecord });
       await writeAuditLog({ actionType: 'Score Entry', session, targetType: 'match', targetId: saved.key, newValue: record });
       setSuccess(`✅ Saved and synchronized ratings, standings, histories, and dashboard:  ${team1.name} vs ${team2.name} — Winner: ${winner}`);
       setText('');
