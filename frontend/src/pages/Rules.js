@@ -6,7 +6,7 @@ const ruleCards = [
     items: [
       ['👥', 'Doubles Combo (RR only)', 'Max 3 days / 6 matches. Any Player1–Player2 pairing is capped at 3 days.'],
       ['🎾', 'Singles (RR only)', 'A player can play singles a max of 2 days.'],
-      ['📊', 'Overall (RR only)', 'Max 5 days total across Singles + Doubles.']
+      ['📊', 'Overall (RR only)', 'Max 6 match days total across Singles + Doubles.']
     ],
     flag: ['warn', '⚠️', 'Violation: zero points for that match. Caps apply to round-robin only.']
   },

@@ -4,6 +4,7 @@ import { db, PATHS } from '../firebase';
 import { buildScheduleFor8x2 } from '../utils/roundRobin';
 import { UTR_RATINGS, matchUtrRating, normalizeNameKey, suggestUtrMatches } from '../data/utrRatings';
 import { groupInfoForTeamId, normalizeAuctionTeam, sortByGroupOrder } from '../data/auctionTeams';
+import { normalizeEligibilityRules } from '../utils/eligibilityRules';
 
 
 function ratingRowId(row) {
@@ -469,12 +470,15 @@ function ScheduleEditor({ schedule, teams }) {
   );
 }
 
-export default function Admin({ teams, adminConfig, matches, previousMatches = [], schedule, playerRatings = {} }) {
+export default function Admin({ teams, adminConfig, matches, previousMatches = [], schedule, playerRatings = {}, settings = {} }) {
   const [tab, setTab] = useState('teams');
   const [newAdminPwd, setNewAdminPwd] = useState('');
   const [adminMsg, setAdminMsg] = useState('');
+  const [rulesDraft, setRulesDraft] = useState(() => normalizeEligibilityRules(settings.eligibilityRules));
 
   const teamList = Object.values(teams || {}).sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
+  const currentRules = useMemo(() => normalizeEligibilityRules(settings.eligibilityRules), [settings.eligibilityRules]);
+  React.useEffect(() => { setRulesDraft(currentRules); }, [currentRules]);
 
   const saveAdminPwd = async () => {
     if (!newAdminPwd.trim()) { setAdminMsg('Password cannot be empty.'); return; }
@@ -482,6 +486,18 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
       await update(ref(db, PATHS.admin), { password: newAdminPwd.trim() });
       setAdminMsg('✅ Admin password updated');
       setNewAdminPwd('');
+      setTimeout(() => setAdminMsg(''), 2000);
+    } catch (e) {
+      setAdminMsg('Save failed: ' + e.message);
+    }
+  };
+
+
+  const saveEligibilityRules = async () => {
+    const next = normalizeEligibilityRules(rulesDraft);
+    try {
+      await update(ref(db, PATHS.settings), { eligibilityRules: next });
+      setAdminMsg('✅ Eligibility rules updated');
       setTimeout(() => setAdminMsg(''), 2000);
     } catch (e) {
       setAdminMsg('Save failed: ' + e.message);
@@ -552,6 +568,27 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
               <input className="input" type="password" value={newAdminPwd} onChange={e => setNewAdminPwd(e.target.value)} data-testid="admin-new-pwd" />
             </div>
             <button className="btn full" onClick={saveAdminPwd} data-testid="admin-save-pwd-btn">Update Admin Password</button>
+          </div>
+
+
+          <div className="card">
+            <h2>🎾 Player Eligibility Rules</h2>
+            <p className="hint" style={{ marginBottom: '.6rem' }}>Configure the Round Robin validation used before lineup/score submission and during score processing.</p>
+            <div className="row">
+              <div className="field">
+                <div className="field-label">Max Singles Days</div>
+                <input className="input" type="number" min="1" value={rulesDraft.maxSinglesDays} onChange={e => setRulesDraft({ ...rulesDraft, maxSinglesDays: e.target.value })} data-testid="eligibility-max-singles" />
+              </div>
+              <div className="field">
+                <div className="field-label">Max Total Match Days</div>
+                <input className="input" type="number" min="1" value={rulesDraft.maxTotalMatchDays} onChange={e => setRulesDraft({ ...rulesDraft, maxTotalMatchDays: e.target.value })} data-testid="eligibility-max-total" />
+              </div>
+              <div className="field">
+                <div className="field-label">Max Same-Partner Days</div>
+                <input className="input" type="number" min="1" value={rulesDraft.maxPartnerDays} onChange={e => setRulesDraft({ ...rulesDraft, maxPartnerDays: e.target.value })} data-testid="eligibility-max-partner" />
+              </div>
+            </div>
+            <button className="btn full" onClick={saveEligibilityRules} data-testid="admin-save-eligibility-rules">Save Eligibility Rules</button>
           </div>
 
           <div className="card">

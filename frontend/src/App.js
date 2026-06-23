@@ -9,6 +9,7 @@ import { buildUtrRatingsTable } from './data/utrRatings';
 import { sortByGroupOrder } from './data/auctionTeams';
 import { auctionPlayerRatingUpdates, buildAuctionPlayerRatingsTable } from './data/auctionPlayers';
 import { buildScheduleFor8x2, KOC3_SCHEDULE_VERSION } from './utils/roundRobin';
+import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from './utils/eligibilityRules';
 
 import BottomNav from './components/BottomNav';
 import AppHeader from './components/Header';
@@ -53,6 +54,7 @@ function Shell() {
   const [playerRatings, setPlayerRatings] = useState({});
   const [adminConfig, setAdminConfig] = useState({ password: '', users: {} });
   const [schedule, setSchedule] = useState({});
+  const [settings, setSettings] = useState({ eligibilityRules: DEFAULT_ELIGIBILITY_RULES });
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -90,6 +92,11 @@ function Shell() {
           await set(ref(db, PATHS.admin), { password: DEFAULT_ADMIN_PASSWORD });
         }
 
+
+        const settingsSnap = await get(ref(db, PATHS.settings));
+        if (!settingsSnap.exists()) {
+          await set(ref(db, PATHS.settings), { eligibilityRules: DEFAULT_ELIGIBILITY_RULES });
+        }
 
         const rSnap = await get(ref(db, PATHS.playerRatings));
         if (!rSnap.exists()) {
@@ -161,7 +168,11 @@ function Shell() {
     const unsubS = onValue(ref(db, PATHS.schedule), (snap) => {
       setSchedule(snap.val() || {});
     });
-    return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubAU(); unsubR(); unsubS(); };
+    const unsubSettings = onValue(ref(db, PATHS.settings), (snap) => {
+      const value = snap.val() || {};
+      setSettings({ ...value, eligibilityRules: normalizeEligibilityRules(value.eligibilityRules) });
+    });
+    return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubAU(); unsubR(); unsubS(); unsubSettings(); };
   }, []);
 
   return (
@@ -180,7 +191,7 @@ function Shell() {
         <Route path="/login" element={<Login teams={teams} adminConfig={adminConfig} />} />
         <Route path="/score" element={
           <ProtectedTeam>
-            <ScoreEntry teams={teams} matches={matches} />
+            <ScoreEntry teams={teams} matches={matches} eligibilityRules={settings.eligibilityRules} />
           </ProtectedTeam>
         } />
         <Route path="/audit" element={
@@ -190,7 +201,7 @@ function Shell() {
         } />
         <Route path="/admin" element={
           <ProtectedAdmin>
-            <Admin teams={teams} adminConfig={adminConfig} matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} schedule={schedule} playerRatings={playerRatings} />
+            <Admin teams={teams} adminConfig={adminConfig} matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} schedule={schedule} playerRatings={playerRatings} settings={settings} />
           </ProtectedAdmin>
         } />
         <Route path="*" element={<Navigate to="/teams" replace />} />

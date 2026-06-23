@@ -48,6 +48,7 @@ export const PATHS = {
   admin: 'koc_s3/admin',         // { password }
   adminUsers: 'koc_s3/adminUsers', // RBAC admin user records
   schedule: 'koc_s3/schedule',   // KOC3 fixtures
+  settings: 'koc_s3/settings',
   standings: 'koc_s3/standings',
   pprcRatings: 'koc_s3/pprcRatings',
   playerHistory: 'koc_s3/playerHistory',

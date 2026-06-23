@@ -7,6 +7,7 @@ import { ROLES, isAdminRole } from '../utils/roles';
 import { useAuth } from '../contexts/AuthContext';
 import { matchName } from '../utils/nameMatch';
 import { resolveMatchTeams } from '../utils/matchTeams';
+import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from '../utils/eligibilityRules';
 import { parseQuickScore } from '../utils/quickScoreParser';
 
 const COURT_TEMPLATES = [
@@ -453,7 +454,8 @@ function buildExistingEligibility(matches, teams) {
   return { playerDays, partnerDays };
 }
 
-function validateEligibilityForLines(lines, team1, team2, matches, teams) {
+function validateEligibilityForLines(lines, team1, team2, matches, teams, eligibilityRules = DEFAULT_ELIGIBILITY_RULES) {
+  const rules = normalizeEligibilityRules(eligibilityRules);
   const errors = [];
   const existing = buildExistingEligibility(matches, teams);
   const currentPlayers = new Map();
@@ -485,13 +487,13 @@ function validateEligibilityForLines(lines, team1, team2, matches, teams) {
     const nextSingles = previous.singlesDays + (row.singles ? 1 : 0);
     const nextDoubles = previous.doublesDays + (row.doublesCount > 0 ? 1 : 0);
     const nextTotal = nextSingles + nextDoubles;
-    if (nextSingles > 2) errors.push(`${row.name}: singles limit exceeded (${nextSingles}/2 Singles Days)`);
-    if (nextTotal > 5) errors.push(`${row.name}: match-day limit exceeded (${nextTotal}/5 Match Days)`);
+    if (nextSingles > rules.maxSinglesDays) errors.push(`${row.name}: singles limit exceeded (${nextSingles}/${rules.maxSinglesDays} Singles Days)`);
+    if (nextTotal > rules.maxTotalMatchDays) errors.push(`${row.name}: match-day limit exceeded (${nextTotal}/${rules.maxTotalMatchDays} Match Days)`);
   });
 
   currentPairs.forEach((pair, pairKey) => {
     const nextPartnerDays = (existing.partnerDays.get(pairKey) || 0) + pair.days;
-    if (nextPartnerDays > 3) errors.push(`${pair.names.join(' + ')}: doubles partner limit exceeded (${nextPartnerDays}/3 Match Days)`);
+    if (nextPartnerDays > rules.maxPartnerDays) errors.push(`${pair.names.join(' + ')}: doubles partner limit exceeded (${nextPartnerDays}/${rules.maxPartnerDays} Match Days)`);
   });
 
   return errors;
@@ -596,7 +598,7 @@ function getQuickNameContext(text, cursor, parsed, teams) {
   return { query, suggestions, teamAbbr: team?.abbreviation || 'all teams', replaceStart, replaceEnd: cursor };
 }
 
-export default function ScoreEntry({ teams, matches }) {
+export default function ScoreEntry({ teams, matches, eligibilityRules = DEFAULT_ELIGIBILITY_RULES }) {
   const [mode, setMode] = useState('form');
   const [sharedTeam1Id, setSharedTeam1IdRaw] = useState('');
   const [sharedTeam2Id, setSharedTeam2IdRaw] = useState('');
@@ -627,6 +629,7 @@ export default function ScoreEntry({ teams, matches }) {
         <FormEntry
           teams={teams}
           matches={matches}
+          eligibilityRules={eligibilityRules}
           team1Id={sharedTeam1Id}
           setTeam1Id={setSharedTeam1Id}
           team2Id={sharedTeam2Id}
@@ -637,6 +640,7 @@ export default function ScoreEntry({ teams, matches }) {
         <QuickEntry
           teams={teams}
           matches={matches}
+          eligibilityRules={eligibilityRules}
           team1Id={sharedTeam1Id}
           setTeam1Id={setSharedTeam1Id}
           team2Id={sharedTeam2Id}
@@ -648,7 +652,7 @@ export default function ScoreEntry({ teams, matches }) {
   );
 }
 
-function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
+function FormEntry({ teams, matches, eligibilityRules, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const teamList = Object.values(teams || {});
   const myTeam = session.role === ROLES.CAPTAIN ? teams[session.teamId] : null;
@@ -742,7 +746,7 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
       setError('Please enter at least one court with scores.');
       return;
     }
-    validationErrors.push(...validateEligibilityForLines(lines, team1, team2, matches, teams));
+    validationErrors.push(...validateEligibilityForLines(lines, team1, team2, matches, teams, eligibilityRules));
     if (validationErrors.length > 0) {
       setError(validationErrors.join('\n'));
       return;
@@ -922,7 +926,7 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
 
 // ==================== QUICK PASTE ENTRY ====================
 
-function QuickEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
+function QuickEntry({ teams, matches, eligibilityRules, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const textareaRef = useRef(null);
   const [text, setText] = useState('');
@@ -1007,7 +1011,7 @@ function QuickEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, 
       };
     });
 
-    const eligibilityErrors = validateEligibilityForLines(lines, team1, team2, matches, teams);
+    const eligibilityErrors = validateEligibilityForLines(lines, team1, team2, matches, teams, eligibilityRules);
     if (eligibilityErrors.length > 0) { setError(eligibilityErrors.join('\n')); return; }
 
     const winner = w1 > w2 ? team1.name : (w2 > w1 ? team2.name : null);

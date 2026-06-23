@@ -2,6 +2,7 @@ import { get, ref, update } from 'firebase/database';
 import { db, PATHS } from '../firebase';
 import { buildPtlRatings } from '../utils/ptlRating';
 import { resolveMatchTeams, matchWinnerId } from '../utils/matchTeams';
+import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from '../utils/eligibilityRules';
 
 const APPROVED = new Set(['APPROVED', 'approved', undefined, null, '']);
 const keyFor = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'unknown';
@@ -147,14 +148,15 @@ function computePlayerEligibility(teams, matches) {
 }
 
 
-function assertEligibilityRules(teams, matches) {
+function assertEligibilityRules(teams, matches, eligibilityRules = DEFAULT_ELIGIBILITY_RULES) {
+  const rules = normalizeEligibilityRules(eligibilityRules);
   const rows = computePlayerEligibility(teams, matches);
   const errors = [];
   Object.values(rows).forEach(row => {
-    if (row.singlesDays > 2) errors.push(`${row.playerName}: singles limit exceeded (${row.singlesDays}/2 Singles Days)`);
-    if (row.totalMatchDays > 5) errors.push(`${row.playerName}: match-day limit exceeded (${row.totalMatchDays}/5 Match Days)`);
+    if (row.singlesDays > rules.maxSinglesDays) errors.push(`${row.playerName}: singles limit exceeded (${row.singlesDays}/${rules.maxSinglesDays} Singles Days)`);
+    if (row.totalMatchDays > rules.maxTotalMatchDays) errors.push(`${row.playerName}: match-day limit exceeded (${row.totalMatchDays}/${rules.maxTotalMatchDays} Match Days)`);
     Object.values(row.partnerHistory || {}).forEach(count => {
-      if (count > 3) errors.push(`${row.playerName}: doubles partner limit exceeded (${count}/3 Match Days)`);
+      if (count > rules.maxPartnerDays) errors.push(`${row.playerName}: doubles partner limit exceeded (${count}/${rules.maxPartnerDays} Match Days)`);
     });
   });
   approvedMatches(matches).forEach(match => {
@@ -184,14 +186,14 @@ function assertEligibilityRules(teams, matches) {
 export class ScoreProcessingService {
   static async processMatchResult(matchId, { session = {}, matchRecord = null } = {}) {
     const now = Date.now();
-    const [teamsSnap, matchesSnap, ratingsSnap] = await Promise.all([get(ref(db, PATHS.teams)), get(ref(db, PATHS.matches)), get(ref(db, PATHS.playerRatings))]);
+    const [teamsSnap, matchesSnap, ratingsSnap, settingsSnap] = await Promise.all([get(ref(db, PATHS.teams)), get(ref(db, PATHS.matches)), get(ref(db, PATHS.playerRatings)), get(ref(db, PATHS.settings))]);
     const teams = teamsSnap.val() || {};
     let matches = listFrom(matchesSnap.val());
     const current = matchRecord || matches.find(m => m.id === matchId);
     validateScore(current);
     if (matchRecord && matchId && !matches.some(m => m.id === matchId)) matches = [...matches, { ...matchRecord, id: matchId }];
     const approved = approvedMatches(matches);
-    const playerEligibility = assertEligibilityRules(teams, approved);
+    const playerEligibility = assertEligibilityRules(teams, approved, settingsSnap.val()?.eligibilityRules);
     const standings = computeStandings(teams, approved); const pprcRatings = buildPtlRatings(teams, approved, ratingsSnap.val() || {}); const histories = computeHistories(teams, approved);
     const updatedBy = session?.teamId || session?.role || 'system'; const meta = { updatedAt: now, updatedBy, version: now };
     await update(ref(db), {
