@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { onValue, ref, set, get } from 'firebase/database';
+import { onValue, ref, set, get, update } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ROLES, hasRole } from './utils/roles';
-import { buildInitialTeams, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD } from './data/initialTeams';
+import { buildInitialTeams, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERS } from './data/initialTeams';
 import { buildUtrRatingsTable } from './data/utrRatings';
 import { sortByGroupOrder } from './data/auctionTeams';
 import { auctionPlayerRatingUpdates, buildAuctionPlayerRatingsTable } from './data/auctionPlayers';
@@ -82,7 +82,6 @@ function Shell() {
           });
           Object.assign(updates, canonicalTeamIdentityUpdates(teamsData));
           if (Object.keys(updates).length > 0) {
-            const { update } = await import('firebase/database');
             await update(ref(db, PATHS.teams), updates);
           }
         }
@@ -92,6 +91,15 @@ function Shell() {
           await set(ref(db, PATHS.admin), { password: DEFAULT_ADMIN_PASSWORD });
         }
 
+        const auSnap = await get(ref(db, PATHS.adminUsers));
+        const adminUsers = auSnap.val() || {};
+        const missingAdminUsers = Object.entries(DEFAULT_ADMIN_USERS).reduce((updates, [username, user]) => {
+          if (!adminUsers[username]) updates[username] = user;
+          return updates;
+        }, {});
+        if (Object.keys(missingAdminUsers).length > 0) {
+          await update(ref(db, PATHS.adminUsers), missingAdminUsers);
+        }
 
         const settingsSnap = await get(ref(db, PATHS.settings));
         if (!settingsSnap.exists()) {
@@ -102,7 +110,6 @@ function Shell() {
         if (!rSnap.exists()) {
           await set(ref(db, PATHS.playerRatings), { ...buildUtrRatingsTable(), ...buildAuctionPlayerRatingsTable() });
         } else {
-          const { update } = await import('firebase/database');
           await update(ref(db, PATHS.playerRatings), auctionPlayerRatingUpdates());
         }
 

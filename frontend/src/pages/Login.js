@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ROLES } from '../utils/roles';
+import { DEFAULT_ADMIN_USERS } from '../data/initialTeams';
 import { writeAuditLog } from '../services/AuditService';
 
 export default function Login({ teams, adminConfig }) {
@@ -23,8 +24,15 @@ export default function Login({ teams, adminConfig }) {
     if (mode === 'admin') {
       const username = adminUsername.trim().toLowerCase();
       const users = adminConfig?.users || {};
-      const adminUser = username ? users[username] : null;
-      const allowedPasswords = adminUser ? [adminUser.password, ...(adminUser.passwords || [])].map(value => String(value || '').trim()).filter(Boolean) : [(adminConfig?.password || '').trim()].filter(Boolean);
+      const defaultUser = username ? DEFAULT_ADMIN_USERS[username] : null;
+      const configuredUser = username ? users[username] : null;
+      const adminUser = configuredUser || defaultUser;
+      if (!username || !adminUser) {
+        setError('Incorrect admin username or password.');
+        return;
+      }
+      const centralPassword = String(adminConfig?.password || '').trim();
+      const allowedPasswords = [configuredUser?.password, ...(configuredUser?.passwords || []), centralPassword].map(value => String(value || '').trim()).filter(Boolean);
       const expected = allowedPasswords[0] || '';
       if (!expected) {
         setError('Admin password not configured yet.');
