@@ -208,7 +208,7 @@ function Shell() {
       {!hideChrome && <AppHeader />}
       <Routes>
         <Route path="/" element={<Navigate to="/teams" replace />} />
-        <Route path="/teams" element={<Teams teams={teams} loaded={loaded} />} />
+        <Route path="/teams" element={<Teams teams={teams} loaded={loaded} matches={matches} eligibilityRules={settings.eligibilityRules} />} />
         <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} />} />
         <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />
         <Route path="/matchups" element={<Matchups matches={matches} teams={teams} />} />
