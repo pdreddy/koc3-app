@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ROLES, hasRole } from '../utils/roles';
 import { DEFAULT_ELIGIBILITY_RULES } from '../utils/eligibilityRules';
-import { CaptainCapacityCard, buildCaptainCapacityRows } from './Teams';
+import { approvedMatches } from '../utils/matchStatus';
+import { resolveMatchTeams } from '../utils/matchTeams';
+import { CaptainCapacityCard, buildCaptainCapacityRows } from '../components/CaptainCapacity';
 
 function formatDate(iso) {
   if (!iso) return 'TBD';
@@ -15,7 +17,11 @@ function fixtureTeams(item, teams) {
   return { team1: teams?.[item.team1Id], team2: teams?.[item.team2Id] };
 }
 
-function ScheduleMiniList({ title, description, fixtures, teams, emptyText, testid }) {
+function pairKey(a, b) {
+  return [a, b].filter(Boolean).sort().join('|');
+}
+
+function ScheduleMiniList({ title, description, fixtures, teams, emptyText, testid, showStatus = false }) {
   return (
     <section className="card" data-testid={testid}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '.75rem', alignItems: 'flex-start', marginBottom: '.75rem' }}>
@@ -38,6 +44,7 @@ function ScheduleMiniList({ title, description, fixtures, teams, emptyText, test
                   <div className="rl-lbl">Round {item.round || '—'} · {formatDate(item.date)} · {item.time || 'TBD'}</div>
                   <div className="rl-val">
                     {team1?.name || 'TBD'} <strong>vs</strong> {team2?.name || 'TBD'} · Group {item.group || team1?.group || team2?.group || '—'}
+                    {showStatus && <span className="tag" style={{ marginLeft: '.35rem' }}>{item.status === 'completed' ? 'Completed' : 'Upcoming'}</span>}
                   </div>
                 </div>
               </div>
@@ -82,6 +89,16 @@ export default function Home({ teams, schedule, matches = [], eligibilityRules =
     if (!captainTeam) return [];
     return sortedFixtures.filter(item => item.team1Id === captainTeam.id || item.team2Id === captainTeam.id);
   }, [captainTeam, sortedFixtures]);
+  const completedFixtureKeys = useMemo(() => {
+    const keys = new Set();
+    approvedMatches(matches).forEach(match => {
+      const { team1, team2 } = resolveMatchTeams(match, teams);
+      if (team1?.id && team2?.id) keys.add(pairKey(team1.id, team2.id));
+    });
+    return keys;
+  }, [matches, teams]);
+  const completedCaptainFixtures = useMemo(() => captainFixtures.filter(item => item.status === 'completed' || completedFixtureKeys.has(pairKey(item.team1Id, item.team2Id))), [captainFixtures, completedFixtureKeys]);
+  const upcomingCaptainFixtures = useMemo(() => captainFixtures.filter(item => item.status !== 'completed' && !completedFixtureKeys.has(pairKey(item.team1Id, item.team2Id))), [captainFixtures, completedFixtureKeys]);
   const capacityRows = useMemo(() => captainTeam ? buildCaptainCapacityRows(captainTeam, teams, matches, eligibilityRules) : [], [captainTeam, teams, matches, eligibilityRules]);
 
   if (captainTeam) {
@@ -93,15 +110,25 @@ export default function Home({ teams, schedule, matches = [], eligibilityRules =
         </div>
         <div className="rl-grid">
           <ScheduleMiniList
-            title="Your Schedule"
-            description="Only fixtures involving your team are shown here."
-            fixtures={captainFixtures}
+            title="Upcoming Fixtures"
+            description="Only unplayed fixtures for your team are shown here."
+            fixtures={upcomingCaptainFixtures}
             teams={teams}
-            emptyText="No fixtures found for your team yet."
-            testid="captain-schedule-card"
+            emptyText="No upcoming fixtures found for your team."
+            testid="captain-upcoming-schedule-card"
+            showStatus
           />
-          <DangerBells rows={capacityRows} />
+          <ScheduleMiniList
+            title="Completed Fixtures"
+            description="Completed fixtures for your team."
+            fixtures={completedCaptainFixtures}
+            teams={teams}
+            emptyText="No completed fixtures yet."
+            testid="captain-completed-schedule-card"
+            showStatus
+          />
         </div>
+        <DangerBells rows={capacityRows} />
         <CaptainCapacityCard team={captainTeam} teams={teams} matches={matches} eligibilityRules={eligibilityRules} />
         <div style={{ display: 'flex', gap: '.6rem', flexWrap: 'wrap', marginTop: '1rem' }}>
           <Link className="btn" to="/score">Enter score</Link>
