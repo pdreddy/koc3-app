@@ -49,3 +49,9 @@ export function canonicalTeamIdentityUpdates(teamsData = {}) {
 }
 
 export const DEFAULT_ADMIN_PASSWORD = 'KOCPO#ADMIN';
+
+export const DEFAULT_ADMIN_USERS = {
+  damuredii: { name: 'Damureddi', role: 'SUPER_ADMIN' },
+  viona: { name: 'Viona', role: 'ADMIN' },
+  umav: { name: 'Uma V', role: 'ADMIN' }
+};

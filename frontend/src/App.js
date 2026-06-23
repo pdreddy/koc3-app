@@ -3,11 +3,13 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { onValue, ref, set, get } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { buildInitialTeams, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD } from './data/initialTeams';
+import { ROLES, hasRole } from './utils/roles';
+import { buildInitialTeams, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERS } from './data/initialTeams';
 import { buildUtrRatingsTable } from './data/utrRatings';
 import { sortByGroupOrder } from './data/auctionTeams';
 import { auctionPlayerRatingUpdates, buildAuctionPlayerRatingsTable } from './data/auctionPlayers';
 import { buildScheduleFor8x2, KOC3_SCHEDULE_VERSION } from './utils/roundRobin';
+import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from './utils/eligibilityRules';
 
 import BottomNav from './components/BottomNav';
 import AppHeader from './components/Header';
@@ -22,8 +24,8 @@ import Rules from './pages/Rules';
 import Schedule from './pages/Schedule';
 import Matchups from './pages/Matchups';
 import More from './pages/More';
-import Season2 from './pages/Season2';
 import PtlRatings from './pages/PtlRatings';
+import AuditLogs from './pages/AuditLogs';
 
 function firebaseObjectToList(data, source) {
   if (!data) return [];
@@ -50,8 +52,9 @@ function Shell() {
   const [legacyMatches, setLegacyMatches] = useState([]);
   const [legacyFallbackMatches, setLegacyFallbackMatches] = useState([]);
   const [playerRatings, setPlayerRatings] = useState({});
-  const [adminConfig, setAdminConfig] = useState({ password: '' });
+  const [adminConfig, setAdminConfig] = useState({ password: '', users: {} });
   const [schedule, setSchedule] = useState({});
+  const [settings, setSettings] = useState({ eligibilityRules: DEFAULT_ELIGIBILITY_RULES });
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -87,6 +90,22 @@ function Shell() {
         const aSnap = await get(ref(db, PATHS.admin));
         if (!aSnap.exists()) {
           await set(ref(db, PATHS.admin), { password: DEFAULT_ADMIN_PASSWORD });
+        }
+
+        const adminUsersSnap = await get(ref(db, PATHS.adminUsers));
+        const existingAdminUsers = adminUsersSnap.val() || {};
+        const missingAdminUsers = Object.entries(DEFAULT_ADMIN_USERS).reduce((updates, [username, user]) => {
+          if (!existingAdminUsers[username]) updates[username] = user;
+          return updates;
+        }, {});
+        if (Object.keys(missingAdminUsers).length > 0) {
+          const { update } = await import('firebase/database');
+          await update(ref(db, PATHS.adminUsers), missingAdminUsers);
+        }
+
+        const settingsSnap = await get(ref(db, PATHS.settings));
+        if (!settingsSnap.exists()) {
+          await set(ref(db, PATHS.settings), { eligibilityRules: DEFAULT_ELIGIBILITY_RULES });
         }
 
         const rSnap = await get(ref(db, PATHS.playerRatings));
@@ -148,7 +167,10 @@ function Shell() {
       setLegacyFallbackMatches([]);
     });
     const unsubA = onValue(ref(db, PATHS.admin), (snap) => {
-      setAdminConfig(snap.val() || { password: '' });
+      setAdminConfig(prev => ({ ...prev, ...(snap.val() || { password: '' }) }));
+    });
+    const unsubAU = onValue(ref(db, PATHS.adminUsers), (snap) => {
+      setAdminConfig(prev => ({ ...prev, users: snap.val() || {} }));
     });
     const unsubR = onValue(ref(db, PATHS.playerRatings), (snap) => {
       setPlayerRatings(snap.val() || buildUtrRatingsTable());
@@ -156,7 +178,11 @@ function Shell() {
     const unsubS = onValue(ref(db, PATHS.schedule), (snap) => {
       setSchedule(snap.val() || {});
     });
-    return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubR(); unsubS(); };
+    const unsubSettings = onValue(ref(db, PATHS.settings), (snap) => {
+      const value = snap.val() || {};
+      setSettings({ ...value, eligibilityRules: normalizeEligibilityRules(value.eligibilityRules) });
+    });
+    return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubAU(); unsubR(); unsubS(); unsubSettings(); };
   }, []);
 
   return (
@@ -170,18 +196,22 @@ function Shell() {
         <Route path="/matchups" element={<Matchups matches={matches} teams={teams} />} />
         <Route path="/ptl" element={<PtlRatings matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} teams={teams} ratingLookup={playerRatings} />} />
         <Route path="/history" element={<History matches={matches} teams={teams} />} />
-        <Route path="/season2" element={<Season2 />} />
         <Route path="/rules" element={<Rules />} />
         <Route path="/more" element={<More />} />
         <Route path="/login" element={<Login teams={teams} adminConfig={adminConfig} />} />
         <Route path="/score" element={
           <ProtectedTeam>
-            <ScoreEntry teams={teams} matches={matches} />
+            <ScoreEntry teams={teams} matches={matches} eligibilityRules={settings.eligibilityRules} />
           </ProtectedTeam>
+        } />
+        <Route path="/audit" element={
+          <ProtectedRoles allowed={[ROLES.SUPER_ADMIN]} next="/audit">
+            <AuditLogs />
+          </ProtectedRoles>
         } />
         <Route path="/admin" element={
           <ProtectedAdmin>
-            <Admin teams={teams} adminConfig={adminConfig} matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} schedule={schedule} playerRatings={playerRatings} />
+            <Admin teams={teams} adminConfig={adminConfig} matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} schedule={schedule} playerRatings={playerRatings} settings={settings} />
           </ProtectedAdmin>
         } />
         <Route path="*" element={<Navigate to="/teams" replace />} />
@@ -191,9 +221,17 @@ function Shell() {
   );
 }
 
+function ProtectedRoles({ allowed, next, children }) {
+  const { session } = useAuth();
+  if (!hasRole(session, allowed)) {
+    return <Navigate to="/login" replace state={{ next }} />;
+  }
+  return children;
+}
+
 function ProtectedTeam({ children }) {
   const { session } = useAuth();
-  if (session.role !== 'team' && session.role !== 'admin') {
+  if (!hasRole(session, [ROLES.CAPTAIN, ROLES.ADMIN, ROLES.SUPER_ADMIN])) {
     return <Navigate to="/login" replace state={{ next: '/score' }} />;
   }
   return children;
@@ -201,7 +239,7 @@ function ProtectedTeam({ children }) {
 
 function ProtectedAdmin({ children }) {
   const { session } = useAuth();
-  if (session.role !== 'admin') {
+  if (!hasRole(session, [ROLES.ADMIN, ROLES.SUPER_ADMIN])) {
     return <Navigate to="/login" replace state={{ next: '/admin' }} />;
   }
   return children;

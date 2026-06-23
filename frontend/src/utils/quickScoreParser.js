@@ -79,6 +79,15 @@ export function parseQuickScore(text, teams) {
         if (!parsed.labelNum) parsed.label = `Singles ${singlesCount}`;
       }
 
+      if (parsed.type === 'singles' && (parsed.players.team1.length !== 1 || parsed.players.team2.length !== 1)) {
+        errors.push(`${parsed.label}: singles requires 1 player per team`);
+        continue;
+      }
+      if (parsed.type === 'doubles' && (parsed.players.team1.length !== 2 || parsed.players.team2.length !== 2)) {
+        errors.push(`${parsed.label}: doubles requires 2 players per team`);
+        continue;
+      }
+
       // Name validation against the proper team rosters with fuzzy match
       const validate = (names, team) => names.map(n => {
         const trimmed = (n || '').trim();
@@ -156,6 +165,7 @@ function parseLine(line, team1, team2, team1Abbr, team2Abbr, abbrLookup) {
   else if (leftPlayers.length === 2 && rightPlayers.length === 2) isDoubles = true;
 
   const sets = parseScores(scoresStr);
+  if (sets.length === 0) throw new Error('Add at least one set score');
   let g1 = 0, g2 = 0, s1 = 0, s2 = 0;
   const setsData = [];
   for (let i = 0; i < sets.length; i++) {
@@ -171,6 +181,10 @@ function parseLine(line, team1, team2, team1Abbr, team2Abbr, abbrLookup) {
     if (s.tiebreak) setData.tieBreak = { team1: s.tiebreak.left, team2: s.tiebreak.right };
     setsData.push(setData);
   }
+
+  const computedWinnerTeamNum = s1 > s2 ? 1 : (s2 > s1 ? 2 : null);
+  if (!computedWinnerTeamNum) throw new Error('No clear winner from set scores');
+  if (computedWinnerTeamNum !== winnerTeamNum) throw new Error('Winner abbreviation does not match set scores');
 
   const courtLabel = isDoubles ? `Doubles ${courtNum || ''}`.trim() : `Singles ${courtNum || ''}`.trim();
   return {

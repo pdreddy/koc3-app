@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { ROLES } from '../utils/roles';
+import { DEFAULT_ADMIN_USERS } from '../data/initialTeams';
+import { writeAuditLog } from '../services/AuditService';
 
 export default function Login({ teams, adminConfig }) {
   const [mode, setMode] = useState('team'); // 'team' | 'admin'
   const [teamId, setTeamId] = useState('');
+  const [adminUsername, setAdminUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const { loginAdmin, loginTeam } = useAuth();
@@ -14,27 +18,43 @@ export default function Login({ teams, adminConfig }) {
 
   const teamList = Object.values(teams || {}).sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     if (mode === 'admin') {
-      const expected = (adminConfig?.password || '').trim();
+      const username = adminUsername.trim().toLowerCase();
+      const users = adminConfig?.users || {};
+      const allowedAdminProfile = DEFAULT_ADMIN_USERS[username];
+      const adminUser = allowedAdminProfile ? { ...(users[username] || {}), ...allowedAdminProfile } : null;
+      if (!adminUser) {
+        setError('Enter a valid admin username.');
+        return;
+      }
+      const configuredAdminPasswords = [(adminConfig?.password || '').trim()].filter(Boolean);
+      const userPasswords = [adminUser.password, ...(adminUser.passwords || [])].map(value => String(value || '').trim()).filter(Boolean);
+      const allowedPasswords = [...userPasswords, ...configuredAdminPasswords];
+      const expected = allowedPasswords[0] || '';
       if (!expected) {
         setError('Admin password not configured yet.');
         return;
       }
-      if (password.trim() === expected) {
-        loginAdmin();
+      if (allowedPasswords.includes(password.trim())) {
+        const adminRole = adminUser?.role || adminConfig?.role || ROLES.SUPER_ADMIN;
+        const nextSession = { role: adminRole, userId: username || adminRole, name: adminUser?.name || username || adminRole, loginAt: Date.now() };
+        loginAdmin(adminRole, { username: nextSession.userId, name: nextSession.name });
+        await writeAuditLog({ actionType: 'Login', session: nextSession, targetType: 'user', targetId: nextSession.userId });
         navigate(next, { replace: true });
       } else {
-        setError('Incorrect admin password.');
+        setError('Incorrect admin username or password.');
       }
     } else {
       if (!teamId) { setError('Please choose your team.'); return; }
       const team = teams[teamId];
       if (!team) { setError('Team not found.'); return; }
       if (password.trim() === String(team.password || '')) {
+        const nextSession = { role: ROLES.CAPTAIN, teamId: team.id, teamName: team.name, loginAt: Date.now() };
         loginTeam(team.id, team.name);
+        await writeAuditLog({ actionType: 'Login', session: nextSession, targetType: 'team', targetId: team.id });
         navigate('/score', { replace: true });
       } else {
         setError('Incorrect team password.');
@@ -56,7 +76,7 @@ export default function Login({ teams, adminConfig }) {
           >Team Captain</button>
           <button
             className={mode === 'admin' ? 'active' : ''}
-            onClick={() => { setMode('admin'); setError(''); setPassword(''); setTeamId(''); }}
+            onClick={() => { setMode('admin'); setError(''); setPassword(''); setTeamId(''); setAdminUsername(''); }}
             data-testid="login-tab-admin"
           >Admin</button>
         </div>
@@ -78,6 +98,20 @@ export default function Login({ teams, adminConfig }) {
                   <option key={t.id} value={t.id}>{t.name} ({t.abbreviation})</option>
                 ))}
               </select>
+            </div>
+          )}
+
+          {mode === 'admin' && (
+            <div className="field">
+              <div className="field-label">Admin Username</div>
+              <input
+                className="input"
+                value={adminUsername}
+                onChange={e => setAdminUsername(e.target.value)}
+                placeholder="Enter admin username"
+                data-testid="login-admin-username-input"
+                autoComplete="username"
+              />
             </div>
           )}
 

@@ -1,8 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { push, ref } from 'firebase/database';
 import { db, PATHS, ensureAuth } from '../firebase';
+import { ScoreProcessingService } from '../services/ScoreProcessingService';
+import { writeAuditLog } from '../services/AuditService';
+import { ROLES, isAdminRole } from '../utils/roles';
 import { useAuth } from '../contexts/AuthContext';
 import { matchName } from '../utils/nameMatch';
+import { resolveMatchTeams } from '../utils/matchTeams';
+import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from '../utils/eligibilityRules';
 import { parseQuickScore } from '../utils/quickScoreParser';
 
 const COURT_TEMPLATES = [
@@ -380,6 +385,120 @@ function courtHasEntry(c) {
   return [...c.p1, ...c.p2].some(n => (n || '').trim()) || c.sets.some(s => s.a !== '' || s.b !== '' || s.tieA !== '' || s.tieB !== '');
 }
 
+
+function validateCourtShape(court, result, validationErrors) {
+  const expectedPlayers = court.type === 'singles' ? 1 : 2;
+  if ((court.p1 || []).length !== expectedPlayers || (court.p2 || []).length !== expectedPlayers) {
+    validationErrors.push(`${court.label}: ${court.type === 'singles' ? 'singles requires 1 player per team' : 'doubles requires 2 players per team'}`);
+  }
+  if (result.sets.length > court.sets.length) {
+    validationErrors.push(`${court.label}: too many sets entered for ${court.type}`);
+  }
+  court.sets.forEach((set, idx) => {
+    const hasA = set.a !== '';
+    const hasB = set.b !== '';
+    if (hasA !== hasB) validationErrors.push(`${court.label}: set ${idx + 1} needs both team scores`);
+    if (hasA && hasB && Number(set.a) === Number(set.b) && set.tieA === '' && set.tieB === '') {
+      validationErrors.push(`${court.label}: tied set ${idx + 1} needs tiebreak scores`);
+    }
+  });
+}
+
+
+function eligibilityPlayerKey(teamId, playerName) {
+  return `${teamId}:${String(playerName || '').trim().toLowerCase()}`;
+}
+
+function eligibilityPairKey(teamId, names) {
+  return `${teamId}:${names.map(name => String(name || '').trim().toLowerCase()).sort().join('|')}`;
+}
+
+function incrementPlayerDay(days, teamId, playerName, type) {
+  const key = eligibilityPlayerKey(teamId, playerName);
+  if (!key || key.endsWith(':')) return;
+  const row = days.get(key) || { name: playerName, teamId, totalMatchDays: 0, singlesDays: 0, doublesDays: 0, partnerHistory: {} };
+  if (type === 'singles') row.singlesDays += 1;
+  if (type === 'doubles') row.doublesDays += 1;
+  row.totalMatchDays = Math.max(row.totalMatchDays, row.singlesDays + row.doublesDays);
+  days.set(key, row);
+}
+
+function buildExistingEligibility(matches, teams) {
+  const playerDays = new Map();
+  const partnerDays = new Map();
+  (matches || []).forEach((match) => {
+    if (match.status && match.status !== 'APPROVED' && match.status !== 'approved') return;
+    const { team1, team2 } = resolveMatchTeams(match, teams);
+    if (!team1 || !team2) return;
+    const matchPlayers = new Map();
+    const matchPairs = new Set();
+    (match.lines || []).forEach((line) => {
+      const type = line.type === 'singles' ? 'singles' : 'doubles';
+      [[team1, line.players?.team1 || []], [team2, line.players?.team2 || []]].forEach(([team, names]) => {
+        names.forEach((name) => {
+          const key = eligibilityPlayerKey(team.id, name);
+          const row = matchPlayers.get(key) || { teamId: team.id, name, singles: false, doubles: false };
+          if (type === 'singles') row.singles = true;
+          if (type === 'doubles') row.doubles = true;
+          matchPlayers.set(key, row);
+        });
+        if (type === 'doubles' && names.length === 2) matchPairs.add(eligibilityPairKey(team.id, names));
+      });
+    });
+    matchPlayers.forEach((row) => {
+      if (row.singles) incrementPlayerDay(playerDays, row.teamId, row.name, 'singles');
+      if (row.doubles) incrementPlayerDay(playerDays, row.teamId, row.name, 'doubles');
+    });
+    matchPairs.forEach((pairKey) => partnerDays.set(pairKey, (partnerDays.get(pairKey) || 0) + 1));
+  });
+  return { playerDays, partnerDays };
+}
+
+function validateEligibilityForLines(lines, team1, team2, matches, teams, eligibilityRules = DEFAULT_ELIGIBILITY_RULES) {
+  const rules = normalizeEligibilityRules(eligibilityRules);
+  const errors = [];
+  const existing = buildExistingEligibility(matches, teams);
+  const currentPlayers = new Map();
+  const currentPairs = new Map();
+  (lines || []).forEach((line) => {
+    const type = line.type === 'singles' ? 'singles' : 'doubles';
+    [[team1, line.players?.team1 || []], [team2, line.players?.team2 || []]].forEach(([team, names]) => {
+      names.forEach((name) => {
+        const key = eligibilityPlayerKey(team.id, name);
+        const row = currentPlayers.get(key) || { name, teamId: team.id, singles: false, doublesCount: 0 };
+        if (type === 'singles') row.singles = true;
+        if (type === 'doubles') row.doublesCount += 1;
+        currentPlayers.set(key, row);
+      });
+      if (type === 'doubles' && names.length === 2) {
+        const pairKey = eligibilityPairKey(team.id, names);
+        const pair = currentPairs.get(pairKey) || { teamId: team.id, names, days: 0, lines: 0 };
+        pair.lines += 1;
+        pair.days = 1;
+        currentPairs.set(pairKey, pair);
+      }
+    });
+  });
+
+  currentPlayers.forEach((row) => {
+    if (row.singles && row.doublesCount > 0) errors.push(`${row.name}: cannot play singles and doubles on the same match day`);
+    if (row.doublesCount > 0 && row.doublesCount !== 2) errors.push(`${row.name}: doubles players must play both Doubles and Reverse Doubles`);
+    const previous = existing.playerDays.get(eligibilityPlayerKey(row.teamId, row.name)) || { totalMatchDays: 0, singlesDays: 0, doublesDays: 0 };
+    const nextSingles = previous.singlesDays + (row.singles ? 1 : 0);
+    const nextDoubles = previous.doublesDays + (row.doublesCount > 0 ? 1 : 0);
+    const nextTotal = nextSingles + nextDoubles;
+    if (nextSingles > rules.maxSinglesDays) errors.push(`${row.name}: singles limit exceeded (${nextSingles}/${rules.maxSinglesDays} Singles Days)`);
+    if (nextTotal > rules.maxTotalMatchDays) errors.push(`${row.name}: match-day limit exceeded (${nextTotal}/${rules.maxTotalMatchDays} Match Days)`);
+  });
+
+  currentPairs.forEach((pair, pairKey) => {
+    const nextPartnerDays = (existing.partnerDays.get(pairKey) || 0) + pair.days;
+    if (nextPartnerDays > rules.maxPartnerDays) errors.push(`${pair.names.join(' + ')}: doubles partner limit exceeded (${nextPartnerDays}/${rules.maxPartnerDays} Match Days)`);
+  });
+
+  return errors;
+}
+
 function getDuplicatePlayers(courts) {
   const usage = new Map();
   courts.forEach(c => {
@@ -479,7 +598,7 @@ function getQuickNameContext(text, cursor, parsed, teams) {
   return { query, suggestions, teamAbbr: team?.abbreviation || 'all teams', replaceStart, replaceEnd: cursor };
 }
 
-export default function ScoreEntry({ teams, matches }) {
+export default function ScoreEntry({ teams, matches, eligibilityRules = DEFAULT_ELIGIBILITY_RULES }) {
   const [mode, setMode] = useState('form');
   const [sharedTeam1Id, setSharedTeam1IdRaw] = useState('');
   const [sharedTeam2Id, setSharedTeam2IdRaw] = useState('');
@@ -510,6 +629,7 @@ export default function ScoreEntry({ teams, matches }) {
         <FormEntry
           teams={teams}
           matches={matches}
+          eligibilityRules={eligibilityRules}
           team1Id={sharedTeam1Id}
           setTeam1Id={setSharedTeam1Id}
           team2Id={sharedTeam2Id}
@@ -519,6 +639,8 @@ export default function ScoreEntry({ teams, matches }) {
       ) : (
         <QuickEntry
           teams={teams}
+          matches={matches}
+          eligibilityRules={eligibilityRules}
           team1Id={sharedTeam1Id}
           setTeam1Id={setSharedTeam1Id}
           team2Id={sharedTeam2Id}
@@ -530,11 +652,11 @@ export default function ScoreEntry({ teams, matches }) {
   );
 }
 
-function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
+function FormEntry({ teams, matches, eligibilityRules, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const teamList = Object.values(teams || {});
-  const myTeam = session.role === 'team' ? teams[session.teamId] : null;
-  const isAdmin = session.role === 'admin';
+  const myTeam = session.role === ROLES.CAPTAIN ? teams[session.teamId] : null;
+  const isAdmin = isAdminRole(session);
 
 
   const [courts, setCourts] = useState(() => COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
@@ -571,7 +693,7 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
     if (team1.id === team2.id) { setError('Teams must be different.'); return; }
 
     // For team captains, must include their own team
-    if (session.role === 'team' && team1.id !== session.teamId && team2.id !== session.teamId) {
+    if (session.role === ROLES.CAPTAIN && team1.id !== session.teamId && team2.id !== session.teamId) {
       setError('Your team must be involved in the match.');
       return;
     }
@@ -588,6 +710,7 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
         validationErrors.push(`${c.label}: add at least one set score or clear the court`);
         return null;
       }
+      validateCourtShape(c, r, validationErrors);
       const checkSide = (names, team, side) => {
         return names.map((n, i) => {
           const trimmed = (n || '').trim();
@@ -623,6 +746,7 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
       setError('Please enter at least one court with scores.');
       return;
     }
+    validationErrors.push(...validateEligibilityForLines(lines, team1, team2, matches, teams, eligibilityRules));
     if (validationErrors.length > 0) {
       setError(validationErrors.join('\n'));
       return;
@@ -644,15 +768,22 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
       courtsWon1: totals.w1, courtsWon2: totals.w2,
       win: winner,
       ts: Date.now(),
-      enteredBy: session.role === 'team' ? session.teamName : 'Admin',
+      enteredBy: session.role === ROLES.CAPTAIN ? session.teamName : 'Admin',
+      status: 'APPROVED',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      updatedBy: session.teamId || session.role,
+      approvedBy: session.role,
       lines
     };
 
     try {
       setSaving(true);
       await ensureAuth();
-      await push(ref(db, PATHS.matches), record);
-      setSuccess(`✅ Saved: ${team1.name} vs ${team2.name} — Winner: ${winner}`);
+      const saved = await push(ref(db, PATHS.matches), record);
+      await ScoreProcessingService.processMatchResult(saved.key, { session, matchRecord: { ...record, id: saved.key } });
+      await writeAuditLog({ actionType: 'Score Entry', session, targetType: 'match', targetId: saved.key, newValue: record });
+      setSuccess(`✅ Saved and synchronized ratings, standings, histories, and dashboard:  ${team1.name} vs ${team2.name} — Winner: ${winner}`);
       setCourts(COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
     } catch (e) {
       setError('Save failed: ' + e.message);
@@ -795,7 +926,7 @@ function FormEntry({ teams, matches, team1Id, setTeam1Id, team2Id, setTeam2Id, l
 
 // ==================== QUICK PASTE ENTRY ====================
 
-function QuickEntry({ teams, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
+function QuickEntry({ teams, matches, eligibilityRules, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const textareaRef = useRef(null);
   const [text, setText] = useState('');
@@ -858,7 +989,7 @@ function QuickEntry({ teams, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupSta
     if (results.length === 0) { setError('No valid courts parsed.'); return; }
 
     // Team-captain restriction
-    if (session.role === 'team' && team1.id !== session.teamId && team2.id !== session.teamId) {
+    if (session.role === ROLES.CAPTAIN && team1.id !== session.teamId && team2.id !== session.teamId) {
       setError('Your team must be involved in the match.');
       return;
     }
@@ -880,6 +1011,9 @@ function QuickEntry({ teams, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupSta
       };
     });
 
+    const eligibilityErrors = validateEligibilityForLines(lines, team1, team2, matches, teams, eligibilityRules);
+    if (eligibilityErrors.length > 0) { setError(eligibilityErrors.join('\n')); return; }
+
     const winner = w1 > w2 ? team1.name : (w2 > w1 ? team2.name : null);
     if (!winner) { setError('Match is tied on courts won. Please verify scores.'); return; }
 
@@ -893,15 +1027,22 @@ function QuickEntry({ teams, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupSta
       courtsWon1: w1, courtsWon2: w2,
       win: winner,
       ts: Date.now(),
-      enteredBy: session.role === 'team' ? session.teamName : 'Admin',
+      enteredBy: session.role === ROLES.CAPTAIN ? session.teamName : 'Admin',
+      status: 'APPROVED',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      updatedBy: session.teamId || session.role,
+      approvedBy: session.role,
       lines
     };
 
     try {
       setSaving(true);
       await ensureAuth();
-      await push(ref(db, PATHS.matches), record);
-      setSuccess(`✅ Saved: ${team1.name} vs ${team2.name} — Winner: ${winner}`);
+      const saved = await push(ref(db, PATHS.matches), record);
+      await ScoreProcessingService.processMatchResult(saved.key, { session, matchRecord: { ...record, id: saved.key } });
+      await writeAuditLog({ actionType: 'Score Entry', session, targetType: 'match', targetId: saved.key, newValue: record });
+      setSuccess(`✅ Saved and synchronized ratings, standings, histories, and dashboard:  ${team1.name} vs ${team2.name} — Winner: ${winner}`);
       setText('');
     } catch (e) {
       setError('Save failed: ' + e.message);

@@ -46,8 +46,18 @@ export const PATHS = {
   matches: 'koc_s3/matches',     // KOC3 match results
   playerRatings: 'koc_s3/playerRatings', // UTR lookup table used by PTL
   admin: 'koc_s3/admin',         // { password }
+  adminUsers: 'koc_s3/adminUsers', // RBAC admin user records
   schedule: 'koc_s3/schedule',   // KOC3 fixtures
-  season2: 'koc_s2/matches',     // Season 2 archive (read-only)
+  settings: 'koc_s3/settings',
+  standings: 'koc_s3/standings',
+  pprcRatings: 'koc_s3/pprcRatings',
+  playerHistory: 'koc_s3/playerHistory',
+  teamHistory: 'koc_s3/teamHistory',
+  playerMatchups: 'koc_s3/playerMatchups',
+  teamMatchups: 'koc_s3/teamMatchups',
+  playerEligibility: 'koc_s3/playerEligibility',
+  cachedSummaries: 'koc_s3/cachedSummaries',
+  auditLogs: 'koc_s3/auditLogs',
   koc2db: 'KOC2DB',              // Legacy KOC2 database for PTL rating history
   season1: 'KOC2DBPONEW'         // Older legacy archive fallback (read-only)
 };
