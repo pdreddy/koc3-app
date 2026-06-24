@@ -7,6 +7,7 @@ import { buildScheduleFor8x2 } from '../utils/roundRobin';
 import { UTR_RATINGS, matchUtrRating, normalizeNameKey, suggestUtrMatches } from '../data/utrRatings';
 import { groupInfoForTeamId, normalizeAuctionTeam, sortByGroupOrder } from '../data/auctionTeams';
 import { normalizeEligibilityRules } from '../utils/eligibilityRules';
+import SeasonSetup from './admin/SeasonSetup';
 
 
 function ratingRowId(row) {
@@ -549,8 +550,8 @@ function ScheduleEditor({ schedule, teams }) {
   );
 }
 
-export default function Admin({ teams, adminConfig, matches, previousMatches = [], schedule, playerRatings = {}, settings = {} }) {
-  const [tab, setTab] = useState('teams');
+export default function Admin({ teams, adminConfig, matches, previousMatches = [], schedule, playerRatings = {}, settings = {}, config }) {
+  const [tab, setTab] = useState('setup');
   const [newAdminPwd, setNewAdminPwd] = useState('');
   const [adminMsg, setAdminMsg] = useState('');
   const [rulesDraft, setRulesDraft] = useState(() => normalizeEligibilityRules(settings.eligibilityRules));
@@ -600,12 +601,15 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
       </div>
 
       <div className="tabs">
+        <button className={`tab ${tab === 'setup' ? 'active' : ''}`} onClick={() => setTab('setup')} data-testid="admin-tab-setup">Season Setup</button>
         <button className={`tab ${tab === 'teams' ? 'active' : ''}`} onClick={() => setTab('teams')} data-testid="admin-tab-teams">Teams</button>
         <button className={`tab ${tab === 'schedule' ? 'active' : ''}`} onClick={() => setTab('schedule')} data-testid="admin-tab-schedule">Schedule</button>
         <button className={`tab ${tab === 'settings' ? 'active' : ''}`} onClick={() => setTab('settings')} data-testid="admin-tab-settings">Settings</button>
         <button className={`tab ${tab === 'nameMapping' ? 'active' : ''}`} onClick={() => setTab('nameMapping')} data-testid="admin-tab-name-mapping">PTL Name Mapping</button>
         <button className={`tab ${tab === 'passwords' ? 'active' : ''}`} onClick={() => setTab('passwords')} data-testid="admin-tab-passwords">Passwords</button>
       </div>
+
+      {tab === 'setup' && <SeasonSetup config={config} teams={teams} playerRatings={playerRatings} />}
 
       {tab === 'teams' && (
         <>

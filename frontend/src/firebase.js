@@ -49,6 +49,8 @@ export const PATHS = {
   adminUsers: 'koc_s3/adminUsers', // RBAC admin user records
   schedule: 'koc_s3/schedule',   // KOC3 fixtures
   settings: 'koc_s3/settings',
+  config: 'koc_s3/config',               // Config-driven season definition
+  seasonTemplates: 'koc_s3/seasonTemplates', // Reusable "clone last season" templates
   standings: 'koc_s3/standings',
   pprcRatings: 'koc_s3/pprcRatings',
   playerHistory: 'koc_s3/playerHistory',

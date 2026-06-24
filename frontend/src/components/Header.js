@@ -13,8 +13,12 @@ const PRIMARY_LINKS = [
   { to: '/more', label: 'More' }
 ];
 
-export default function AppHeader() {
+export default function AppHeader({ config }) {
   const { session, logout } = useAuth();
+  const club = config?.club || {};
+  const brandName = club.name || 'KOC3';
+  const brandTagline = club.tagline || 'Tennis League';
+  const brandLogo = club.logoEmoji || '🏆';
   const handleLogout = async () => {
     const currentSession = session;
     logout();
@@ -22,11 +26,13 @@ export default function AppHeader() {
   };
   return (
     <header className="app-header" data-testid="app-header">
-      <Link to="/" className="brand" data-testid="header-home" aria-label="KOC3 home">
-        <span className="logo" aria-hidden="true">🏆</span>
+      <Link to="/" className="brand" data-testid="header-home" aria-label={`${brandName} home`}>
+        {club.logoUrl
+          ? <img className="logo" src={club.logoUrl} alt="" aria-hidden="true" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover' }} />
+          : <span className="logo" aria-hidden="true">{brandLogo}</span>}
         <span className="brand-copy">
-          <strong>KOC3</strong>
-          <small>Tennis League</small>
+          <strong>{brandName}</strong>
+          <small>{brandTagline}</small>
         </span>
       </Link>
 

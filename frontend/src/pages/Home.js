@@ -123,8 +123,9 @@ function DangerBells({ rows }) {
   );
 }
 
-export default function Home({ teams, schedule, matches = [], eligibilityRules = DEFAULT_ELIGIBILITY_RULES }) {
+export default function Home({ teams, schedule, matches = [], eligibilityRules = DEFAULT_ELIGIBILITY_RULES, config }) {
   const { session } = useAuth();
+  const club = config?.club || {};
   const scheduleItems = useMemo(() => Object.values(schedule || {}).filter(item => item?.type !== 'buffer'), [schedule]);
   const sortedFixtures = useMemo(() => [...scheduleItems].sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')) || String(a.time || '').localeCompare(String(b.time || ''))), [scheduleItems]);
   const captainTeam = hasRole(session, [ROLES.CAPTAIN]) ? teams?.[session.teamId] : null;
@@ -200,8 +201,8 @@ export default function Home({ teams, schedule, matches = [], eligibilityRules =
   return (
     <main className="container" data-testid="public-home-page">
       <div className="page-title">
-        <h1>KOC3 / PPRC Tennis</h1>
-        <p>Public landing page: all league schedules are visible without login.</p>
+        <h1>{club.seasonName || 'KOC3 / PPRC Tennis'}</h1>
+        <p>{club.publicViewNote || 'Public landing page: all league schedules are visible without login.'}</p>
       </div>
       <ScheduleMiniList
         title="All Schedules"

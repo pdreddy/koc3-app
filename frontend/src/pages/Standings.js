@@ -1,8 +1,9 @@
 import React from 'react';
 import { resolveMatchTeams, matchWinnerId } from '../utils/matchTeams';
 import { isApprovedMatch } from '../utils/matchStatus';
+import { normalizeConfig, TIEBREAK_KEYS } from '../data/seasonConfig';
 
-function statsForGroup(teamsInGroup, matches, allTeams) {
+function statsForGroup(teamsInGroup, matches, allTeams, scoring) {
   const groupIds = new Set(teamsInGroup.map(t => t.id));
   const stats = {};
   teamsInGroup.forEach(t => {
@@ -29,20 +30,37 @@ function statsForGroup(teamsInGroup, matches, allTeams) {
       if ((Number(l.g1) || 0) > (Number(l.g2) || 0)) stats[team1.id].singlesWins++;
       if ((Number(l.g2) || 0) > (Number(l.g1) || 0)) stats[team2.id].singlesWins++;
     });
-    if (winId === team1.id) { stats[team1.id].wins++; stats[team2.id].losses++; stats[team1.id].points++; }
-    else if (winId === team2.id) { stats[team2.id].wins++; stats[team1.id].losses++; stats[team2.id].points++; }
+    if (winId === team1.id) { stats[team1.id].wins++; stats[team2.id].losses++; stats[team1.id].points += scoring.pointsWin; stats[team2.id].points += scoring.pointsLoss; }
+    else if (winId === team2.id) { stats[team2.id].wins++; stats[team1.id].losses++; stats[team2.id].points += scoring.pointsWin; stats[team1.id].points += scoring.pointsLoss; }
     headToHead[`${team1.id}:${team2.id}`] = (headToHead[`${team1.id}:${team2.id}`] || 0) + (winId === team1.id ? 1 : 0);
     headToHead[`${team2.id}:${team1.id}`] = (headToHead[`${team2.id}:${team1.id}`] || 0) + (winId === team2.id ? 1 : 0);
   }
+
+  // Configurable tiebreak hierarchy. Each comparator returns a negative number
+  // when `b` should rank ahead of `a` (descending), matching the previous
+  // Points → Sets → Singles → H2H → Games behavior by default.
+  const comparators = {
+    points: (a, b) => b.points - a.points,
+    sets: (a, b) => b.setsFor - a.setsFor,
+    singlesWins: (a, b) => b.singlesWins - a.singlesWins,
+    headToHead: (a, b) => (headToHead[`${b.id}:${a.id}`] || 0) - (headToHead[`${a.id}:${b.id}`] || 0),
+    games: (a, b) => (b.gamesFor - b.gamesAgainst) - (a.gamesFor - a.gamesAgainst)
+  };
+  const order = scoring.tiebreakOrder?.length ? scoring.tiebreakOrder : ['points', 'sets', 'singlesWins', 'headToHead', 'games'];
+
   return Object.values(stats).map(s => ({
     ...s,
     setDiff: s.setsFor - s.setsAgainst,
     gameDiff: s.gamesFor - s.gamesAgainst
-  })).sort((a, b) =>
-    (b.points - a.points) || (b.setsFor - a.setsFor) || (b.singlesWins - a.singlesWins) ||
-    ((headToHead[`${b.id}:${a.id}`] || 0) - (headToHead[`${a.id}:${b.id}`] || 0)) ||
-    (b.gameDiff - a.gameDiff) || a.team.localeCompare(b.team)
-  );
+  })).sort((a, b) => {
+    for (const key of order) {
+      const cmp = comparators[key];
+      if (!cmp) continue;
+      const result = cmp(a, b);
+      if (result !== 0) return result;
+    }
+    return a.team.localeCompare(b.team);
+  });
 }
 
 function GroupTable({ label, rows, qualifyTop }) {
@@ -88,25 +106,42 @@ function GroupTable({ label, rows, qualifyTop }) {
   );
 }
 
-export default function Standings({ teams, matches }) {
+export default function Standings({ teams, matches, config }) {
+  const cfg = normalizeConfig(config);
+  const scoring = cfg.scoring;
+  const qualifyTop = cfg.playoffs.qualifyPerGroup;
   const list = Object.values(teams || {});
-  const groupA = list.filter(t => (t.group || 'A') === 'A').sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
-  const groupB = list.filter(t => t.group === 'B').sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
 
-  const rowsA = statsForGroup(groupA, matches, teams);
-  const rowsB = statsForGroup(groupB, matches, teams);
+  // Derive the set of groups from config, but fall back to whatever groups the
+  // team records actually use so existing data always renders.
+  const configGroupIds = cfg.format.groups.map(g => g.id);
+  const dataGroupIds = Array.from(new Set(list.map(t => t.group || 'A')));
+  const groupIds = configGroupIds.length ? configGroupIds : dataGroupIds;
+  // Include any data groups not present in config (defensive).
+  dataGroupIds.forEach(id => { if (!groupIds.includes(id)) groupIds.push(id); });
+
+  const groups = groupIds.map(id => {
+    const rows = list
+      .filter(t => (t.group || 'A') === id)
+      .sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
+    return { id, rows: statsForGroup(rows, matches, teams, scoring) };
+  });
+
+  const tiebreakSummary = (scoring.tiebreakOrder || []).map(key => TIEBREAK_KEYS[key] || key).join(' → ');
+  const subtitle = cfg.format.type === 'groups_playoffs'
+    ? `${groups.length} group${groups.length === 1 ? '' : 's'} · Top ${qualifyTop} from each group qualify for the playoffs`
+    : `${list.length} teams · Top ${qualifyTop} qualify`;
 
   return (
     <main className="container">
       <div className="page-title">
         <h1>Standings</h1>
-        <p>Two groups of 8 · Top 2 from each group qualify for semifinals</p>
+        <p>{subtitle}</p>
       </div>
       <div className="groups-grid">
-        <GroupTable label="A" rows={rowsA} qualifyTop={2} />
-        <GroupTable label="B" rows={rowsB} qualifyTop={2} />
+        {groups.map(g => <GroupTable key={g.id} label={g.id} rows={g.rows} qualifyTop={qualifyTop} />)}
       </div>
-      <p className="hint center">Sort: Team Points → Sets Won → Singles Wins → Head-to-Head → Games Difference</p>
+      {tiebreakSummary && <p className="hint center">Sort: {tiebreakSummary}</p>}
     </main>
   );
 }

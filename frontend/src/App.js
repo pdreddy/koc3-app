@@ -10,6 +10,7 @@ import { sortByGroupOrder } from './data/auctionTeams';
 import { auctionPlayerRatingUpdates, buildAuctionPlayerRatingsTable } from './data/auctionPlayers';
 import { buildScheduleFor8x2, KOC3_SCHEDULE_VERSION } from './utils/roundRobin';
 import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from './utils/eligibilityRules';
+import { DEFAULT_CONFIG, normalizeConfig } from './data/seasonConfig';
 
 import BottomNav from './components/BottomNav';
 import AppHeader from './components/Header';
@@ -28,6 +29,18 @@ import More from './pages/More';
 import PtlRatings from './pages/PtlRatings';
 import AuditLogs from './pages/AuditLogs';
 import { writeAuditLog } from './services/AuditService';
+
+// Darken a #rrggbb hex by the given fraction (0–1) for gradient stops.
+function darkenHex(hex, amount = 0.15) {
+  const match = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+  if (!match) return hex;
+  const num = parseInt(match[1], 16);
+  const scale = (channel) => Math.max(0, Math.min(255, Math.round(channel * (1 - amount))));
+  const r = scale((num >> 16) & 0xff);
+  const g = scale((num >> 8) & 0xff);
+  const b = scale(num & 0xff);
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
 
 function firebaseObjectToList(data, source) {
   if (!data) return [];
@@ -58,6 +71,7 @@ function Shell() {
   const [adminConfig, setAdminConfig] = useState({ password: '', users: {} });
   const [schedule, setSchedule] = useState({});
   const [settings, setSettings] = useState({ eligibilityRules: DEFAULT_ELIGIBILITY_RULES });
+  const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [loaded, setLoaded] = useState(false);
 
 
@@ -126,6 +140,11 @@ function Shell() {
         const settingsSnap = await get(ref(db, PATHS.settings));
         if (!settingsSnap.exists()) {
           await set(ref(db, PATHS.settings), { eligibilityRules: DEFAULT_ELIGIBILITY_RULES });
+        }
+
+        const configSnap = await get(ref(db, PATHS.config));
+        if (!configSnap.exists()) {
+          await set(ref(db, PATHS.config), DEFAULT_CONFIG);
         }
 
         const rSnap = await get(ref(db, PATHS.playerRatings));
@@ -201,8 +220,23 @@ function Shell() {
       const value = snap.val() || {};
       setSettings({ ...value, eligibilityRules: normalizeEligibilityRules(value.eligibilityRules) });
     });
-    return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubAU(); unsubR(); unsubS(); unsubSettings(); };
+    const unsubConfig = onValue(ref(db, PATHS.config), (snap) => {
+      setConfig(normalizeConfig(snap.val() || {}));
+    });
+    return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubAU(); unsubR(); unsubS(); unsubSettings(); unsubConfig(); };
   }, []);
+
+  useEffect(() => {
+    const club = config?.club || DEFAULT_CONFIG.club;
+    document.title = club.seasonName || club.name || 'KOC3';
+    const root = document.documentElement;
+    if (club.primaryColor) {
+      // --bg1/--ink etc. cascade from --primary-blue via CSS var references.
+      root.style.setProperty('--primary-blue', club.primaryColor);
+      root.style.setProperty('--primary-blue-dark', darkenHex(club.primaryColor, 0.15));
+    }
+    if (club.accentColor) root.style.setProperty('--accent', club.accentColor);
+  }, [config]);
 
   useEffect(() => {
     if (session?.role !== ROLES.CAPTAIN || !session.teamId) return;
@@ -215,16 +249,16 @@ function Shell() {
   return (
     <div className="app-shell">
       <ActivityAudit />
-      {!hideChrome && <AppHeader />}
+      {!hideChrome && <AppHeader config={config} />}
       <Routes>
-        <Route path="/" element={<Home teams={teams} schedule={schedule} matches={matches} eligibilityRules={settings.eligibilityRules} />} />
+        <Route path="/" element={<Home teams={teams} schedule={schedule} matches={matches} eligibilityRules={settings.eligibilityRules} config={config} />} />
         <Route path="/teams" element={<Teams teams={teams} loaded={loaded} />} />
         <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} />} />
-        <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />
+        <Route path="/standings" element={<Standings teams={teams} matches={matches} config={config} />} />
         <Route path="/matchups" element={<Matchups matches={matches} teams={teams} />} />
         <Route path="/ptl" element={<PtlRatings matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} teams={teams} ratingLookup={playerRatings} />} />
         <Route path="/history" element={<History matches={matches} teams={teams} onMatchDeleted={syncDeletedMatch} />} />
-        <Route path="/rules" element={<Rules />} />
+        <Route path="/rules" element={<Rules config={config} />} />
         <Route path="/more" element={<More />} />
         <Route path="/login" element={<Login teams={teams} adminConfig={adminConfig} />} />
         <Route path="/score" element={
@@ -239,7 +273,7 @@ function Shell() {
         } />
         <Route path="/admin" element={
           <ProtectedAdmin>
-            <Admin teams={teams} adminConfig={adminConfig} matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} schedule={schedule} playerRatings={playerRatings} settings={settings} />
+            <Admin teams={teams} adminConfig={adminConfig} matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} schedule={schedule} playerRatings={playerRatings} settings={settings} config={config} />
           </ProtectedAdmin>
         } />
         <Route path="*" element={<Navigate to="/teams" replace />} />
