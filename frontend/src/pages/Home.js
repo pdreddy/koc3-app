@@ -44,7 +44,7 @@ function ScheduleMiniList({ title, description, fixtures, teams, emptyText, test
                   <div className="rl-lbl">Round {item.round || '—'} · {formatDate(item.date)} · {item.time || 'TBD'}</div>
                   <div className="rl-val">
                     {team1?.name || 'TBD'} <strong>vs</strong> {team2?.name || 'TBD'} · Group {item.group || team1?.group || team2?.group || '—'}
-                    {showStatus && <span className="tag" style={{ marginLeft: '.35rem' }}>{item.status === 'completed' ? 'Completed' : 'Upcoming'}</span>}
+                    {showStatus && <span className="tag" style={{ marginLeft: '.35rem' }}>{item.homeStatus || (item.status === 'completed' ? 'Completed' : 'Upcoming')}</span>}
                   </div>
                 </div>
               </div>
@@ -52,6 +52,49 @@ function ScheduleMiniList({ title, description, fixtures, teams, emptyText, test
           })}
         </div>
       )}
+    </section>
+  );
+}
+
+
+function TeamSnapshot({ team, upcomingCount, completedCount, capacityRows }) {
+  const rosterCount = team?.players?.length || 0;
+  const blockedCount = capacityRows.filter(row => row.warnings.some(message => message.includes('reached'))).length;
+  const warningCount = capacityRows.filter(row => row.warnings.length).length;
+  return (
+    <section className="card" data-testid="captain-team-snapshot">
+      <h2>Team Snapshot</h2>
+      <div className="rl-grid" style={{ marginTop: '.75rem' }}>
+        <div className="rl-item"><span className="rl-ic" aria-hidden="true">👥</span><div><div className="rl-lbl">Roster</div><div className="rl-val">{rosterCount} players · Captain: {team.captain || 'TBD'}</div></div></div>
+        <div className="rl-item"><span className="rl-ic" aria-hidden="true">🏷️</span><div><div className="rl-lbl">Group / Auction</div><div className="rl-val">Group {team.group || '—'} · Spent ${Number(team.totalSpent || 0).toLocaleString()} · Left ${Number(team.moneyLeft || 0).toLocaleString()}</div></div></div>
+        <div className="rl-item"><span className="rl-ic" aria-hidden="true">📅</span><div><div className="rl-lbl">Schedule</div><div className="rl-val">{upcomingCount} upcoming · {completedCount} completed</div></div></div>
+        <div className="rl-item"><span className="rl-ic" aria-hidden="true">🚨</span><div><div className="rl-lbl">Capacity Risk</div><div className="rl-val">{blockedCount} capped · {warningCount} with warnings</div></div></div>
+      </div>
+    </section>
+  );
+}
+
+function OwnerGaps({ overdueFixtures, capacityRows }) {
+  const cappedPlayers = capacityRows.filter(row => row.warnings.some(message => message.includes('reached')));
+  const nearCapPlayers = capacityRows.filter(row => row.warnings.length && !row.warnings.some(message => message.includes('reached')));
+  return (
+    <section className="card" data-testid="captain-owner-gaps">
+      <h2>Owner Checks</h2>
+      <p className="hint">Tight checklist before lines or score entry.</p>
+      <div style={{ display: 'grid', gap: '.5rem' }}>
+        {overdueFixtures.length > 0 && (
+          <div className="rl-flag warn"><span aria-hidden="true">⏰</span><span>{overdueFixtures.length} past fixture(s) still need a completed/approved score.</span></div>
+        )}
+        {cappedPlayers.length > 0 && (
+          <div className="rl-flag warn"><span aria-hidden="true">🚫</span><span>{cappedPlayers.length} player(s) are already at a hard capacity cap. Do not place them in capped lines.</span></div>
+        )}
+        {nearCapPlayers.length > 0 && (
+          <div className="rl-flag warn"><span aria-hidden="true">⚠️</span><span>{nearCapPlayers.length} player(s) are one use away from a cap. Double-check lineup balance.</span></div>
+        )}
+        {overdueFixtures.length === 0 && cappedPlayers.length === 0 && nearCapPlayers.length === 0 && (
+          <div className="rl-flag ok"><span aria-hidden="true">✅</span><span>No owner gaps detected right now.</span></div>
+        )}
+      </div>
     </section>
   );
 }
@@ -97,8 +140,22 @@ export default function Home({ teams, schedule, matches = [], eligibilityRules =
     });
     return keys;
   }, [matches, teams]);
-  const completedCaptainFixtures = useMemo(() => captainFixtures.filter(item => item.status === 'completed' || completedFixtureKeys.has(pairKey(item.team1Id, item.team2Id))), [captainFixtures, completedFixtureKeys]);
-  const upcomingCaptainFixtures = useMemo(() => captainFixtures.filter(item => item.status !== 'completed' && !completedFixtureKeys.has(pairKey(item.team1Id, item.team2Id))), [captainFixtures, completedFixtureKeys]);
+  const completedCaptainFixtures = useMemo(() => captainFixtures
+    .filter(item => item.status === 'completed' || completedFixtureKeys.has(pairKey(item.team1Id, item.team2Id)))
+    .map(item => ({ ...item, homeStatus: 'Completed' })), [captainFixtures, completedFixtureKeys]);
+  const upcomingCaptainFixtures = useMemo(() => captainFixtures
+    .filter(item => item.status !== 'completed' && !completedFixtureKeys.has(pairKey(item.team1Id, item.team2Id)))
+    .map(item => ({ ...item, homeStatus: 'Upcoming' })), [captainFixtures, completedFixtureKeys]);
+  const overdueFixtures = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return upcomingCaptainFixtures.filter(item => {
+      if (!item.date) return false;
+      const [y, m, d] = item.date.split('-').map(Number);
+      const fixtureDate = new Date(y, m - 1, d);
+      return fixtureDate < today;
+    });
+  }, [upcomingCaptainFixtures]);
   const capacityRows = useMemo(() => captainTeam ? buildCaptainCapacityRows(captainTeam, teams, matches, eligibilityRules) : [], [captainTeam, teams, matches, eligibilityRules]);
 
   if (captainTeam) {
@@ -108,6 +165,7 @@ export default function Home({ teams, schedule, matches = [], eligibilityRules =
           <h1>Captain Dashboard</h1>
           <p>{captainTeam.name} · your schedule, capacity, and lineup danger bells.</p>
         </div>
+        <TeamSnapshot team={captainTeam} upcomingCount={upcomingCaptainFixtures.length} completedCount={completedCaptainFixtures.length} capacityRows={capacityRows} />
         <div className="rl-grid">
           <ScheduleMiniList
             title="Upcoming Fixtures"
@@ -128,6 +186,7 @@ export default function Home({ teams, schedule, matches = [], eligibilityRules =
             showStatus
           />
         </div>
+        <OwnerGaps overdueFixtures={overdueFixtures} capacityRows={capacityRows} />
         <DangerBells rows={capacityRows} />
         <CaptainCapacityCard team={captainTeam} teams={teams} matches={matches} eligibilityRules={eligibilityRules} />
         <div style={{ display: 'flex', gap: '.6rem', flexWrap: 'wrap', marginTop: '1rem' }}>
