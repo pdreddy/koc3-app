@@ -13,6 +13,7 @@ export default function More() {
   };
 
   const items = [
+    { to: '/register', icon: '🎾', label: 'Player Registration / Profile', desc: 'Register or set up password, email & phone', testid: 'more-register' },
     { to: '/ptl', icon: '📈', label: 'PTL Rating', desc: 'Current UTR beside KOC performance rating', testid: 'more-ptl' },
     { to: '/history', icon: '📜', label: 'Match History', desc: 'View past results', testid: 'more-history' },
     { to: '/rules', icon: '📋', label: 'Rules', desc: 'Format, scoring & tiebreakers', testid: 'more-rules' }

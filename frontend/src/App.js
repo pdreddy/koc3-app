@@ -28,6 +28,7 @@ import Rules from './pages/Rules';
 import Schedule from './pages/Schedule';
 import Matchups from './pages/Matchups';
 import More from './pages/More';
+import Register from './pages/Register';
 import PtlRatings from './pages/PtlRatings';
 import AuditLogs from './pages/AuditLogs';
 import { writeAuditLog } from './services/AuditService';
@@ -74,6 +75,7 @@ function Shell() {
   const [schedule, setSchedule] = useState({});
   const [settings, setSettings] = useState({ eligibilityRules: DEFAULT_ELIGIBILITY_RULES });
   const [config, setConfig] = useState(DEFAULT_CONFIG);
+  const [players, setPlayers] = useState({});
   const [loaded, setLoaded] = useState(false);
 
 
@@ -229,7 +231,10 @@ function Shell() {
     const unsubConfig = onValue(ref(db, PATHS.config), (snap) => {
       setConfig(normalizeConfig(snap.val() || {}));
     });
-    return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubAU(); unsubR(); unsubS(); unsubSettings(); unsubConfig(); };
+    const unsubPlayers = onValue(ref(db, PATHS.players), (snap) => {
+      setPlayers(snap.val() || {});
+    });
+    return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubAU(); unsubR(); unsubS(); unsubSettings(); unsubConfig(); unsubPlayers(); };
   }, []);
 
   useEffect(() => {
@@ -258,6 +263,7 @@ function Shell() {
       {!hideChrome && <AppHeader config={config} />}
       <Routes>
         <Route path="/" element={<Home teams={teams} schedule={schedule} matches={matches} eligibilityRules={settings.eligibilityRules} config={config} />} />
+        <Route path="/register" element={<Register teams={teams} players={players} />} />
         <Route path="/teams" element={<Teams teams={teams} loaded={loaded} />} />
         <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} />} />
         <Route path="/standings" element={<Standings teams={teams} matches={matches} config={config} />} />

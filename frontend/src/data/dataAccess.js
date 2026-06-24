@@ -98,6 +98,17 @@ export function matchesRepo(ctx = DEFAULT_TENANT) {
   };
 }
 
+export function playersRepo(ctx = DEFAULT_TENANT) {
+  const path = pathsFor(ctx).players;
+  return {
+    path,
+    readAll: () => dal.read(path),
+    readOne: (playerId) => dal.read(`${path}/${playerId}`),
+    upsert: (playerId, record) => dal.patch(`${path}/${playerId}`, record),
+    subscribe: (cb, err) => dal.subscribe(path, cb, err)
+  };
+}
+
 export function templatesRepo(ctx = DEFAULT_TENANT) {
   const path = pathsFor(ctx).seasonTemplates;
   return {

@@ -51,6 +51,7 @@ export const PATHS = {
   settings: 'koc_s3/settings',
   config: 'koc_s3/config',               // Config-driven season definition
   seasonTemplates: 'koc_s3/seasonTemplates', // Reusable "clone last season" templates
+  players: 'koc_s3/players',             // Persistent player profiles (self-registration)
   standings: 'koc_s3/standings',
   pprcRatings: 'koc_s3/pprcRatings',
   playerHistory: 'koc_s3/playerHistory',

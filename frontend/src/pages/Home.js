@@ -212,6 +212,16 @@ export default function Home({ teams, schedule, matches = [], eligibilityRules =
         <h1>{club.seasonName || 'KOC3 / PPRC Tennis'}</h1>
         <p>{club.publicViewNote || 'Public landing page: all league schedules are visible without login.'}</p>
       </div>
+      <section className="card" data-testid="home-register-cta" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '.75rem', flexWrap: 'wrap' }}>
+        <div>
+          <h2 style={{ margin: 0 }}>🎾 Player Registration</h2>
+          <p className="hint" style={{ margin: '.25rem 0 0' }}>New here? Register for the season. Already a player? Set up your password, email and phone.</p>
+        </div>
+        <div style={{ display: 'flex', gap: '.4rem' }}>
+          <Link className="btn" to="/register" data-testid="home-register-link">Register</Link>
+          <Link className="btn ghost" to="/register" data-testid="home-profile-link">My Profile</Link>
+        </div>
+      </section>
       <ScheduleMiniList
         title="All Schedules"
         description="Sign in as a captain to see only your fixtures, capacity, and danger bells."
