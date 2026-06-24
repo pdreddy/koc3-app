@@ -75,7 +75,7 @@ function RuleCard({ card }) {
 
 export default function Rules() {
   return (
-    <main className="container" data-testid="rules-page">
+    <main className="container rules-page-shell" data-testid="rules-page">
       <div className="page-title">
         <h1>Rules &amp; Format</h1>
         <p>Welcome to the season! Quick rundown before Week 1 — participation, lines, scores, weather and playoffs.</p>
@@ -90,7 +90,7 @@ export default function Rules() {
         <div className="rl-step"><b>📊</b><strong>Monday EOD</strong><small>Scores are due.</small></div>
       </section>
 
-      <div className="rl-motto">Let's go! 🎾</div>
+      <div className="rl-motto" data-testid="rules-motto">Let's go! 🎾</div>
     </main>
   );
 }
