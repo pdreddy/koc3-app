@@ -6,7 +6,7 @@ import { UTR_RATINGS, matchUtrRating, normalizeNameKey, suggestUtrMatches } from
 import { groupInfoForTeamId, normalizeAuctionTeam, sortByGroupOrder } from '../data/auctionTeams';
 import { normalizeEligibilityRules } from '../utils/eligibilityRules';
 import { DEFAULT_LEAGUE_CONFIG, DEFAULT_PLAYER_PROFILE_CONFIG, DEFAULT_SCHEDULE_CONFIG, DEFAULT_SCORING_CONFIG, DEFAULT_SEASON_SCOPE, normalizeLeagueConfig, normalizePlayerProfileConfig, normalizeScheduleConfig, normalizeScoringConfig, normalizeSeasonScope } from '../utils/leagueConfig';
-import { buildConfigurableTeams, playerLookupRows } from '../utils/teamSetup';
+import { buildConfigurableTeams, buildTournamentConfig, playerLookupRows } from '../utils/teamSetup';
 
 
 function ratingRowId(row) {
@@ -148,6 +148,13 @@ function TeamSetupWizard({ teams, playerRatings }) {
   const [teamCount, setTeamCount] = useState(16);
   const [playersPerTeam, setPlayersPerTeam] = useState(7);
   const [groupsCount, setGroupsCount] = useState(2);
+  const [tournamentName, setTournamentName] = useState('KOC Tournament');
+  const [gameFormat, setGameFormat] = useState('miniSet4');
+  const [gamesPerSet, setGamesPerSet] = useState(4);
+  const [setCount, setSetCount] = useState(3);
+  const [noAd, setNoAd] = useState(true);
+  const [minPlaysPerPlayer, setMinPlaysPerPlayer] = useState(1);
+  const [maxPlaysPerPlayer, setMaxPlaysPerPlayer] = useState(6);
   const [namesText, setNamesText] = useState('');
   const [msg, setMsg] = useState('');
   const lookupRows = useMemo(() => playerLookupRows(playerRatings), [playerRatings]);
@@ -165,13 +172,15 @@ function TeamSetupWizard({ teams, playerRatings }) {
     lookupRows,
     existingTeams: teams
   }), [clubKey, groupsCount, lookupRows, playerNamesByTeam, playersPerTeam, teamCount, teams]);
+  const tournamentConfig = useMemo(() => buildTournamentConfig({ clubKey, tournamentName, gameFormat, teamCount, playersPerTeam, groupsCount, gamesPerSet, setCount, noAd, minPlaysPerPlayer, maxPlaysPerPlayer }), [clubKey, gameFormat, gamesPerSet, groupsCount, maxPlaysPerPlayer, minPlaysPerPlayer, noAd, playersPerTeam, setCount, teamCount, tournamentName]);
 
   const saveTeams = async () => {
     setMsg('');
     if (!window.confirm(`Create/update ${teamCount} teams with ${playersPerTeam} player slots each? Existing matching slots are preserved.`)) return;
     try {
       await set(ref(db, PATHS.teams), previewTeams);
-      setMsg(`✅ Created ${Object.keys(previewTeams).length} ${clubKey.toUpperCase()} team shells with ${playersPerTeam} player slots each.`);
+      await update(ref(db, PATHS.settings), tournamentConfig);
+      setMsg(`✅ Created ${Object.keys(previewTeams).length} ${clubKey.toUpperCase()} team shells and saved ${tournamentConfig.leagueConfig.gameStyle} settings.`);
     } catch (e) {
       setMsg('Save failed: ' + e.message);
     }
@@ -179,13 +188,22 @@ function TeamSetupWizard({ teams, playerRatings }) {
 
   return (
     <div className="card" data-testid="admin-team-setup-wizard">
-      <h2>🏗️ Team Setup Wizard</h2>
-      <p className="hint">Create configurable team shells for KOC or Triace. Use placeholders first, paste player names manually, or let exact database matches pull ratings into roster slots.</p>
+      <h2>🏗️ Create Tournament</h2>
+      <p className="hint">Create a tournament for KOC or Triace: choose teams, players per team, game format, no-ad rules, and min/max player play settings. Then use placeholders, paste names, or exact-match database players.</p>
+      <div className="field"><div className="field-label">Tournament Name</div><input className="input" value={tournamentName} onChange={e => setTournamentName(e.target.value)} data-testid="team-setup-tournament-name" /></div>
       <div className="league-config-grid">
         <div className="field"><div className="field-label">Club preset</div><select className="select" value={clubKey} onChange={e => setClubKey(e.target.value)} data-testid="team-setup-club"><option value="koc">KOC</option><option value="triace">Triace</option></select></div>
         <div className="field"><div className="field-label">Number of Teams</div><input className="input" type="number" min="1" max="64" value={teamCount} onChange={e => setTeamCount(e.target.value)} data-testid="team-setup-team-count" /></div>
         <div className="field"><div className="field-label">Players / Team</div><input className="input" type="number" min="1" max="30" value={playersPerTeam} onChange={e => setPlayersPerTeam(e.target.value)} data-testid="team-setup-players-per-team" /></div>
         <div className="field"><div className="field-label">Groups</div><input className="input" type="number" min="1" max="8" value={groupsCount} onChange={e => setGroupsCount(e.target.value)} data-testid="team-setup-groups" /></div>
+      </div>
+      <div className="league-config-grid">
+        <div className="field"><div className="field-label">Game Format</div><select className="select" value={gameFormat} onChange={e => { setGameFormat(e.target.value); if (e.target.value === 'regular6') { setGamesPerSet(6); setSetCount(3); setNoAd(false); } else if (e.target.value === 'proSet8') { setGamesPerSet(8); setSetCount(1); setNoAd(false); } else { setGamesPerSet(4); setSetCount(3); setNoAd(true); } }} data-testid="team-setup-game-format"><option value="miniSet4">Mini set · 4 games</option><option value="regular6">Regular set · 6 games</option><option value="proSet8">Pro set · 8 games</option></select></div>
+        <div className="field"><div className="field-label">Games / Set</div><input className="input" type="number" min="1" max="8" value={gamesPerSet} onChange={e => setGamesPerSet(e.target.value)} data-testid="team-setup-games-per-set" /></div>
+        <div className="field"><div className="field-label">Sets / Line</div><input className="input" type="number" min="1" max="5" value={setCount} onChange={e => setSetCount(e.target.value)} data-testid="team-setup-set-count" /></div>
+        <div className="field"><div className="field-label">No-Ad Scoring</div><select className="select" value={noAd ? 'yes' : 'no'} onChange={e => setNoAd(e.target.value === 'yes')} data-testid="team-setup-no-ad"><option value="yes">Yes</option><option value="no">No</option></select></div>
+        <div className="field"><div className="field-label">Min Plays / Player</div><input className="input" type="number" min="0" value={minPlaysPerPlayer} onChange={e => setMinPlaysPerPlayer(e.target.value)} data-testid="team-setup-min-plays" /></div>
+        <div className="field"><div className="field-label">Max Plays / Player</div><input className="input" type="number" min="1" value={maxPlaysPerPlayer} onChange={e => setMaxPlaysPerPlayer(e.target.value)} data-testid="team-setup-max-plays" /></div>
       </div>
       <div className="field">
         <div className="field-label">Optional manual player names</div>
@@ -193,7 +211,7 @@ function TeamSetupWizard({ teams, playerRatings }) {
         <p className="hint">Separate teams with a blank line. Exact matches against the player rating database will prefill UTR; unmatched names remain manual entries and can be mapped later in PTL Name Mapping.</p>
       </div>
       <div className="team-setup-preview">
-        <strong>Preview:</strong> {Object.keys(previewTeams).length} teams · {Object.values(previewTeams).reduce((sum, team) => sum + team.players.length, 0)} roster slots · {lookupRows.length} database players available for exact lookup
+        <strong>Preview:</strong> {Object.keys(previewTeams).length} teams · {Object.values(previewTeams).reduce((sum, team) => sum + team.players.length, 0)} roster slots · {tournamentConfig.leagueConfig.gameStyle} · {noAd ? 'No-Ad' : 'Regular ads'} · Min/Max plays {minPlaysPerPlayer}/{maxPlaysPerPlayer} · {lookupRows.length} database players available for exact lookup
       </div>
       <div className="table-wrap" style={{ marginTop: '.6rem' }}>
         <table className="std">
@@ -202,7 +220,7 @@ function TeamSetupWizard({ teams, playerRatings }) {
         </table>
       </div>
       {msg && <div className={msg.startsWith('✅') ? 'success-box' : 'error-box'} style={{ marginTop: '.6rem' }}>{msg}</div>}
-      <button className="btn full success" onClick={saveTeams} data-testid="team-setup-save">Create / Update Team Shells</button>
+      <button className="btn full success" onClick={saveTeams} data-testid="team-setup-save">Create / Update Tournament</button>
     </div>
   );
 }

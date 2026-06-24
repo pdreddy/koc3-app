@@ -76,11 +76,11 @@ export const DEFAULT_SCORING_CONFIG = {
   validateRosterNames: true,
   enforceEligibility: true,
   templates: [
-    { id: 'singles-1', label: 'Singles', type: 'singles', playersPerSide: 1, setCount: 5, tiebreakAt: 3, tiebreakPoints: 7 },
-    { id: 'doubles-1', label: 'Doubles 1', type: 'doubles', playersPerSide: 2, setCount: 3, tiebreakAt: 3, tiebreakPoints: 7 },
-    { id: 'doubles-1-rev', label: 'Doubles 1 Reverse', type: 'doubles', playersPerSide: 2, setCount: 3, tiebreakAt: 3, tiebreakPoints: 7 },
-    { id: 'doubles-2', label: 'Doubles 2', type: 'doubles', playersPerSide: 2, setCount: 3, tiebreakAt: 3, tiebreakPoints: 7 },
-    { id: 'doubles-2-rev', label: 'Doubles 2 Reverse', type: 'doubles', playersPerSide: 2, setCount: 3, tiebreakAt: 3, tiebreakPoints: 7 }
+    { id: 'singles-1', label: 'Singles', type: 'singles', playersPerSide: 1, setCount: 5, gamesPerSet: 4, noAd: true, tiebreakAt: 3, tiebreakPoints: 7 },
+    { id: 'doubles-1', label: 'Doubles 1', type: 'doubles', playersPerSide: 2, setCount: 3, gamesPerSet: 4, noAd: true, tiebreakAt: 3, tiebreakPoints: 7 },
+    { id: 'doubles-1-rev', label: 'Doubles 1 Reverse', type: 'doubles', playersPerSide: 2, setCount: 3, gamesPerSet: 4, noAd: true, tiebreakAt: 3, tiebreakPoints: 7 },
+    { id: 'doubles-2', label: 'Doubles 2', type: 'doubles', playersPerSide: 2, setCount: 3, gamesPerSet: 4, noAd: true, tiebreakAt: 3, tiebreakPoints: 7 },
+    { id: 'doubles-2-rev', label: 'Doubles 2 Reverse', type: 'doubles', playersPerSide: 2, setCount: 3, gamesPerSet: 4, noAd: true, tiebreakAt: 3, tiebreakPoints: 7 }
   ]
 };
 
@@ -120,6 +120,8 @@ function normalizeTemplate(template, index) {
     type,
     playersPerSide: type === 'singles' ? 1 : 2,
     setCount: toPositiveInt(template?.setCount, type === 'singles' ? 5 : 3),
+    gamesPerSet: toPositiveInt(template?.gamesPerSet, 4),
+    noAd: !!template?.noAd,
     tiebreakAt: toPositiveInt(template?.tiebreakAt, 3),
     tiebreakPoints: toPositiveInt(template?.tiebreakPoints, 7)
   };
@@ -132,6 +134,8 @@ export function normalizeScoringConfig(config = {}) {
     winPoints: toPositiveInt(base.winPoints, DEFAULT_SCORING_CONFIG.winPoints),
     lossPoints: Number.isFinite(Number(base.lossPoints)) ? Number(base.lossPoints) : DEFAULT_SCORING_CONFIG.lossPoints,
     forfeitPoints: Number.isFinite(Number(base.forfeitPoints)) ? Number(base.forfeitPoints) : DEFAULT_SCORING_CONFIG.forfeitPoints,
+    noAd: !!base.noAd,
+    gamesPerSet: toPositiveInt(base.gamesPerSet, 4),
     requireMajorityLines: base.requireMajorityLines !== false,
     validateRosterNames: base.validateRosterNames !== false,
     enforceEligibility: base.enforceEligibility !== false,

@@ -1009,3 +1009,44 @@ table.std tr.q { background: linear-gradient(90deg, #dbeafe 0%, rgba(255,255,255
   font-size: 0.86rem;
   padding: 0.65rem 0.8rem;
 }
+
+/* Commercial admin forms can get very long; keep scrolling reliable on laptop and phone. */
+html, body, #root {
+  height: auto;
+  min-height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+body {
+  overscroll-behavior-y: auto;
+}
+
+@media (min-width: 900px) {
+  .container .card {
+    scroll-margin-top: 92px;
+  }
+}
+
+@media (max-width: 720px) {
+  main.container,
+  .rules-wrap {
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+  }
+
+  .league-config-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+  }
+
+  .tabs .tab {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+}

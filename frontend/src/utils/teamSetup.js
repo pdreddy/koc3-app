@@ -77,3 +77,52 @@ export function buildConfigurableTeams(options = {}) {
 export function playerLookupRows(playerRatings = {}) {
   return Object.entries(playerRatings || {}).map(([id, row]) => ({ id, ...(row || {}) }));
 }
+
+export const GAME_FORMAT_PRESETS = {
+  miniSet4: { key: 'miniSet4', label: 'Mini Set (4 games)', gamesPerSet: 4, setCount: 3, noAd: true, tiebreakAt: 3, tiebreakPoints: 7 },
+  regular6: { key: 'regular6', label: 'Regular Set (6 games)', gamesPerSet: 6, setCount: 3, noAd: false, tiebreakAt: 6, tiebreakPoints: 7 },
+  proSet8: { key: 'proSet8', label: 'Pro Set (8 games)', gamesPerSet: 8, setCount: 1, noAd: false, tiebreakAt: 8, tiebreakPoints: 7 }
+};
+
+export function buildTournamentConfig(options = {}) {
+  const preset = GAME_FORMAT_PRESETS[options.gameFormat] || GAME_FORMAT_PRESETS.miniSet4;
+  const maxPlayers = Math.max(1, Number.parseInt(options.playersPerTeam, 10) || 1);
+  const minPlays = Math.max(0, Number.parseInt(options.minPlaysPerPlayer, 10) || 0);
+  const maxPlays = Math.max(minPlays || 1, Number.parseInt(options.maxPlaysPerPlayer, 10) || maxPlayers);
+  const noAd = options.noAd === undefined ? preset.noAd : !!options.noAd;
+  const setCount = Math.max(1, Number.parseInt(options.setCount ?? preset.setCount, 10) || preset.setCount);
+  const gamesPerSet = Math.max(1, Number.parseInt(options.gamesPerSet ?? preset.gamesPerSet, 10) || preset.gamesPerSet);
+
+  return {
+    leagueConfig: {
+      leagueName: options.tournamentName || `${String(options.clubKey || 'KOC').toUpperCase()} Tournament`,
+      clubName: String(options.clubKey || 'koc').toUpperCase(),
+      gameStyle: preset.label,
+      teamCount: Math.max(1, Number.parseInt(options.teamCount, 10) || 1),
+      groupsCount: Math.max(1, Number.parseInt(options.groupsCount, 10) || 1),
+      minPlayersPerTeam: maxPlayers,
+      maxPlayersPerTeam: maxPlayers,
+      activePlayersPerMatch: Math.min(maxPlayers, Number.parseInt(options.activePlayersPerMatch, 10) || Math.min(5, maxPlayers)),
+      linesPerMatch: Number.parseInt(options.linesPerMatch, 10) || 5,
+      singlesLines: Number.parseInt(options.singlesLines, 10) || 1,
+      doublesLines: Math.max(0, (Number.parseInt(options.linesPerMatch, 10) || 5) - (Number.parseInt(options.singlesLines, 10) || 1))
+    },
+    scoringConfig: {
+      noAd,
+      gamesPerSet,
+      templates: [
+        { id: 'singles-1', label: 'Singles', type: 'singles', playersPerSide: 1, setCount, gamesPerSet, noAd, tiebreakAt: preset.tiebreakAt, tiebreakPoints: preset.tiebreakPoints },
+        { id: 'doubles-1', label: 'Doubles 1', type: 'doubles', playersPerSide: 2, setCount, gamesPerSet, noAd, tiebreakAt: preset.tiebreakAt, tiebreakPoints: preset.tiebreakPoints },
+        { id: 'doubles-1-rev', label: 'Doubles 1 Reverse', type: 'doubles', playersPerSide: 2, setCount, gamesPerSet, noAd, tiebreakAt: preset.tiebreakAt, tiebreakPoints: preset.tiebreakPoints },
+        { id: 'doubles-2', label: 'Doubles 2', type: 'doubles', playersPerSide: 2, setCount, gamesPerSet, noAd, tiebreakAt: preset.tiebreakAt, tiebreakPoints: preset.tiebreakPoints },
+        { id: 'doubles-2-rev', label: 'Doubles 2 Reverse', type: 'doubles', playersPerSide: 2, setCount, gamesPerSet, noAd, tiebreakAt: preset.tiebreakAt, tiebreakPoints: preset.tiebreakPoints }
+      ]
+    },
+    eligibilityRules: {
+      minMatchDays: minPlays,
+      maxTotalMatchDays: maxPlays,
+      maxSinglesDays: Math.max(1, Number.parseInt(options.maxSinglesDays, 10) || Math.ceil(maxPlays / 2) || 1),
+      maxPartnerDays: Math.max(1, Number.parseInt(options.maxPartnerDays, 10) || Math.ceil(maxPlays / 2) || 1)
+    }
+  };
+}
