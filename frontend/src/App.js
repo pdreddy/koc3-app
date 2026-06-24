@@ -269,7 +269,7 @@ function Shell() {
         <Route path="/login" element={<Login teams={teams} adminConfig={adminConfig} />} />
         <Route path="/score" element={
           <ProtectedTeam>
-            <ScoreEntry teams={teams} matches={matches} eligibilityRules={settings.eligibilityRules} onScoreSaved={syncSavedMatch} />
+            <ScoreEntry teams={teams} matches={matches} eligibilityRules={settings.eligibilityRules} onScoreSaved={syncSavedMatch} config={config} />
           </ProtectedTeam>
         } />
         <Route path="/audit" element={

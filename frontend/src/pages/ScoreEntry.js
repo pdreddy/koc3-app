@@ -436,7 +436,7 @@ function courtHasEntry(c) {
 }
 
 
-function validateCourtShape(court, result, validationErrors) {
+function validateCourtShape(court, result, validationErrors, matchRules) {
   const expectedPlayers = court.type === 'singles' ? 1 : 2;
   if ((court.p1 || []).length !== expectedPlayers || (court.p2 || []).length !== expectedPlayers) {
     validationErrors.push(`${court.label}: ${court.type === 'singles' ? 'singles requires 1 player per team' : 'doubles requires 2 players per team'}`);
@@ -449,7 +449,7 @@ function validateCourtShape(court, result, validationErrors) {
     const hasB = set.b !== '';
     if (hasA !== hasB) validationErrors.push(`${court.label}: set ${idx + 1} needs both team scores`);
   });
-  validationErrors.push(...validateLineScore({ label: court.label, type: court.type, sets: result.sets }));
+  validationErrors.push(...validateLineScore({ label: court.label, type: court.type, sets: result.sets }, matchRules?.[court.type]));
 }
 
 
@@ -646,8 +646,10 @@ function getQuickNameContext(text, cursor, parsed, teams) {
   return { query, suggestions, teamAbbr: team?.abbreviation || 'all teams', replaceStart, replaceEnd: cursor };
 }
 
-export default function ScoreEntry({ teams, matches, eligibilityRules = DEFAULT_ELIGIBILITY_RULES, onScoreSaved }) {
+export default function ScoreEntry({ teams, matches, eligibilityRules = DEFAULT_ELIGIBILITY_RULES, onScoreSaved, config }) {
   const [mode, setMode] = useState('form');
+  // Per-discipline set-scoring rules from config; validation enforces them.
+  const matchRules = config?.scoring?.matchRules;
   const [sharedTeam1Id, setSharedTeam1IdRaw] = useState('');
   const [sharedTeam2Id, setSharedTeam2IdRaw] = useState('');
   const [team1Lineup, setTeam1Lineup] = useState([]);
@@ -678,6 +680,7 @@ export default function ScoreEntry({ teams, matches, eligibilityRules = DEFAULT_
           teams={teams}
           matches={matches}
           eligibilityRules={eligibilityRules}
+          matchRules={matchRules}
           onScoreSaved={onScoreSaved}
           team1Id={sharedTeam1Id}
           setTeam1Id={setSharedTeam1Id}
@@ -690,6 +693,7 @@ export default function ScoreEntry({ teams, matches, eligibilityRules = DEFAULT_
           teams={teams}
           matches={matches}
           eligibilityRules={eligibilityRules}
+          matchRules={matchRules}
           onScoreSaved={onScoreSaved}
           team1Id={sharedTeam1Id}
           setTeam1Id={setSharedTeam1Id}
@@ -715,7 +719,7 @@ function groupFilteredOpponents(teamList, selectedTeam) {
   return teamList.filter(team => team.id !== selectedTeam?.id && (!selectedTeam || teamsShareGroup(team, selectedTeam)));
 }
 
-function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
+function FormEntry({ teams, matches, eligibilityRules, matchRules, onScoreSaved, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const teamList = Object.values(teams || {});
   const myTeam = session.role === ROLES.CAPTAIN ? teams[session.teamId] : null;
@@ -779,7 +783,7 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
         validationErrors.push(`${c.label}: add at least one set score or clear the court`);
         return null;
       }
-      validateCourtShape(c, r, validationErrors);
+      validateCourtShape(c, r, validationErrors, matchRules);
       const checkSide = (names, team, side) => {
         return names.map((n, i) => {
           const trimmed = (n || '').trim();
@@ -999,7 +1003,7 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
 
 // ==================== QUICK PASTE ENTRY ====================
 
-function QuickEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
+function QuickEntry({ teams, matches, eligibilityRules, matchRules, onScoreSaved, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const textareaRef = useRef(null);
   const [text, setText] = useState('');
@@ -1096,7 +1100,7 @@ function QuickEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, s
       };
     });
 
-    const scoreErrors = lines.flatMap(line => validateLineScore(line));
+    const scoreErrors = lines.flatMap(line => validateLineScore(line, matchRules?.[line.type]));
     if (scoreErrors.length > 0) { setError(scoreErrors.join('\n')); return; }
 
     const eligibilityErrors = validateEligibilityForLines(lines, team1, team2, matches, teams, eligibilityRules);

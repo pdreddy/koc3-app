@@ -176,6 +176,19 @@ export default function SeasonSetup({ config, teams, playerRatings }) {
   const setSport = (sport) => setDraft(prev => { setDirty(true); return { ...prev, sport }; });
   const setTenant = (values) => setDraft(prev => { setDirty(true); return { ...prev, tenant: { ...prev.tenant, ...values } }; });
   const formatStrategy = getFormatStrategy(draft.format.type);
+  const setMatchRule = (discipline, key, value) => {
+    setDirty(true);
+    setDraft(prev => ({
+      ...prev,
+      scoring: {
+        ...prev.scoring,
+        matchRules: {
+          ...prev.scoring.matchRules,
+          [discipline]: { ...prev.scoring.matchRules[discipline], [key]: value }
+        }
+      }
+    }));
+  };
 
   return (
     <div data-testid="season-setup">
@@ -208,6 +221,10 @@ export default function SeasonSetup({ config, teams, playerRatings }) {
           <Field label="Logo Emoji"><input className="input" value={draft.club.logoEmoji} onChange={e => patch('club', { logoEmoji: e.target.value })} maxLength={4} /></Field>
           <Field label="Logo URL (optional)"><input className="input" value={draft.club.logoUrl} onChange={e => patch('club', { logoUrl: e.target.value })} placeholder="https://…" /></Field>
         </div>
+        <Field label="Season Banner Image URL (optional)" hint="Shown on the public home screen">
+          <input className="input" value={draft.club.bannerUrl} onChange={e => patch('club', { bannerUrl: e.target.value })} placeholder="https://…" data-testid="setup-banner-url" />
+        </Field>
+        {draft.club.bannerUrl && <img src={draft.club.bannerUrl} alt="Season banner preview" style={{ width: '100%', maxHeight: 140, objectFit: 'cover', borderRadius: 10, marginTop: '.4rem' }} />}
         <div className="row">
           <Field label="Primary Color"><input className="input" type="color" value={draft.club.primaryColor} onChange={e => patch('club', { primaryColor: e.target.value })} /></Field>
           <Field label="Accent Color"><input className="input" type="color" value={draft.club.accentColor} onChange={e => patch('club', { accentColor: e.target.value })} /></Field>
@@ -338,6 +355,27 @@ export default function SeasonSetup({ config, teams, playerRatings }) {
             <button type="button" className="btn small ghost" onClick={() => moveTiebreak(idx, 1)} disabled={idx === draft.scoring.tiebreakOrder.length - 1}>↓</button>
           </div>
         ))}
+
+        <div className="field-label" style={{ marginTop: '.7rem' }}>Set Scoring Rules (validated on score entry)</div>
+        {['singles', 'doubles'].map(discipline => {
+          const r = draft.scoring.matchRules[discipline];
+          return (
+            <div key={discipline} style={{ background: '#f8fafc', borderRadius: 8, padding: '.55rem', marginBottom: '.4rem' }} data-testid={`setup-matchrule-${discipline}`}>
+              <strong style={{ textTransform: 'capitalize' }}>{discipline}</strong>
+              <div className="row" style={{ marginTop: '.35rem' }}>
+                <Field label="Games / Set"><input className="input" type="number" min="1" value={r.setGames} onChange={e => setMatchRule(discipline, 'setGames', Number(e.target.value))} data-testid={`setup-${discipline}-setgames`} /></Field>
+                <Field label="Sets to Win" hint="Best-of = 2×−1"><input className="input" type="number" min="1" max="5" value={r.setsToWin} onChange={e => setMatchRule(discipline, 'setsToWin', Number(e.target.value))} data-testid={`setup-${discipline}-setstowin`} /></Field>
+                <Field label="Set TB Points"><input className="input" type="number" min="1" value={r.setTiebreakPoints} onChange={e => setMatchRule(discipline, 'setTiebreakPoints', Number(e.target.value))} /></Field>
+                <Field label="Match TB Points"><input className="input" type="number" min="1" value={r.matchTiebreakPoints} onChange={e => setMatchRule(discipline, 'matchTiebreakPoints', Number(e.target.value))} /></Field>
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', fontSize: '.82rem' }}>
+                <label style={{ display: 'flex', gap: '.3rem' }}><input type="checkbox" checked={r.finalSetMatchTiebreak} onChange={e => setMatchRule(discipline, 'finalSetMatchTiebreak', e.target.checked)} />Deciding set is a match tiebreak</label>
+                <label style={{ display: 'flex', gap: '.3rem' }}><input type="checkbox" checked={r.noAd} onChange={e => setMatchRule(discipline, 'noAd', e.target.checked)} />No-ad scoring</label>
+              </div>
+            </div>
+          );
+        })}
+        <p className="hint">Defaults reproduce KOC3 (mini-sets to 4, singles best-of-5, doubles best-of-3 with a 10-point deciding tiebreak).</p>
       </div>
 
       {/* 7. Playoffs */}

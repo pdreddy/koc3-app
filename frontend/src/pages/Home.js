@@ -200,6 +200,14 @@ export default function Home({ teams, schedule, matches = [], eligibilityRules =
 
   return (
     <main className="container" data-testid="public-home-page">
+      {club.bannerUrl && (
+        <img
+          src={club.bannerUrl}
+          alt={`${club.seasonName || 'Season'} banner`}
+          data-testid="home-season-banner"
+          style={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 12, marginBottom: '1rem' }}
+        />
+      )}
       <div className="page-title">
         <h1>{club.seasonName || 'KOC3 / PPRC Tennis'}</h1>
         <p>{club.publicViewNote || 'Public landing page: all league schedules are visible without login.'}</p>

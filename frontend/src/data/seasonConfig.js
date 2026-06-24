@@ -52,6 +52,7 @@ export const DEFAULT_CONFIG = {
     seasonName: 'KOC3 / PPRC Tennis',
     logoEmoji: '🏆',
     logoUrl: '',
+    bannerUrl: '',
     primaryColor: '#2563eb',
     accentColor: '#0ea5e9',
     publicViewEnabled: true,
@@ -97,7 +98,12 @@ export const DEFAULT_CONFIG = {
     pointsWin: 1,
     pointsLoss: 0,
     pointsForfeit: 0,
-    tiebreakOrder: ['points', 'sets', 'singlesWins', 'headToHead', 'games']
+    tiebreakOrder: ['points', 'sets', 'singlesWins', 'headToHead', 'games'],
+    // Per-discipline set-scoring rules that score validation enforces.
+    matchRules: {
+      singles: { setGames: 4, setsToWin: 3, setTiebreakPoints: 7, finalSetMatchTiebreak: false, matchTiebreakPoints: 10, noAd: false },
+      doubles: { setGames: 4, setsToWin: 2, setTiebreakPoints: 7, finalSetMatchTiebreak: true, matchTiebreakPoints: 10, noAd: false }
+    }
   },
   playoffs: {
     qualifyPerGroup: 2,
@@ -160,6 +166,18 @@ function normalizeLineFormats(lines, fallback) {
     miniSets: line?.miniSets !== false,
     finalSetTiebreak: !!line?.finalSetTiebreak
   }));
+}
+
+function normalizeDisciplineRules(rules, fallback) {
+  const r = { ...fallback, ...(rules || {}) };
+  return {
+    setGames: clampNumber(r.setGames, fallback.setGames, { min: 1, max: 12, integer: true }),
+    setsToWin: clampNumber(r.setsToWin, fallback.setsToWin, { min: 1, max: 5, integer: true }),
+    setTiebreakPoints: clampNumber(r.setTiebreakPoints, fallback.setTiebreakPoints, { min: 1, max: 30, integer: true }),
+    matchTiebreakPoints: clampNumber(r.matchTiebreakPoints, fallback.matchTiebreakPoints, { min: 1, max: 30, integer: true }),
+    finalSetMatchTiebreak: !!r.finalSetMatchTiebreak,
+    noAd: !!r.noAd
+  };
 }
 
 function normalizeTiebreakOrder(order, fallback) {
@@ -226,6 +244,7 @@ export function normalizeConfig(raw = {}) {
       seasonName: cleanString(club.seasonName, d.club.seasonName),
       logoEmoji: cleanString(club.logoEmoji, d.club.logoEmoji),
       logoUrl: cleanString(club.logoUrl, ''),
+      bannerUrl: cleanString(club.bannerUrl, ''),
       primaryColor: cleanString(club.primaryColor, d.club.primaryColor),
       accentColor: cleanString(club.accentColor, d.club.accentColor),
       publicViewEnabled: club.publicViewEnabled !== false,
@@ -252,7 +271,11 @@ export function normalizeConfig(raw = {}) {
       pointsWin: clampNumber(scoring.pointsWin, d.scoring.pointsWin, { min: 0 }),
       pointsLoss: clampNumber(scoring.pointsLoss, d.scoring.pointsLoss, { min: 0 }),
       pointsForfeit: clampNumber(scoring.pointsForfeit, d.scoring.pointsForfeit, { min: 0 }),
-      tiebreakOrder: normalizeTiebreakOrder(scoring.tiebreakOrder, d.scoring.tiebreakOrder)
+      tiebreakOrder: normalizeTiebreakOrder(scoring.tiebreakOrder, d.scoring.tiebreakOrder),
+      matchRules: {
+        singles: normalizeDisciplineRules(scoring.matchRules?.singles, d.scoring.matchRules.singles),
+        doubles: normalizeDisciplineRules(scoring.matchRules?.doubles, d.scoring.matchRules.doubles)
+      }
     },
     playoffs: {
       qualifyPerGroup: clampNumber(playoffs.qualifyPerGroup, d.playoffs.qualifyPerGroup, { min: 1, max: 16, integer: true }),
