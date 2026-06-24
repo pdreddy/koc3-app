@@ -48,6 +48,7 @@ function firebaseObjectToList(data, source) {
 
 function Shell() {
   const location = useLocation();
+  const { session, refreshTeamSession } = useAuth();
   const hideChrome = location.pathname === '/login';
   const [teams, setTeams] = useState({});
   const [matches, setMatches] = useState([]);
@@ -202,6 +203,14 @@ function Shell() {
     });
     return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubAU(); unsubR(); unsubS(); unsubSettings(); };
   }, []);
+
+  useEffect(() => {
+    if (session?.role !== ROLES.CAPTAIN || !session.teamId) return;
+    const currentTeam = teams?.[session.teamId];
+    if (currentTeam?.name && currentTeam.name !== session.teamName) {
+      refreshTeamSession(session.teamId, currentTeam.name);
+    }
+  }, [teams, session?.role, session?.teamId, session?.teamName, refreshTeamSession]);
 
   return (
     <div className="app-shell">

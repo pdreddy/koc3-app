@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { ref, set, update, remove, push } from 'firebase/database';
 import { db, PATHS } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -242,6 +242,14 @@ function TeamEditor({ team, matches = [] }) {
   const [savedMsg, setSavedMsg] = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const { session } = useAuth();
+
+  useEffect(() => {
+    setName(team.name || '');
+    setAbbr(team.abbreviation || '');
+    setPassword(team.password || '');
+    setGroup(team.group || 'A');
+    setPlayers(team.players || []);
+  }, [team]);
 
   const save = async () => {
     setSavedMsg('');
