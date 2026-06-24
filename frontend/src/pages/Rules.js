@@ -46,13 +46,32 @@ const ruleCards = [
     ]
   },
   {
-    num: '07', icon: '🏆', title: 'Playoffs',
+    num: '09', icon: '🏆', title: 'Playoffs',
     items: [
       ['7️⃣', 'Roster Usage', 'No 3–6 limit here — all 7 players play in semis and finals.'],
       ['🗓️', 'Windows', 'Semifinals: 5-day window. Finals: 10-day window.'],
       ['☀️', 'Extra Buffer', 'Extra buffer is included for summer and Labor Day weekend.']
     ]
   }
+];
+
+const matchDayRules = [
+  {
+    num: '07', icon: '⚡', title: 'No-Ad Scoring', accent: 'blue',
+    bullets: ['Deciding point at deuce.', 'Receiver chooses side (no 2-point advantage).']
+  },
+  {
+    num: '08', icon: '🤝', title: 'Conduct & Fair Play', accent: 'orange',
+    bullets: ['Players make their own line calls.', 'Disputes → Committee decision.', 'Respectful behavior is mandatory.'],
+    note: '⚠️ Misconduct = penalty.'
+  }
+];
+
+const matchDayFlow = [
+  ['1', 'Share Lineup', 'Captains post lines before play.'],
+  ['2', 'Play 5 Lines', 'Singles, doubles and reverse doubles.'],
+  ['3', 'Post Scores', 'Winning captain reports before Sunday morning.'],
+  ['4', 'Standings Update', 'Points, sets, games and head-to-head decide rank.']
 ];
 function RuleItem({ item }) {
   const [icon, label, value] = item;
@@ -73,6 +92,19 @@ function RuleCard({ card }) {
   );
 }
 
+function MatchDayRuleCard({ card }) {
+  return (
+    <article className={`rl-dark-card ${card.accent}`} data-testid={`matchday-rule-${card.num}`}>
+      <div className="rl-dark-head"><span className="rl-dark-num">{card.num}</span><span className="rl-dark-chip" aria-hidden="true">{card.icon}</span><h3>{card.title}</h3></div>
+      <div className="rl-dark-list">
+        {card.bullets.map(bullet => <div className="rl-dark-item" key={bullet}><span>🎾</span><p>{bullet}</p></div>)}
+      </div>
+      {card.note && <div className="rl-dark-note">{card.note}</div>}
+      <span className="rl-dark-watermark" aria-hidden="true">{card.num}</span>
+    </article>
+  );
+}
+
 export default function Rules() {
   return (
     <main className="container rules-page-shell" data-testid="rules-page">
@@ -83,6 +115,18 @@ export default function Rules() {
 
       <div className="rl-sec-head"><h2>The Rules</h2><div className="ln" /></div>
       <section className="rl-grid">{ruleCards.map(card => <RuleCard key={card.num} card={card} />)}</section>
+
+      <div className="rl-sec-head"><h2>Match Day</h2><div className="ln" /></div>
+      <section className="rl-dark-grid" data-testid="matchday-rules">
+        {matchDayRules.map(card => <MatchDayRuleCard key={card.num} card={card} />)}
+      </section>
+      <section className="rl-match-flow" data-testid="matchday-flow">
+        {matchDayFlow.map(([num, title, text]) => (
+          <div className="rl-flow-card" key={num}>
+            <b>{num}</b><strong>{title}</strong><small>{text}</small>
+          </div>
+        ))}
+      </section>
 
       <div className="rl-sec-head"><h2>Remember</h2><div className="ln" /></div>
       <section className="rl-flow rl-reminders">
