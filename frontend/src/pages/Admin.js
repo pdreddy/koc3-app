@@ -306,9 +306,12 @@ function TeamEditor({ team, matches = [] }) {
 
   return (
     <div className="card" data-testid={`admin-team-${team.abbreviation}`}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.6rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '.5rem', marginBottom: '.6rem', flexWrap: 'wrap' }}>
         <h2 style={{ margin: 0 }}>{name || team.name}</h2>
-        <span className={`team-grad-${team.gradient || 1} abbr`} style={{ color: '#fff', padding: '.25rem .6rem', borderRadius: 999, fontWeight: 800, fontSize: '.75rem' }}>{abbr}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', flexWrap: 'wrap' }}>
+          <span className={`team-grad-${team.gradient || 1} abbr`} style={{ color: '#fff', padding: '.25rem .6rem', borderRadius: 999, fontWeight: 800, fontSize: '.75rem' }}>{abbr}</span>
+          <button className="btn small success" onClick={save} data-testid={`admin-team-${team.abbreviation}-save-top`}>Save Team & Sync Names</button>
+        </div>
       </div>
 
       <div className="field">
