@@ -4,7 +4,7 @@ import { onValue, ref, set, get, update } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ROLES, hasRole } from './utils/roles';
-import { buildInitialTeams, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERS, normalizeAdminUsername } from './data/initialTeams';
+import { buildInitialTeams, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERS, LEGACY_RR_TEAM_NAMES, normalizeAdminUsername } from './data/initialTeams';
 import { buildUtrRatingsTable } from './data/utrRatings';
 import { sortByGroupOrder } from './data/auctionTeams';
 import { auctionPlayerRatingUpdates, buildAuctionPlayerRatingsTable } from './data/auctionPlayers';
@@ -100,6 +100,10 @@ function Shell() {
           });
           Object.assign(updates, canonicalTeamIdentityUpdates(teamsData));
           if (Object.keys(updates).length > 0) {
+            Object.entries(updates).forEach(([path, value]) => {
+              const [teamId, field] = path.split('/');
+              if (teamId && field && teamsData[teamId]) teamsData[teamId][field] = value;
+            });
             await update(ref(db, PATHS.teams), updates);
           }
         }
@@ -139,7 +143,10 @@ function Shell() {
         const sSnap = await get(ref(db, PATHS.schedule));
         const scheduleData = sSnap.val() || {};
         const scheduleMatches = Object.values(scheduleData).filter(item => item?.type !== 'buffer');
-        const shouldSeedSchedule = !sSnap.exists() || scheduleMatches.length === 0 || scheduleMatches.some(item => item?.scheduleVersion !== KOC3_SCHEDULE_VERSION);
+        const shouldSeedSchedule = !sSnap.exists() || scheduleMatches.length === 0 || scheduleMatches.some(item => (
+          item?.scheduleVersion !== KOC3_SCHEDULE_VERSION ||
+          [item?.team1, item?.team2].some(teamName => LEGACY_RR_TEAM_NAMES.includes(teamName))
+        ));
         if (shouldSeedSchedule) {
           const list = Object.values(buildInitialTeams()).map(canonical => ({
             ...canonical,
