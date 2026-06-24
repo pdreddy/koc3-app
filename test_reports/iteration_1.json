@@ -28,7 +28,7 @@
   "updated_files": [],
   "success_rate": {"backend": "N/A (skipped per request)", "frontend": "100% (17/17 scenarios)"},
   "test_credentials": "Admin: KOCPO#ADMIN. Team captain example used: Spin Kings (team3) password KOCSK#2. Full list in /app/memory/test_credentials.md.",
-  "seed_data_creation": "Created 1 test match (Spin Kings 3-0 Rally Royals, 12-6 games) and deleted it via admin Delete button at the end of the run, leaving history empty. Admin pwd and T16 name were temporarily modified then reverted to original values. No leftover test data in Firebase.",
+  "seed_data_creation": "Created 1 test match (Spin Kings 3-0 Rudra Racquets, 12-6 games) and deleted it via admin Delete button at the end of the run, leaving history empty. Admin pwd and T16 name were temporarily modified then reverted to original values. No leftover test data in Firebase.",
   "retest_needed": false,
   "main_agent_can_self_test": true,
   "context_for_next_testing_agent": "All major flows are working against live Firebase. If revisiting: be aware that the Firebase project rules currently allow public writes (intentional for now). The container cannot reach identitytoolkit.googleapis.com so signInAnonymously will always fail, but this does NOT block RTDB read/write today. data-testids in BottomNav, Login, Admin, ScoreEntry, History, Standings all match the spec in the review request.",

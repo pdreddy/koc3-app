@@ -1,5 +1,5 @@
 export const AUCTION_TEAMS = [
-  { id: 1, name: 'Rally Royals 👑', abbreviation: 'RR', captain: 'Yogesh Dhadge', totalSpent: 100000, moneyLeft: 0, players: [
+  { id: 1, name: 'Rudra Racquets', abbreviation: 'RR', captain: 'Yogesh Dhadge', totalSpent: 100000, moneyLeft: 0, players: [
     ['Yogesh Dhadge',6,5.89,20000,20000,true], ['Raghu Ram',3,'',5000,8000,false], ['Damodhara Palavali',3.5,4.26,6000,14000,false], ['Naveenkumar Mohanram',4,4.7,8000,8000,false], ['Sandeep Gengineri',4.5,4.34,10000,24000,false], ['Ninad Mahajan',5,5.2,12000,12000,false], ['Praveenkumar Vijayakumar',5.5,5.9,14000,14000,false]
   ]},
   { id: 2, name: "Karna's Crusaders ⚔️", abbreviation: 'KC', captain: 'Srikant Tenni', totalSpent: 100000, moneyLeft: 0, players: [
