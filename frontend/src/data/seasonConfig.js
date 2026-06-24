@@ -5,7 +5,10 @@
 // is persisted to Firebase. DEFAULT_CONFIG reproduces the current KOC3 season so
 // the app runs out-of-the-box if an organizer changes nothing.
 
-export const CONFIG_SCHEMA_VERSION = 1;
+import { normalizeModules } from '../domain/featureFlags';
+import { getSport, DEFAULT_SPORT_ID } from '../domain/sports';
+
+export const CONFIG_SCHEMA_VERSION = 2;
 
 export const RATING_TYPES = ['UTR', 'NTRP', 'CUSTOM', 'NONE'];
 export const FORMAT_TYPES = ['round_robin', 'knockout', 'groups_playoffs', 'ladder', 'swiss'];
@@ -36,6 +39,13 @@ function defaultUtrTiers() {
 export const DEFAULT_CONFIG = {
   schemaVersion: CONFIG_SCHEMA_VERSION,
   seasonId: 'koc3',
+  // Multi-tenant anchor (Club → Season). Single club/season today; the shape
+  // exists so additional clubs/seasons never require a rewrite.
+  tenant: { clubId: 'koc', seasonId: 'koc3' },
+  // Sport-agnostic core: which sport's scoring/disciplines apply.
+  sport: 'tennis',
+  // Optional modules, OFF by default (see domain/featureFlags.js).
+  modules: { auction: false, payments: false, social: false, computedRating: false },
   club: {
     name: 'KOC3',
     tagline: 'Tennis League',
@@ -198,10 +208,18 @@ export function normalizeConfig(raw = {}) {
     lineFormats: normalizeLineFormats(format.lineFormats, d.format.lineFormats)
   };
 
+  const tenant = { ...d.tenant, ...(raw.tenant || {}) };
+
   return {
     schemaVersion: CONFIG_SCHEMA_VERSION,
     seasonId: cleanString(raw.seasonId, d.seasonId),
     updatedAt: raw.updatedAt || null,
+    tenant: {
+      clubId: cleanString(tenant.clubId, d.tenant.clubId),
+      seasonId: cleanString(tenant.seasonId, cleanString(raw.seasonId, d.tenant.seasonId))
+    },
+    sport: getSport(raw.sport).id || DEFAULT_SPORT_ID,
+    modules: normalizeModules(raw.modules),
     club: {
       name: cleanString(club.name, d.club.name),
       tagline: cleanString(club.tagline, d.club.tagline),

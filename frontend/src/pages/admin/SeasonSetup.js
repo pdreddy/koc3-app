@@ -1,11 +1,13 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { ref, set, update, push, onValue, remove } from 'firebase/database';
-import { db, PATHS } from '../../firebase';
+import { dal, configRepo, templatesRepo, pathsFor, DEFAULT_TENANT } from '../../data/dataAccess';
 import {
   normalizeConfig, DEFAULT_CONFIG, RATING_TYPES, FORMAT_TYPES,
   ROSTER_ASSIGNMENT_MODES, TIEBREAK_KEYS, configToTemplate, eligibilityRulesFromConfig
 } from '../../data/seasonConfig';
 import { evaluateSetupHealth } from '../../utils/setupHealth';
+import { listSports } from '../../domain/sports';
+import { listModules } from '../../domain/featureFlags';
+import { getFormatStrategy } from '../../domain/formats';
 
 const FORMAT_LABELS = {
   round_robin: 'Round-robin',
@@ -69,7 +71,7 @@ export default function SeasonSetup({ config, teams, playerRatings }) {
   }, [config, dirty]);
 
   useEffect(() => {
-    const unsub = onValue(ref(db, PATHS.seasonTemplates), snap => setTemplates(snap.val() || {}));
+    const unsub = templatesRepo().subscribe(value => setTemplates(value || {}));
     return () => unsub();
   }, []);
 
@@ -83,10 +85,10 @@ export default function SeasonSetup({ config, teams, playerRatings }) {
   const saveAll = async () => {
     const normalized = normalizeConfig({ ...draft, updatedAt: Date.now() });
     try {
-      await set(ref(db, PATHS.config), normalized);
+      await configRepo().write(normalized);
       // Keep the legacy eligibility-rules settings in sync so ScoreEntry and the
       // captain capacity tools (existing working features) keep functioning.
-      await update(ref(db, PATHS.settings), { eligibilityRules: eligibilityRulesFromConfig(normalized) });
+      await dal.patch(pathsFor(DEFAULT_TENANT).settings, { eligibilityRules: eligibilityRulesFromConfig(normalized) });
       setDirty(false);
       setDraft(normalized);
       setMsg('✅ Season configuration saved');
@@ -105,7 +107,7 @@ export default function SeasonSetup({ config, teams, playerRatings }) {
   const saveAsTemplate = async () => {
     try {
       const record = configToTemplate(draft, templateName || draft.club.seasonName);
-      await push(ref(db, PATHS.seasonTemplates), record);
+      await templatesRepo().add(record);
       setTemplateName('');
       setMsg('✅ Saved as reusable template');
       setTimeout(() => setMsg(''), 2500);
@@ -124,7 +126,7 @@ export default function SeasonSetup({ config, teams, playerRatings }) {
 
   const deleteTemplate = async (id) => {
     if (!window.confirm('Delete this template?')) return;
-    await remove(ref(db, `${PATHS.seasonTemplates}/${id}`));
+    await templatesRepo().removeOne(id);
   };
 
   // ---- Rating tiers --------------------------------------------------------
@@ -170,6 +172,10 @@ export default function SeasonSetup({ config, teams, playerRatings }) {
   };
 
   const templateList = Object.entries(templates || {});
+  const toggleModule = (id, on) => setDraft(prev => { setDirty(true); return { ...prev, modules: { ...prev.modules, [id]: on } }; });
+  const setSport = (sport) => setDraft(prev => { setDirty(true); return { ...prev, sport }; });
+  const setTenant = (values) => setDraft(prev => { setDirty(true); return { ...prev, tenant: { ...prev.tenant, ...values } }; });
+  const formatStrategy = getFormatStrategy(draft.format.type);
 
   return (
     <div data-testid="season-setup">
@@ -375,6 +381,34 @@ export default function SeasonSetup({ config, teams, playerRatings }) {
           <input type="checkbox" checked={draft.roster.captainExcludedFromPool} onChange={e => patch('roster', { captainExcludedFromPool: e.target.checked })} />
           <span>Captain auto-excluded from the draftable pool</span>
         </label>
+      </div>
+
+      {/* Platform: sport, tenant, feature-flag modules */}
+      <div className="card" data-testid="setup-platform">
+        <h2>⚙️ Platform &amp; Modules</h2>
+        <div className="row">
+          <Field label="Sport" hint="Scoring & disciplines adapt to the sport">
+            <select className="select" value={draft.sport} onChange={e => setSport(e.target.value)} data-testid="setup-sport">
+              {listSports().map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+            </select>
+          </Field>
+          <Field label="Club ID" hint="Multi-tenant anchor"><input className="input" value={draft.tenant.clubId} onChange={e => setTenant({ clubId: e.target.value })} data-testid="setup-club-id" /></Field>
+          <Field label="Season ID"><input className="input" value={draft.tenant.seasonId} onChange={e => setTenant({ seasonId: e.target.value })} data-testid="setup-season-id" /></Field>
+        </div>
+        <p className="hint" style={{ marginTop: '.2rem' }}>Active format strategy: <strong>{formatStrategy.label}</strong> — {formatStrategy.describe(draft)}</p>
+
+        <div className="field-label" style={{ marginTop: '.6rem' }}>Optional Modules (off by default)</div>
+        <div style={{ display: 'grid', gap: '.45rem' }}>
+          {listModules().map(m => (
+            <label key={m.id} style={{ display: 'flex', gap: '.55rem', alignItems: 'flex-start', borderBottom: '1px solid var(--ring)', paddingBottom: '.4rem' }} data-testid={`setup-module-${m.id}`}>
+              <input type="checkbox" checked={!!draft.modules[m.id]} onChange={e => toggleModule(m.id, e.target.checked)} style={{ marginTop: '.2rem' }} />
+              <span>
+                <strong>{m.label}</strong>
+                <div className="muted" style={{ fontSize: '.74rem' }}>{m.description}</div>
+              </span>
+            </label>
+          ))}
+        </div>
       </div>
 
       {/* Templates / Multi-season */}

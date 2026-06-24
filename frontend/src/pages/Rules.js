@@ -1,5 +1,6 @@
 import React from 'react';
 import { normalizeConfig } from '../data/seasonConfig';
+import { printElementAsPdf } from '../utils/exporters';
 
 // Operational rule cards that are not derived from config (lines, scheduling,
 // scores, weather, postponement). Participation, format, scoring and playoffs
@@ -134,11 +135,21 @@ export default function Rules({ config }) {
   const { participationCard, formatCard, scoringCard, playoffsCard } = buildCardsFromConfig(cfg);
   const cards = [participationCard, formatCard, scoringCard, ...staticCards, playoffsCard];
 
+  const exportToPdf = () => {
+    const html = `<h1>${cfg.club.seasonName} — Rules &amp; Format</h1>` + cards.map(card => `
+      <h2>${card.icon} ${card.title}</h2>
+      <ul>${card.items.map(item => `<li><strong>${item[1]}:</strong> ${item[2]}</li>`).join('')}</ul>`).join('');
+    printElementAsPdf(`${cfg.club.seasonName} Rules`, html);
+  };
+
   return (
     <main className="container" data-testid="rules-page">
       <div className="page-title">
         <h1>Rules &amp; Format</h1>
         <p>Welcome to {cfg.club.seasonName}! Quick rundown before Week 1 — participation, format, scoring, weather and playoffs.</p>
+      </div>
+      <div style={{ display: 'flex', gap: '.4rem', marginBottom: '.6rem' }}>
+        <button className="btn small ghost" onClick={exportToPdf} data-testid="rules-export-pdf">🖨️ Export PDF</button>
       </div>
 
       <div className="rl-sec-head"><h2>The Rules</h2><div className="ln" /></div>

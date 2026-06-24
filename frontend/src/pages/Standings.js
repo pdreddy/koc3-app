@@ -2,6 +2,7 @@ import React from 'react';
 import { resolveMatchTeams, matchWinnerId } from '../utils/matchTeams';
 import { isApprovedMatch } from '../utils/matchStatus';
 import { normalizeConfig, TIEBREAK_KEYS } from '../data/seasonConfig';
+import { exportCsv, standingsToCsv, printElementAsPdf } from '../utils/exporters';
 
 function statsForGroup(teamsInGroup, matches, allTeams, scoring) {
   const groupIds = new Set(teamsInGroup.map(t => t.id));
@@ -127,6 +128,18 @@ export default function Standings({ teams, matches, config }) {
     return { id, rows: statsForGroup(rows, matches, teams, scoring) };
   });
 
+  const exportToCsv = () => {
+    const { headers, rows } = standingsToCsv(groups);
+    exportCsv(`${cfg.club.name || 'standings'}-standings.csv`, headers, rows);
+  };
+  const exportToPdf = () => {
+    const tables = groups.map(g => `
+      <h2>Group ${g.id}</h2>
+      <table><thead><tr><th>#</th><th>Team</th><th>M</th><th>W</th><th>L</th><th>SW</th><th>SL</th><th>SingW</th><th>G±</th><th>Pts</th></tr></thead>
+      <tbody>${g.rows.map((r, i) => `<tr><td>${i + 1}</td><td>${r.team} (${r.abbr})</td><td>${r.matches}</td><td>${r.wins}</td><td>${r.losses}</td><td>${r.setsFor}</td><td>${r.setsAgainst}</td><td>${r.singlesWins}</td><td>${r.gameDiff}</td><td>${r.points}</td></tr>`).join('')}</tbody></table>`).join('');
+    printElementAsPdf(`${cfg.club.seasonName} Standings`, `<h1>${cfg.club.seasonName} — Standings</h1>${tables}<p class="muted">Sort: ${(scoring.tiebreakOrder || []).map(k => TIEBREAK_KEYS[k] || k).join(' → ')}</p>`);
+  };
+
   const tiebreakSummary = (scoring.tiebreakOrder || []).map(key => TIEBREAK_KEYS[key] || key).join(' → ');
   const subtitle = cfg.format.type === 'groups_playoffs'
     ? `${groups.length} group${groups.length === 1 ? '' : 's'} · Top ${qualifyTop} from each group qualify for the playoffs`
@@ -137,6 +150,10 @@ export default function Standings({ teams, matches, config }) {
       <div className="page-title">
         <h1>Standings</h1>
         <p>{subtitle}</p>
+      </div>
+      <div style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap', marginBottom: '.6rem' }}>
+        <button className="btn small ghost" onClick={exportToCsv} data-testid="standings-export-csv">⬇️ Export CSV</button>
+        <button className="btn small ghost" onClick={exportToPdf} data-testid="standings-export-pdf">🖨️ Export PDF</button>
       </div>
       <div className="groups-grid">
         {groups.map(g => <GroupTable key={g.id} label={g.id} rows={g.rows} qualifyTop={qualifyTop} />)}

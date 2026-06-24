@@ -4,6 +4,7 @@ import { onValue, ref, set, get, update } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ROLES, hasRole } from './utils/roles';
+import { can, CAP } from './utils/permissions';
 import { buildInitialTeams, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERS, normalizeAdminUsername } from './data/initialTeams';
 import { buildUtrRatingsTable } from './data/utrRatings';
 import { sortByGroupOrder } from './data/auctionTeams';
@@ -11,6 +12,7 @@ import { auctionPlayerRatingUpdates, buildAuctionPlayerRatingsTable } from './da
 import { buildScheduleFor8x2, KOC3_SCHEDULE_VERSION } from './utils/roundRobin';
 import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from './utils/eligibilityRules';
 import { DEFAULT_CONFIG, normalizeConfig } from './data/seasonConfig';
+import { runMigrations } from './data/migrations';
 
 import BottomNav from './components/BottomNav';
 import AppHeader from './components/Header';
@@ -145,6 +147,10 @@ function Shell() {
         const configSnap = await get(ref(db, PATHS.config));
         if (!configSnap.exists()) {
           await set(ref(db, PATHS.config), DEFAULT_CONFIG);
+        } else {
+          // Versioned config: run migrations so older seasons upgrade safely.
+          const { config: migrated, changed } = runMigrations(configSnap.val() || {});
+          if (changed) await set(ref(db, PATHS.config), normalizeConfig(migrated));
         }
 
         const rSnap = await get(ref(db, PATHS.playerRatings));
@@ -316,7 +322,7 @@ function ProtectedRoles({ allowed, next, children }) {
 
 function ProtectedTeam({ children }) {
   const { session } = useAuth();
-  if (!hasRole(session, [ROLES.CAPTAIN, ROLES.ADMIN, ROLES.SUPER_ADMIN])) {
+  if (!can(session, CAP.ENTER_SCORE)) {
     return <Navigate to="/login" replace state={{ next: '/score' }} />;
   }
   return children;
@@ -324,7 +330,7 @@ function ProtectedTeam({ children }) {
 
 function ProtectedAdmin({ children }) {
   const { session } = useAuth();
-  if (!hasRole(session, [ROLES.ADMIN, ROLES.SUPER_ADMIN])) {
+  if (!can(session, CAP.EDIT_CONFIG)) {
     return <Navigate to="/login" replace state={{ next: '/admin' }} />;
   }
   return children;
