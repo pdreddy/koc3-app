@@ -25,7 +25,6 @@ import Rules from './pages/Rules';
 import Schedule from './pages/Schedule';
 import Matchups from './pages/Matchups';
 import More from './pages/More';
-import PtlRatings from './pages/PtlRatings';
 import AuditLogs from './pages/AuditLogs';
 import { writeAuditLog } from './services/AuditService';
 
@@ -226,7 +225,7 @@ function Shell() {
         <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} />} />
         <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />
         <Route path="/matchups" element={<Matchups matches={matches} teams={teams} />} />
-        <Route path="/ptl" element={<PtlRatings matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} teams={teams} ratingLookup={playerRatings} />} />
+        <Route path="/ptl" element={<Navigate to="/more" replace />} />
         <Route path="/history" element={<History matches={matches} teams={teams} onMatchDeleted={syncDeletedMatch} />} />
         <Route path="/rules" element={<Rules />} />
         <Route path="/more" element={<More />} />
