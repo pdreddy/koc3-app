@@ -168,7 +168,7 @@ function formatMatchShareText(match) {
   return `${team1Abbr} vs ${team2Abbr}\n\n${lines.join('\n\n')}\n\nFinal: ${winnerAbbr} won ${match.courtsWon1}-${match.courtsWon2}`;
 }
 
-function ShareResultPreview({ text }) {
+function ShareResultPreview({ text, compact = false }) {
   const [copied, setCopied] = useState(false);
   if (!text) return null;
   const whatsappHref = `https://wa.me/?text=${encodeURIComponent(text)}`;
@@ -178,7 +178,7 @@ function ShareResultPreview({ text }) {
     setTimeout(() => setCopied(false), 1800);
   };
   return (
-    <div className="card" data-testid="result-share-preview">
+    <div className={compact ? 'share-preview-panel' : 'card'} data-testid="result-share-preview">
       <h2>📤 WhatsApp-friendly result preview</h2>
       <pre className="hint" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{text}</pre>
       <div className="row" style={{ marginTop: '.8rem' }}>
@@ -189,6 +189,35 @@ function ShareResultPreview({ text }) {
           Share on WhatsApp
         </a>
       </div>
+    </div>
+  );
+}
+
+function ResultPreviewModal({ text, saving, onConfirm, onCancel, confirmTestId, cancelTestId, modalTestId }) {
+  if (!text) return null;
+  return (
+    <div className="score-modal-backdrop" role="presentation">
+      <section className="score-modal" role="dialog" aria-modal="true" aria-labelledby={`${modalTestId}-title`} data-testid={modalTestId}>
+        <div className="score-modal-head">
+          <div>
+            <p className="score-modal-kicker">Preview before saving</p>
+            <h2 id={`${modalTestId}-title`}>Copy/share result, then confirm DB save</h2>
+          </div>
+          <button type="button" className="btn small ghost" onClick={onCancel} disabled={saving} aria-label="Close preview dialog">
+            ✕
+          </button>
+        </div>
+        <p className="hint">Review this WhatsApp-friendly message first. Use Copy or WhatsApp share, then confirm only when you are ready to write the result to Firebase.</p>
+        <ShareResultPreview text={text} compact />
+        <div className="score-modal-actions">
+          <button className="btn success full" onClick={onConfirm} disabled={saving} data-testid={confirmTestId}>
+            {saving ? 'Saving...' : 'Confirm & Save to DB'}
+          </button>
+          <button className="btn ghost full" onClick={onCancel} disabled={saving} data-testid={cancelTestId}>
+            Cancel
+          </button>
+        </div>
+      </section>
     </div>
   );
 }
@@ -936,20 +965,16 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
 
       {error && <div className="error-box" data-testid="score-error" style={{ whiteSpace: 'pre-line' }}>{error}</div>}
       {success && <div className="success-box" data-testid="score-success">{success}</div>}
-      <ShareResultPreview text={shareText} />
       {pendingRecord && (
-        <div className="card" data-testid="score-save-confirmation">
-          <h2>Confirm database save</h2>
-          <p className="hint">Please copy or share the WhatsApp preview above, then confirm when you are ready to save this result to the database.</p>
-          <div className="row">
-            <button className="btn success full" onClick={confirmSave} disabled={saving} data-testid="confirm-save-db-btn">
-              {saving ? 'Saving...' : 'Confirm & Save to DB'}
-            </button>
-            <button className="btn ghost full" onClick={() => { setPendingRecord(null); setShareText(''); setSuccess(''); }} disabled={saving} data-testid="cancel-save-db-btn">
-              Cancel
-            </button>
-          </div>
-        </div>
+        <ResultPreviewModal
+          text={shareText}
+          saving={saving}
+          onConfirm={confirmSave}
+          onCancel={() => { setPendingRecord(null); setShareText(''); setSuccess(''); }}
+          confirmTestId="confirm-save-db-btn"
+          cancelTestId="cancel-save-db-btn"
+          modalTestId="score-save-confirmation-modal"
+        />
       )}
 
       <div className="card score-teams-card">
@@ -1265,20 +1290,16 @@ Final: KC won 3-2`;
     <>
       {error && <div className="error-box" data-testid="quick-error" style={{ whiteSpace: 'pre-line' }}>{error}</div>}
       {success && <div className="success-box" data-testid="quick-success">{success}</div>}
-      <ShareResultPreview text={shareText} />
       {pendingRecord && (
-        <div className="card" data-testid="quick-save-confirmation">
-          <h2>Confirm database save</h2>
-          <p className="hint">Please copy or share the WhatsApp preview above, then confirm when you are ready to save this result to the database.</p>
-          <div className="row">
-            <button className="btn success full" onClick={confirmSave} disabled={saving} data-testid="quick-confirm-save-db-btn">
-              {saving ? 'Saving...' : 'Confirm & Save to DB'}
-            </button>
-            <button className="btn ghost full" onClick={() => { setPendingRecord(null); setShareText(''); setSuccess(''); }} disabled={saving} data-testid="quick-cancel-save-db-btn">
-              Cancel
-            </button>
-          </div>
-        </div>
+        <ResultPreviewModal
+          text={shareText}
+          saving={saving}
+          onConfirm={confirmSave}
+          onCancel={() => { setPendingRecord(null); setShareText(''); setSuccess(''); }}
+          confirmTestId="quick-confirm-save-db-btn"
+          cancelTestId="quick-cancel-save-db-btn"
+          modalTestId="quick-save-confirmation-modal"
+        />
       )}
 
       <div className="card score-teams-card">
