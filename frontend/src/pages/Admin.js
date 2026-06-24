@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { ref, set, update, remove, push } from 'firebase/database';
 import { db, PATHS } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
+import { ScoreProcessingService } from '../services/ScoreProcessingService';
 import { buildScheduleFor8x2 } from '../utils/roundRobin';
 import { UTR_RATINGS, matchUtrRating, normalizeNameKey, suggestUtrMatches } from '../data/utrRatings';
 import { groupInfoForTeamId, normalizeAuctionTeam, sortByGroupOrder } from '../data/auctionTeams';
@@ -140,6 +142,50 @@ function NameMappingAdmin({ teams, matches, previousMatches, playerRatings }) {
   );
 }
 
+
+function applyNameRenamesToMatch(match, team, payload, playerRenameMap) {
+  let changed = false;
+  const next = { ...(match || {}) };
+  const oldTeamName = String(team.name || '').trim();
+  const newTeamName = String(payload.name || '').trim();
+
+  if ((next.t1Id === team.id || next.t1 === oldTeamName) && next.t1 !== newTeamName) {
+    next.t1 = newTeamName;
+    changed = true;
+  }
+  if ((next.t2Id === team.id || next.t2 === oldTeamName) && next.t2 !== newTeamName) {
+    next.t2 = newTeamName;
+    changed = true;
+  }
+  if (next.win === oldTeamName && newTeamName) {
+    next.win = newTeamName;
+    changed = true;
+  }
+  if (next.winner === oldTeamName && newTeamName) {
+    next.winner = newTeamName;
+    changed = true;
+  }
+
+  if (Array.isArray(next.lines) && Object.keys(playerRenameMap).length > 0) {
+    const lines = next.lines.map(line => {
+      let lineChanged = false;
+      const players = { ...(line.players || {}) };
+      ['team1', 'team2'].forEach(side => {
+        if (!Array.isArray(players[side])) return;
+        const renamed = players[side].map(name => playerRenameMap[name] || name);
+        if (renamed.some((name, idx) => name !== players[side][idx])) lineChanged = true;
+        players[side] = renamed;
+      });
+      if (!lineChanged) return line;
+      changed = true;
+      return { ...line, players };
+    });
+    next.lines = lines;
+  }
+
+  return changed ? next : null;
+}
+
 function TeamJsonImporter() {
   const [msg, setMsg] = useState('');
 
@@ -187,7 +233,7 @@ function TeamJsonImporter() {
   );
 }
 
-function TeamEditor({ team }) {
+function TeamEditor({ team, matches = [] }) {
   const [name, setName] = useState(team.name);
   const [abbr, setAbbr] = useState(team.abbreviation);
   const [password, setPassword] = useState(team.password || '');
@@ -195,30 +241,51 @@ function TeamEditor({ team }) {
   const [players, setPlayers] = useState(team.players || []);
   const [savedMsg, setSavedMsg] = useState('');
   const [showPwd, setShowPwd] = useState(false);
+  const { session } = useAuth();
 
   const save = async () => {
     setSavedMsg('');
     if (!name.trim() || !abbr.trim()) { setSavedMsg('Name and abbreviation are required'); return; }
     if (!password.trim()) { setSavedMsg('Password required'); return; }
+    const normalizedPlayers = players.filter(p => (p.name || '').trim()).map(p => {
+      const utr = Number(p.utr);
+      const cleanUtr = p.utr === '' || p.utr == null || !Number.isFinite(utr) ? '' : utr;
+      return {
+        ...p,
+        name: p.name.trim(),
+        isCaptain: !!p.isCaptain,
+        utr: cleanUtr,
+        actualUtr: p.actualUtr ?? cleanUtr
+      };
+    });
+    const captain = normalizedPlayers.find(p => p.isCaptain)?.name || team.captain || '';
     const payload = {
       ...team,
       name: name.trim(),
       abbreviation: abbr.trim().toUpperCase(),
       password: password.trim(),
       group,
-      players: players.filter(p => (p.name || '').trim()).map(p => {
-        const utr = Number(p.utr);
-        return {
-          name: p.name.trim(),
-          isCaptain: !!p.isCaptain,
-          utr: p.utr === '' || p.utr == null || !Number.isFinite(utr) ? '' : utr
-        };
-      })
+      captain,
+      players: normalizedPlayers,
+      updatedAt: Date.now()
     };
+    const playerRenameMap = {};
+    normalizedPlayers.forEach((player, idx) => {
+      const oldName = String((team.players || [])[idx]?.name || '').trim();
+      if (oldName && oldName !== player.name) playerRenameMap[oldName] = player.name;
+    });
+    const updates = { [`${PATHS.teams}/${team.id}`]: payload };
+    (matches || []).forEach(match => {
+      const renamedMatch = applyNameRenamesToMatch(match, team, payload, playerRenameMap);
+      if (renamedMatch?.id) updates[`${PATHS.matches}/${renamedMatch.id}`] = { ...renamedMatch, updatedAt: Date.now(), nameSyncBy: session?.userId || session?.role || 'admin' };
+    });
     try {
-      await set(ref(db, `${PATHS.teams}/${team.id}`), payload);
-      setSavedMsg('✅ Saved');
-      setTimeout(() => setSavedMsg(''), 2000);
+      await update(ref(db), updates);
+      await ScoreProcessingService.processMatchResult(null, { session, write: true });
+      const renamedPlayers = Object.keys(playerRenameMap).length;
+      const renamedMatches = Object.keys(updates).filter(path => path.startsWith(`${PATHS.matches}/`)).length;
+      setSavedMsg(`✅ Saved and synced ${renamedPlayers} player rename${renamedPlayers === 1 ? '' : 's'} across ${renamedMatches} match record${renamedMatches === 1 ? '' : 's'}`);
+      setTimeout(() => setSavedMsg(''), 3000);
     } catch (e) {
       setSavedMsg('Save failed: ' + e.message);
     }
@@ -310,9 +377,10 @@ function TeamEditor({ team }) {
         </button>
       </div>
 
+      <p className="hint">Saving syncs team/player name changes into existing match records and recalculates standings, ratings, histories, eligibility, and dashboard summaries.</p>
       {savedMsg && <div className={savedMsg.startsWith('✅') ? 'success-box' : 'error-box'}>{savedMsg}</div>}
 
-      <button className="btn full success" onClick={save} data-testid={`admin-team-${team.abbreviation}-save`}>Save Team</button>
+      <button className="btn full success" onClick={save} data-testid={`admin-team-${team.abbreviation}-save`}>Save Team & Sync Names</button>
     </div>
   );
 }
@@ -531,7 +599,7 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
       {tab === 'teams' && (
         <>
           <TeamJsonImporter />
-          {teamList.map(t => <TeamEditor key={t.id} team={t} />)}
+          {teamList.map(t => <TeamEditor key={t.id} team={t} matches={matches} />)}
         </>
       )}
 
