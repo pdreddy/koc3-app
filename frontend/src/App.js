@@ -76,6 +76,7 @@ function Shell() {
   const [settings, setSettings] = useState({ eligibilityRules: DEFAULT_ELIGIBILITY_RULES });
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [players, setPlayers] = useState({});
+  const [joinRequests, setJoinRequests] = useState({});
   const [loaded, setLoaded] = useState(false);
 
 
@@ -234,7 +235,10 @@ function Shell() {
     const unsubPlayers = onValue(ref(db, PATHS.players), (snap) => {
       setPlayers(snap.val() || {});
     });
-    return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubAU(); unsubR(); unsubS(); unsubSettings(); unsubConfig(); unsubPlayers(); };
+    const unsubJoin = onValue(ref(db, PATHS.joinRequests), (snap) => {
+      setJoinRequests(snap.val() || {});
+    });
+    return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubAU(); unsubR(); unsubS(); unsubSettings(); unsubConfig(); unsubPlayers(); unsubJoin(); };
   }, []);
 
   useEffect(() => {
@@ -263,7 +267,7 @@ function Shell() {
       {!hideChrome && <AppHeader config={config} />}
       <Routes>
         <Route path="/" element={<Home teams={teams} schedule={schedule} matches={matches} eligibilityRules={settings.eligibilityRules} config={config} />} />
-        <Route path="/register" element={<Register teams={teams} players={players} />} />
+        <Route path="/register" element={<Register teams={teams} players={players} joinRequests={joinRequests} />} />
         <Route path="/teams" element={<Teams teams={teams} loaded={loaded} />} />
         <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} />} />
         <Route path="/standings" element={<Standings teams={teams} matches={matches} config={config} />} />
@@ -285,7 +289,7 @@ function Shell() {
         } />
         <Route path="/admin" element={
           <ProtectedAdmin>
-            <Admin teams={teams} adminConfig={adminConfig} matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} schedule={schedule} playerRatings={playerRatings} settings={settings} config={config} />
+            <Admin teams={teams} adminConfig={adminConfig} matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} schedule={schedule} playerRatings={playerRatings} settings={settings} config={config} players={players} joinRequests={joinRequests} />
           </ProtectedAdmin>
         } />
         <Route path="*" element={<Navigate to="/teams" replace />} />
@@ -301,7 +305,7 @@ function ActivityAudit() {
   const lastEvent = useRef('');
 
   useEffect(() => {
-    if (hasRole(session, [ROLES.GUEST])) return;
+    if (hasRole(session, [ROLES.GUEST, ROLES.PLAYER])) return;
     const path = `${location.pathname}${location.search || ''}`;
     const actor = session?.teamId || session?.userId || session?.role || 'unknown';
     const eventKey = `${actor}:${path}`;

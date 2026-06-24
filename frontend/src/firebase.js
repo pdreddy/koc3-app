@@ -1,5 +1,5 @@
 import { getApps, initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously } from 'firebase/auth';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 
 function envOrDefault(name, fallback) {
@@ -30,14 +30,33 @@ export const app = getApps().find(existingApp => existingApp.name === appName) |
 export const auth = getAuth(app);
 export const db = getDatabase(app, databaseURL);
 
-let authPromise = null;
+// Auth model: the app needs an authenticated session for DB access. Guests use
+// anonymous auth; players sign in with email/password (Firebase Auth). A single
+// persistent watcher guarantees there's always a user — when a player signs out,
+// it transparently restores anonymous access so public reads keep working.
+let authReady = null;
+let watcherStarted = false;
+
+function startAuthWatcher() {
+  if (watcherStarted) return;
+  watcherStarted = true;
+  onAuthStateChanged(auth, user => {
+    if (!user) {
+      signInAnonymously(auth).catch(err => console.error('Anonymous auth failed', err));
+    }
+  });
+}
+
 export function ensureAuth() {
-  if (!authPromise) {
-    authPromise = signInAnonymously(auth).catch(err => {
-      console.error('Anonymous auth failed', err);
+  if (!authReady) {
+    startAuthWatcher();
+    authReady = new Promise(resolve => {
+      const unsub = onAuthStateChanged(auth, user => {
+        if (user) { resolve(user); unsub(); }
+      });
     });
   }
-  return authPromise;
+  return authReady;
 }
 
 // Firebase RTDB paths
@@ -52,6 +71,7 @@ export const PATHS = {
   config: 'koc_s3/config',               // Config-driven season definition
   seasonTemplates: 'koc_s3/seasonTemplates', // Reusable "clone last season" templates
   players: 'koc_s3/players',             // Persistent player profiles (self-registration)
+  joinRequests: 'koc_s3/joinRequests',   // Player requests to join a team (admin approves)
   standings: 'koc_s3/standings',
   pprcRatings: 'koc_s3/pprcRatings',
   playerHistory: 'koc_s3/playerHistory',

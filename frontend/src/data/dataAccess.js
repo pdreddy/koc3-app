@@ -109,6 +109,18 @@ export function playersRepo(ctx = DEFAULT_TENANT) {
   };
 }
 
+export function joinRequestsRepo(ctx = DEFAULT_TENANT) {
+  const path = pathsFor(ctx).joinRequests;
+  return {
+    path,
+    readAll: () => dal.read(path),
+    add: (record) => dal.pushChild(path, record),
+    updateOne: (id, partial) => dal.patch(`${path}/${id}`, partial),
+    removeOne: (id) => dal.removePath(`${path}/${id}`),
+    subscribe: (cb, err) => dal.subscribe(path, cb, err)
+  };
+}
+
 export function templatesRepo(ctx = DEFAULT_TENANT) {
   const path = pathsFor(ctx).seasonTemplates;
   return {

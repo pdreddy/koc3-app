@@ -8,6 +8,7 @@ import { UTR_RATINGS, matchUtrRating, normalizeNameKey, suggestUtrMatches } from
 import { groupInfoForTeamId, normalizeAuctionTeam, sortByGroupOrder } from '../data/auctionTeams';
 import { normalizeEligibilityRules } from '../utils/eligibilityRules';
 import SeasonSetup from './admin/SeasonSetup';
+import { playersRepo, joinRequestsRepo } from '../data/dataAccess';
 
 
 function ratingRowId(row) {
@@ -550,7 +551,74 @@ function ScheduleEditor({ schedule, teams }) {
   );
 }
 
-export default function Admin({ teams, adminConfig, matches, previousMatches = [], schedule, playerRatings = {}, settings = {}, config }) {
+function RegistrationsAdmin({ teams, players = {}, joinRequests = {} }) {
+  const [msg, setMsg] = useState('');
+  const requests = Object.entries(joinRequests || {}).map(([id, r]) => ({ id, ...r }));
+  const pending = requests.filter(r => r.status === 'pending').sort((a, b) => (a.requestedAt || 0) - (b.requestedAt || 0));
+  const registered = Object.values(players || {}).filter(p => p.authUid).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+  const approve = async (req) => {
+    setMsg('');
+    try {
+      await playersRepo().upsert(req.playerId, { teamId: req.teamId, membershipType: 'team', updatedAt: Date.now() });
+      await joinRequestsRepo().updateOne(req.id, { status: 'approved', decidedAt: Date.now() });
+      setMsg(`✅ Approved ${req.name} → ${teams?.[req.teamId]?.abbreviation || req.teamName || req.teamId}`);
+      setTimeout(() => setMsg(''), 2500);
+    } catch (e) { setMsg('Failed: ' + e.message); }
+  };
+  const reject = async (req) => {
+    setMsg('');
+    try {
+      await joinRequestsRepo().updateOne(req.id, { status: 'rejected', decidedAt: Date.now() });
+      setMsg(`Rejected ${req.name}`);
+      setTimeout(() => setMsg(''), 2500);
+    } catch (e) { setMsg('Failed: ' + e.message); }
+  };
+
+  return (
+    <div data-testid="admin-registrations">
+      {msg && <div className={msg.startsWith('✅') ? 'success-box' : 'error-box'}>{msg}</div>}
+      <div className="card">
+        <h2>📨 Pending Join Requests <span className="muted" style={{ fontSize: '.8rem' }}>· {pending.length}</span></h2>
+        {pending.length === 0 ? <p className="muted">No pending requests.</p> : pending.map(req => (
+          <div key={req.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '.5rem', borderBottom: '1px solid var(--ring)', padding: '.5rem 0', flexWrap: 'wrap' }} data-testid={`admin-join-${req.id}`}>
+            <div>
+              <strong>{req.name}</strong>
+              <div className="muted" style={{ fontSize: '.74rem' }}>{req.email} → {teams?.[req.teamId]?.name || req.teamName || req.teamId}</div>
+            </div>
+            <div style={{ display: 'flex', gap: '.3rem' }}>
+              <button className="btn small success" onClick={() => approve(req)} data-testid={`admin-join-${req.id}-approve`}>Approve</button>
+              <button className="btn small danger" onClick={() => reject(req)} data-testid={`admin-join-${req.id}-reject`}>Reject</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="card">
+        <h2>🧑‍🤝‍🧑 Registered Players <span className="muted" style={{ fontSize: '.8rem' }}>· {registered.length}</span></h2>
+        {registered.length === 0 ? <p className="muted">No registered players yet.</p> : (
+          <div className="table-wrap">
+            <table className="std" data-testid="admin-registered-table">
+              <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Team</th><th>Type</th></tr></thead>
+              <tbody>
+                {registered.map(p => (
+                  <tr key={p.id}>
+                    <td><strong>{p.name}</strong></td>
+                    <td>{p.email}</td>
+                    <td>{p.phone || '—'}</td>
+                    <td>{teams?.[p.teamId]?.abbreviation || '—'}</td>
+                    <td>{p.membershipType || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function Admin({ teams, adminConfig, matches, previousMatches = [], schedule, playerRatings = {}, settings = {}, config, players = {}, joinRequests = {} }) {
   const [tab, setTab] = useState('setup');
   const [newAdminPwd, setNewAdminPwd] = useState('');
   const [adminMsg, setAdminMsg] = useState('');
@@ -604,6 +672,7 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
         <button className={`tab ${tab === 'setup' ? 'active' : ''}`} onClick={() => setTab('setup')} data-testid="admin-tab-setup">Season Setup</button>
         <button className={`tab ${tab === 'teams' ? 'active' : ''}`} onClick={() => setTab('teams')} data-testid="admin-tab-teams">Teams</button>
         <button className={`tab ${tab === 'schedule' ? 'active' : ''}`} onClick={() => setTab('schedule')} data-testid="admin-tab-schedule">Schedule</button>
+        <button className={`tab ${tab === 'registrations' ? 'active' : ''}`} onClick={() => setTab('registrations')} data-testid="admin-tab-registrations">Registrations</button>
         <button className={`tab ${tab === 'settings' ? 'active' : ''}`} onClick={() => setTab('settings')} data-testid="admin-tab-settings">Settings</button>
         <button className={`tab ${tab === 'nameMapping' ? 'active' : ''}`} onClick={() => setTab('nameMapping')} data-testid="admin-tab-name-mapping">PTL Name Mapping</button>
         <button className={`tab ${tab === 'passwords' ? 'active' : ''}`} onClick={() => setTab('passwords')} data-testid="admin-tab-passwords">Passwords</button>
@@ -619,6 +688,8 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
       )}
 
       {tab === 'schedule' && <ScheduleEditor schedule={schedule} teams={teams} />}
+
+      {tab === 'registrations' && <RegistrationsAdmin teams={teams} players={players} joinRequests={joinRequests} />}
 
       {tab === 'nameMapping' && <NameMappingAdmin teams={teams} matches={matches} previousMatches={previousMatches} playerRatings={playerRatings} />}
 

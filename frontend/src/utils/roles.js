@@ -2,7 +2,8 @@ export const ROLES = {
   GUEST: 'GUEST',
   SUPER_ADMIN: 'SUPER_ADMIN',
   ADMIN: 'ADMIN',
-  CAPTAIN: 'CAPTAIN'
+  CAPTAIN: 'CAPTAIN',
+  PLAYER: 'PLAYER'
 };
 
 export const LEGACY_ROLE_MAP = {

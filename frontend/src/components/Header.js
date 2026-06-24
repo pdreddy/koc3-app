@@ -55,6 +55,9 @@ export default function AppHeader({ config }) {
         {hasRole(session, [ROLES.CAPTAIN]) && (
           <span className="user-pill" data-testid="user-pill">{session.teamName}</span>
         )}
+        {hasRole(session, [ROLES.PLAYER]) && (
+          <span className="user-pill" data-testid="user-pill">{session.name || 'PLAYER'}</span>
+        )}
         {hasRole(session, [ROLES.GUEST]) && (
           <Link to="/login" className="user-pill" data-testid="header-login-link">LOGIN</Link>
         )}
