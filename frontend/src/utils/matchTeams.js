@@ -10,11 +10,16 @@ export function resolveMatchTeams(match, teams) {
   return { team1, team2 };
 }
 
+function fallbackName(name, abbr) {
+  if (abbr === 'RR') return 'Rudra Racquets';
+  return name || 'Unknown';
+}
+
 export function matchTeamNames(match, teams) {
   const { team1, team2 } = resolveMatchTeams(match, teams);
   return {
-    t1Name: team1 ? team1.name : (match.t1 || 'Unknown'),
-    t2Name: team2 ? team2.name : (match.t2 || 'Unknown'),
+    t1Name: team1 ? team1.name : fallbackName(match.t1, match.t1Abbr),
+    t2Name: team2 ? team2.name : fallbackName(match.t2, match.t2Abbr),
     t1Abbr: team1 ? team1.abbreviation : (match.t1Abbr || '?'),
     t2Abbr: team2 ? team2.abbreviation : (match.t2Abbr || '?'),
     team1Id: team1 ? team1.id : match.t1Id,

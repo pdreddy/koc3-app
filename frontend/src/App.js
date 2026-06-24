@@ -4,7 +4,7 @@ import { onValue, ref, set, get, update } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ROLES, hasRole } from './utils/roles';
-import { buildInitialTeams, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERS, LEGACY_RR_TEAM_NAMES, normalizeAdminUsername } from './data/initialTeams';
+import { buildInitialTeams, canonicalizeTeamsData, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERS, normalizeAdminUsername } from './data/initialTeams';
 import { buildUtrRatingsTable } from './data/utrRatings';
 import { sortByGroupOrder } from './data/auctionTeams';
 import { auctionPlayerRatingUpdates, buildAuctionPlayerRatingsTable } from './data/auctionPlayers';
@@ -143,10 +143,7 @@ function Shell() {
         const sSnap = await get(ref(db, PATHS.schedule));
         const scheduleData = sSnap.val() || {};
         const scheduleMatches = Object.values(scheduleData).filter(item => item?.type !== 'buffer');
-        const shouldSeedSchedule = !sSnap.exists() || scheduleMatches.length === 0 || scheduleMatches.some(item => (
-          item?.scheduleVersion !== KOC3_SCHEDULE_VERSION ||
-          [item?.team1, item?.team2].some(teamName => LEGACY_RR_TEAM_NAMES.includes(teamName))
-        ));
+        const shouldSeedSchedule = !sSnap.exists() || scheduleMatches.length === 0 || scheduleMatches.some(item => item?.scheduleVersion !== KOC3_SCHEDULE_VERSION);
         if (shouldSeedSchedule) {
           const list = Object.values(buildInitialTeams()).map(canonical => ({
             ...canonical,
@@ -167,7 +164,7 @@ function Shell() {
     })();
 
     const unsubT = onValue(ref(db, PATHS.teams), (snap) => {
-      setTeams(snap.val() || {});
+      setTeams(canonicalizeTeamsData(snap.val() || {}));
       setLoaded(true);
     });
     const unsubM = onValue(ref(db, PATHS.matches), (snap) => {

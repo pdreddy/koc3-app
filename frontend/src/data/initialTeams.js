@@ -5,19 +5,21 @@ const canonicalTeams = AUCTION_TEAMS.map(team => ({
   roster: team.players.map((player, index) => normalizeAuctionPlayer(player, index).name)
 }));
 
-export const LEGACY_RR_TEAM_NAMES = [
-  ['Rally', 'Royals'].join(' '),
-  `${['Rally', 'Royals'].join(' ')} 🎾`
-];
+const RR_CANONICAL_TEAM = canonicalTeams.find(team => team.abbreviation === 'RR');
 
-const LEGACY_TEAM_NAMES_BY_ABBR = {
-  RR: LEGACY_RR_TEAM_NAMES
-};
+export function canonicalizeTeamDisplay(team = {}) {
+  if (team.abbreviation === 'RR' && RR_CANONICAL_TEAM) return { ...team, name: RR_CANONICAL_TEAM.name };
+  return team;
+}
+
+export function canonicalizeTeamsData(teamsData = {}) {
+  return Object.fromEntries(Object.entries(teamsData || {}).map(([id, team]) => [id, canonicalizeTeamDisplay(team)]));
+}
 
 function shouldApplyCanonicalTeamName(team, canonicalTeam) {
   if (!team.name) return true;
-  const legacyNames = LEGACY_TEAM_NAMES_BY_ABBR[canonicalTeam.abbreviation] || [];
-  return legacyNames.includes(team.name);
+  if (canonicalTeam.abbreviation === 'RR' && team.abbreviation === 'RR') return team.name !== canonicalTeam.name;
+  return false;
 }
 
 
