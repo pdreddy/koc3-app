@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { ROLES, normalizeRole } from '../utils/roles';
-import { signOutPlayerAuth } from '../services/playerAccount';
 
 const AuthContext = createContext(null);
 const STORAGE_KEY = 'koc_session_v1';
@@ -31,15 +30,7 @@ export function AuthProvider({ children }) {
     loginAt: Date.now()
   });
   const refreshTeamSession = (teamId, teamName) => setSession(prev => (prev.role === ROLES.CAPTAIN && prev.teamId === teamId && prev.teamName !== teamName) ? { ...prev, teamName } : prev);
-  const logout = () => {
-    setSession(prev => {
-      if (normalizeRole(prev?.role) === ROLES.PLAYER) {
-        // Sign out of Firebase Auth; the auth watcher restores anonymous access.
-        signOutPlayerAuth().catch(() => {});
-      }
-      return { role: ROLES.GUEST };
-    });
-  };
+  const logout = () => setSession({ role: ROLES.GUEST });
 
   return (
     <AuthContext.Provider value={{ session, loginAdmin, loginTeam, loginPlayer, refreshTeamSession, logout }}>

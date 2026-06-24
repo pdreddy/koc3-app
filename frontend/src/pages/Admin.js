@@ -9,6 +9,7 @@ import { groupInfoForTeamId, normalizeAuctionTeam, sortByGroupOrder } from '../d
 import { normalizeEligibilityRules } from '../utils/eligibilityRules';
 import SeasonSetup from './admin/SeasonSetup';
 import { playersRepo, joinRequestsRepo } from '../data/dataAccess';
+import { adminResetPlayerPassword } from '../services/playerAccount';
 
 
 function ratingRowId(row) {
@@ -555,7 +556,17 @@ function RegistrationsAdmin({ teams, players = {}, joinRequests = {} }) {
   const [msg, setMsg] = useState('');
   const requests = Object.entries(joinRequests || {}).map(([id, r]) => ({ id, ...r }));
   const pending = requests.filter(r => r.status === 'pending').sort((a, b) => (a.requestedAt || 0) - (b.requestedAt || 0));
-  const registered = Object.values(players || {}).filter(p => p.authUid).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const registered = Object.values(players || {}).filter(p => p.passwordHash || p.claimed).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+  const resetPassword = async (player) => {
+    const temp = window.prompt(`Set a temporary password for ${player.name}:`);
+    if (!temp) return;
+    try {
+      await adminResetPlayerPassword(player.id, temp);
+      setMsg(`✅ Reset password for ${player.name}`);
+      setTimeout(() => setMsg(''), 2500);
+    } catch (e) { setMsg('Failed: ' + e.message); }
+  };
 
   const approve = async (req) => {
     setMsg('');
@@ -598,7 +609,7 @@ function RegistrationsAdmin({ teams, players = {}, joinRequests = {} }) {
         {registered.length === 0 ? <p className="muted">No registered players yet.</p> : (
           <div className="table-wrap">
             <table className="std" data-testid="admin-registered-table">
-              <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Team</th><th>Type</th></tr></thead>
+              <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Team</th><th>Type</th><th></th></tr></thead>
               <tbody>
                 {registered.map(p => (
                   <tr key={p.id}>
@@ -607,6 +618,7 @@ function RegistrationsAdmin({ teams, players = {}, joinRequests = {} }) {
                     <td>{p.phone || '—'}</td>
                     <td>{teams?.[p.teamId]?.abbreviation || '—'}</td>
                     <td>{p.membershipType || '—'}</td>
+                    <td><button className="btn small ghost" onClick={() => resetPassword(p)} data-testid={`admin-reset-${p.id}`}>Reset PW</button></td>
                   </tr>
                 ))}
               </tbody>

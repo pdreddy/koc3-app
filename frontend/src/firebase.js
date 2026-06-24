@@ -1,5 +1,5 @@
 import { getApps, initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 
 function envOrDefault(name, fallback) {
@@ -30,33 +30,16 @@ export const app = getApps().find(existingApp => existingApp.name === appName) |
 export const auth = getAuth(app);
 export const db = getDatabase(app, databaseURL);
 
-// Auth model: the app needs an authenticated session for DB access. Guests use
-// anonymous auth; players sign in with email/password (Firebase Auth). A single
-// persistent watcher guarantees there's always a user — when a player signs out,
-// it transparently restores anonymous access so public reads keep working.
-let authReady = null;
-let watcherStarted = false;
-
-function startAuthWatcher() {
-  if (watcherStarted) return;
-  watcherStarted = true;
-  onAuthStateChanged(auth, user => {
-    if (!user) {
-      signInAnonymously(auth).catch(err => console.error('Anonymous auth failed', err));
-    }
-  });
-}
-
+// DB access uses anonymous auth. Player accounts are lightweight profiles stored
+// in the database (see services/playerAccount.js), not Firebase Auth identities.
+let authPromise = null;
 export function ensureAuth() {
-  if (!authReady) {
-    startAuthWatcher();
-    authReady = new Promise(resolve => {
-      const unsub = onAuthStateChanged(auth, user => {
-        if (user) { resolve(user); unsub(); }
-      });
+  if (!authPromise) {
+    authPromise = signInAnonymously(auth).catch(err => {
+      console.error('Anonymous auth failed', err);
     });
   }
-  return authReady;
+  return authPromise;
 }
 
 // Firebase RTDB paths

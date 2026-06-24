@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ROLES, hasRole } from '../utils/roles';
 import { playersRepo, joinRequestsRepo } from '../data/dataAccess';
-import { registerPlayerAuth, signInPlayerAuth, resetPlayerPassword, changeCurrentPassword } from '../services/playerAccount';
+import { registerPlayer, signInPlayer, changePlayerPassword } from '../services/playerAccount';
 import { isValidEmail, isValidPhone, rosterPlayerNames, playerIdFromName } from '../utils/playerAuth';
 
 function Field({ label, children, hint }) {
@@ -14,12 +14,6 @@ function Field({ label, children, hint }) {
       {hint && <div className="muted" style={{ fontSize: '.72rem', marginTop: '.2rem' }}>{hint}</div>}
     </div>
   );
-}
-
-function findPlayerByEmail(players, email) {
-  const target = String(email || '').trim().toLowerCase();
-  const entry = Object.entries(players || {}).find(([, rec]) => String(rec?.email || '').trim().toLowerCase() === target);
-  return entry ? { id: entry[0], ...entry[1] } : null;
 }
 
 // ---- Sign in --------------------------------------------------------------
@@ -35,25 +29,13 @@ function SignIn({ players }) {
     if (!isValidEmail(email)) return setMsg('Enter a valid email.');
     try {
       setBusy(true);
-      await signInPlayerAuth(email, password);
-      const record = findPlayerByEmail(players, email);
-      loginPlayer(record || { name: email.split('@')[0], email });
+      const record = await signInPlayer({ players, email, password });
+      loginPlayer(record);
       setMsg('✅ Signed in.');
     } catch (e) {
       setMsg(e.message);
     } finally {
       setBusy(false);
-    }
-  };
-
-  const forgot = async () => {
-    setMsg('');
-    if (!isValidEmail(email)) return setMsg('Enter your email first, then tap reset.');
-    try {
-      await resetPlayerPassword(email);
-      setMsg('✅ Password reset email sent.');
-    } catch (e) {
-      setMsg(e.message);
     }
   };
 
@@ -64,7 +46,7 @@ function SignIn({ players }) {
       <Field label="Email"><input className="input" type="email" value={email} onChange={e => setEmail(e.target.value)} data-testid="signin-email" autoComplete="username" /></Field>
       <Field label="Password"><input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} data-testid="signin-password" autoComplete="current-password" /></Field>
       <button className="btn full" onClick={submit} disabled={busy} data-testid="signin-submit">Sign In</button>
-      <button className="btn ghost full" style={{ marginTop: '.4rem' }} onClick={forgot} data-testid="signin-forgot">Forgot password?</button>
+      <p className="hint center" style={{ marginTop: '.5rem' }}>Forgot your password? Ask a league organizer to reset it.</p>
     </div>
   );
 }
@@ -94,29 +76,20 @@ function NewRegistration({ teams, players }) {
     if (!name) return setMsg(mode === 'claim' ? 'Pick your roster name to claim.' : 'Name is required.');
     if (!isValidEmail(form.email)) return setMsg('Enter a valid email.');
     if (!isValidPhone(form.phone)) return setMsg('Enter a valid phone number.');
-    if (form.password.length < 6) return setMsg('Password must be at least 6 characters.');
+    if (form.password.length < 4) return setMsg('Password must be at least 4 characters.');
     if (form.password !== form.confirm) return setMsg('Passwords do not match.');
-
-    const playerId = playerIdFromName(name);
-    if (players?.[playerId]?.authUid) return setMsg('This player is already registered. Use Sign In or reset your password.');
 
     try {
       setBusy(true);
-      const authUid = await registerPlayerAuth(form.email, form.password);
-      const teamId = mode === 'claim' ? (claimTarget?.teamId || '') : '';
-      const record = {
-        id: playerId,
+      const record = await registerPlayer({
+        players,
         name,
-        email: form.email.trim(),
-        phone: form.phone.trim(),
-        membershipType: teamId ? 'team' : 'individual',
-        teamId,
-        authUid,
-        claimed: true,
-        createdAt: players?.[playerId]?.createdAt || Date.now(),
-        updatedAt: Date.now()
-      };
-      await playersRepo().upsert(playerId, record);
+        email: form.email,
+        phone: form.phone,
+        teamId: mode === 'claim' ? (claimTarget?.teamId || '') : '',
+        membershipType: 'individual',
+        password: form.password
+      });
       loginPlayer(record);
       setMsg(`✅ Welcome, ${name}! Your profile is ready.`);
     } catch (e) {
@@ -148,12 +121,12 @@ function NewRegistration({ teams, players }) {
               {claimMatches.map(p => (
                 <button key={p.name} type="button" className="btn small ghost" onClick={() => setClaimId(playerIdFromName(p.name))} data-testid={`register-claim-${playerIdFromName(p.name)}`} style={{ textAlign: 'left' }}>
                   {p.name} · {p.abbreviation || p.teamName}
-                  {players?.[playerIdFromName(p.name)]?.authUid ? ' · 🔒 already registered' : ''}
+                  {players?.[playerIdFromName(p.name)]?.passwordHash ? ' · 🔒 already registered' : ''}
                 </button>
               ))}
             </div>
           )}
-          {claimTarget && <p className="hint">Claiming <strong>{claimTarget.name}</strong> ({claimTarget.abbreviation || claimTarget.teamName}). <button type="button" className="btn small ghost" onClick={() => { setClaimId(''); }}>change</button></p>}
+          {claimTarget && <p className="hint">Claiming <strong>{claimTarget.name}</strong> ({claimTarget.abbreviation || claimTarget.teamName}). <button type="button" className="btn small ghost" onClick={() => setClaimId('')}>change</button></p>}
         </>
       )}
 
@@ -162,7 +135,7 @@ function NewRegistration({ teams, players }) {
         <Field label="Phone"><input className="input" type="tel" value={form.phone} onChange={e => set({ phone: e.target.value })} data-testid="register-phone" /></Field>
       </div>
       <div className="row">
-        <Field label="Password" hint="At least 6 characters"><input className="input" type="password" value={form.password} onChange={e => set({ password: e.target.value })} data-testid="register-password" /></Field>
+        <Field label="Password" hint="At least 4 characters"><input className="input" type="password" value={form.password} onChange={e => set({ password: e.target.value })} data-testid="register-password" /></Field>
         <Field label="Confirm Password"><input className="input" type="password" value={form.confirm} onChange={e => set({ confirm: e.target.value })} data-testid="register-confirm" /></Field>
       </div>
       <button className="btn full success" onClick={submit} disabled={busy} data-testid="register-submit">Create Account</button>
@@ -177,7 +150,7 @@ function MyProfile({ teams, players, joinRequests }) {
   const navigate = useNavigate();
   const teamList = Object.values(teams || {}).sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
   const record = players?.[session.playerId] || {};
-  const [phone, setPhone] = useState(record.phone || session.email || '');
+  const [phone, setPhone] = useState(record.phone || '');
   const [newPw, setNewPw] = useState('');
   const [joinTeamId, setJoinTeamId] = useState('');
   const [msg, setMsg] = useState('');
@@ -198,10 +171,10 @@ function MyProfile({ teams, players, joinRequests }) {
 
   const updatePw = async () => {
     setMsg('');
-    if (newPw.length < 6) return setMsg('Password must be at least 6 characters.');
+    if (newPw.length < 4) return setMsg('Password must be at least 4 characters.');
     try {
       setBusy(true);
-      await changeCurrentPassword(newPw);
+      await changePlayerPassword(session.playerId, newPw);
       setNewPw('');
       setMsg('✅ Password changed.');
     } catch (e) { setMsg(e.message); } finally { setBusy(false); }
