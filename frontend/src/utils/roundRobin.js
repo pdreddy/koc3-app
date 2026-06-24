@@ -19,7 +19,7 @@ export function roundRobin(n) {
   return rounds;
 }
 
-export const KOC3_SCHEDULE_VERSION = 'koc3-2026-06-27-group-weekends-v1';
+export const KOC3_SCHEDULE_VERSION = 'koc3-2026-06-27-group-weekends-715pm-v2';
 
 const GROUP_A_FIRST_DATE = new Date(2026, 5, 27); // Jun 27, 2026
 const GROUP_B_FIRST_DATE = new Date(2026, 5, 28); // Jun 28, 2026
@@ -57,7 +57,7 @@ export function buildScheduleFor8x2(groupATeams, groupBTeams) {
         const t1 = teamsArr[i];
         const t2 = teamsArr[j];
         if (!t1 || !t2) return;
-        const slot = ['9:00 AM', '10:30 AM', '12:00 PM', '1:30 PM'][k] || '5:00 PM';
+        const slot = '7:15 PM';
         const id = `${label}-r${r + 1}-m${k + 1}`;
         out[id] = {
           id,
