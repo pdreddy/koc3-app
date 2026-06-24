@@ -79,7 +79,7 @@ export function sortByGroupOrder(a, b) {
 export function normalizeAuctionPlayer(row, index = 0) {
   if (Array.isArray(row)) {
     const [name, tierUtr, actualUtr, basePrice, auctionedMoney, isCaptain] = row;
-    return { slot: index + 1, name, tierUtr, actualUtr, basePrice, auctionedMoney, isCaptain: !!isCaptain, utr: actualUtr === '' || actualUtr == null ? '' : actualUtr };
+    return { slot: index + 1, name, tierUtr, actualUtr, basePrice, auctionedMoney, isCaptain: index === 0 || !!isCaptain, utr: actualUtr === '' || actualUtr == null ? '' : actualUtr };
   }
   return {
     slot: row.slot || index + 1,
@@ -88,7 +88,7 @@ export function normalizeAuctionPlayer(row, index = 0) {
     actualUtr: row.actualUtr ?? row.actualUTR ?? row.utr ?? '',
     basePrice: row.basePrice ?? '',
     auctionedMoney: row.auctionedMoney ?? row.auctionMoney ?? '',
-    isCaptain: !!(row.isCaptain ?? row.captainSlot ?? row.captain),
+    isCaptain: index === 0 || !!(row.isCaptain ?? row.captainSlot ?? row.captain),
     utr: row.actualUtr ?? row.actualUTR ?? row.utr ?? ''
   };
 }
@@ -96,7 +96,7 @@ export function normalizeAuctionPlayer(row, index = 0) {
 export function normalizeAuctionTeam(team, index = 0) {
   const idNum = Number(team.id || team.teamId || index + 1);
   const players = (team.players || team.roster || []).map(normalizeAuctionPlayer);
-  const captain = team.captain || players.find(player => player.isCaptain)?.name || '';
+  const captain = players[0]?.name || team.captain || '';
   return {
     id: `team${idNum}`,
     name: team.name,

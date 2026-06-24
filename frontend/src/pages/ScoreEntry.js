@@ -194,7 +194,7 @@ function TeamLineupPicker({ team, selected, onChange, label }) {
               {(team?.players || []).map((player, idx) => {
                 const value = String(idx);
                 const disabled = selectedSet.has(value) && slots[slotIdx] !== value;
-                return <option key={`${player.name}-${idx}`} value={value} disabled={disabled}>{player.isCaptain ? '🏆 ' : ''}{player.name}</option>;
+                return <option key={`${player.name}-${idx}`} value={value} disabled={disabled}>{idx === 0 || player.isCaptain ? '🏆 ' : ''}{player.name}</option>;
               })}
             </select>
           </label>

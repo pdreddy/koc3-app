@@ -17,8 +17,8 @@ function TeamCard({ t, isOpen, onToggle }) {
           {(t.players || []).map((p, i) => {
             const utr = p.actualUtr || p.utr || '';
             return (
-              <div key={i} className={`player-row ${p.isCaptain ? 'captain' : ''}`} data-testid={`team-${t.abbreviation}-player-${i}`}>
-                <span className="player-badge">{p.isCaptain ? '🏆' : '🎾'}</span>
+              <div key={i} className={`player-row ${i === 0 || p.isCaptain ? 'captain' : ''}`} data-testid={`team-${t.abbreviation}-player-${i}`}>
+                <span className="player-badge">{i === 0 || p.isCaptain ? '🏆' : '🎾'}</span>
                 <span className="player-name">{p.name}</span>
                 {utr && <span className="player-utr">UTR {utr}</span>}
               </div>

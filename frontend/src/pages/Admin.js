@@ -255,18 +255,18 @@ function TeamEditor({ team, matches = [] }) {
     setSavedMsg('');
     if (!name.trim() || !abbr.trim()) { setSavedMsg('Name and abbreviation are required'); return; }
     if (!password.trim()) { setSavedMsg('Password required'); return; }
-    const normalizedPlayers = players.filter(p => (p.name || '').trim()).map(p => {
+    const normalizedPlayers = players.filter(p => (p.name || '').trim()).map((p, idx) => {
       const utr = Number(p.utr);
       const cleanUtr = p.utr === '' || p.utr == null || !Number.isFinite(utr) ? '' : utr;
       return {
         ...p,
         name: p.name.trim(),
-        isCaptain: !!p.isCaptain,
+        isCaptain: idx === 0,
         utr: cleanUtr,
         actualUtr: p.actualUtr ?? cleanUtr
       };
     });
-    const captain = normalizedPlayers.find(p => p.isCaptain)?.name || team.captain || '';
+    const captain = normalizedPlayers[0]?.name || team.captain || '';
     const payload = {
       ...team,
       name: name.trim(),
@@ -299,10 +299,10 @@ function TeamEditor({ team, matches = [] }) {
     }
   };
 
-  const addPlayer = () => setPlayers([...players, { name: '', isCaptain: false }]);
+  const addPlayer = () => setPlayers([...players, { name: '', isCaptain: players.length === 0 }]);
   const removePlayer = (i) => setPlayers(players.filter((_, j) => j !== i));
   const updatePlayer = (i, patch) => setPlayers(players.map((p, j) => j === i ? { ...p, ...patch } : p));
-  const setCaptain = (i) => setPlayers(players.map((p, j) => ({ ...p, isCaptain: j === i })));
+  const setCaptain = () => setPlayers(players.map((p, j) => ({ ...p, isCaptain: j === 0 })));
 
   return (
     <div className="card" data-testid={`admin-team-${team.abbreviation}`}>
@@ -375,7 +375,7 @@ function TeamEditor({ team, matches = [] }) {
               />
               <button
                 type="button"
-                className={`cap-badge ${p.isCaptain ? 'active' : ''}`}
+                className={`cap-badge ${i === 0 || p.isCaptain ? 'active' : ''}`}
                 onClick={() => setCaptain(i)}
                 data-testid={`admin-team-${team.abbreviation}-player-${i}-captain`}
               >🏆</button>

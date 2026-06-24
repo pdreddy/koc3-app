@@ -26,7 +26,7 @@ export default function AppHeader() {
         <span className="logo" aria-hidden="true">🏆</span>
         <span className="brand-copy">
           <strong>KOC3</strong>
-          <small>Table Tennis League</small>
+          <small>Tennis League</small>
         </span>
       </Link>
 
