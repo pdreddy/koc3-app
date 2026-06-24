@@ -977,6 +977,9 @@ main.container,
   grid-template-columns: repeat(2, minmax(250px, 300px));
   gap: 1.2rem;
 }
+.rl-flow-four {
+  grid-template-columns: repeat(4, 1fr);
+}
 .rl-step {
   position: relative;
   min-height: 104px;
@@ -1031,5 +1034,5 @@ main.container,
   background: linear-gradient(90deg, var(--primary-blue), var(--primary-blue-dark), var(--accent));
   box-shadow: 0 16px 36px rgba(37,99,235,.18);
 }
-@media (max-width: 980px) { .rl-grid { grid-template-columns: 1fr 1fr; } .rl-flow, .rl-cross { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 980px) { .rl-grid { grid-template-columns: 1fr 1fr; } .rl-flow, .rl-flow-four, .rl-cross { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 620px) { .rl-grid, .rl-flow, .rl-cross { grid-template-columns: 1fr; } }
