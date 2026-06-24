@@ -1,6 +1,7 @@
 import { getApps, initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
+import { LEGACY_PATHS, PATHS as DEFAULT_TENANT_PATHS, buildTenantPaths } from './utils/tenantPaths';
 
 function envOrDefault(name, fallback) {
   const value = process.env[name];
@@ -40,24 +41,7 @@ export function ensureAuth() {
   return authPromise;
 }
 
-// Firebase RTDB paths
-export const PATHS = {
-  teams: 'koc_s3/teams',         // KOC3 teams
-  matches: 'koc_s3/matches',     // KOC3 match results
-  playerRatings: 'koc_s3/playerRatings', // UTR lookup table used by PTL
-  admin: 'koc_s3/admin',         // { password }
-  adminUsers: 'koc_s3/adminUsers', // RBAC admin user records
-  schedule: 'koc_s3/schedule',   // KOC3 fixtures
-  settings: 'koc_s3/settings',
-  standings: 'koc_s3/standings',
-  pprcRatings: 'koc_s3/pprcRatings',
-  playerHistory: 'koc_s3/playerHistory',
-  teamHistory: 'koc_s3/teamHistory',
-  playerMatchups: 'koc_s3/playerMatchups',
-  teamMatchups: 'koc_s3/teamMatchups',
-  playerEligibility: 'koc_s3/playerEligibility',
-  cachedSummaries: 'koc_s3/cachedSummaries',
-  auditLogs: 'koc_s3/auditLogs',
-  koc2db: 'KOC2DB',              // Legacy KOC2 database for PTL rating history
-  season1: 'KOC2DBPONEW'         // Older legacy archive fallback (read-only)
-};
+// Firebase RTDB paths. New writes default to tenant-scoped commercial paths.
+// Legacy koc_s3 paths remain available through LEGACY_PATHS for migration/rollback.
+export { LEGACY_PATHS, buildTenantPaths };
+export const PATHS = DEFAULT_TENANT_PATHS;

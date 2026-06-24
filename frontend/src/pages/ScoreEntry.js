@@ -8,15 +8,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { matchName } from '../utils/nameMatch';
 import { resolveMatchTeams } from '../utils/matchTeams';
 import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from '../utils/eligibilityRules';
+import { DEFAULT_SCORING_CONFIG, normalizeScoringConfig, normalizeSeasonScope } from '../utils/leagueConfig';
 import { parseQuickScore } from '../utils/quickScoreParser';
 
-const COURT_TEMPLATES = [
-  { label: 'Singles', type: 'singles', setCount: 5 },
-  { label: 'Doubles 1', type: 'doubles', setCount: 3 },
-  { label: 'Doubles 1 Reverse', type: 'doubles', setCount: 3 },
-  { label: 'Doubles 2', type: 'doubles', setCount: 3 },
-  { label: 'Doubles 2 Reverse', type: 'doubles', setCount: 3 }
-];
+function templatesFromConfig(scoringConfig) {
+  return normalizeScoringConfig(scoringConfig).templates;
+}
 
 
 function getQuickTemplate(teams) {
@@ -106,7 +103,7 @@ function selectedNamesFromIndexes(team, indexes) {
 }
 
 function buildLineupCourts(team1Names, team2Names) {
-  const templates = COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount));
+  const templates = templatesFromConfig().map(t => newCourt(t.label, t.type, t.setCount, t));
   if (team1Names.length < 5 || team2Names.length < 5) return templates;
   const [s1a, d1a, d1b, d2a, d2b] = team1Names;
   const [s1b, od1a, od1b, od2a, od2b] = team2Names;
@@ -186,9 +183,9 @@ function LineupBuilder({ team1, team2, team1Selected, setTeam1Selected, team2Sel
   );
 }
 
-function newCourt(label, type, setCount = 3) {
+function newCourt(label, type, setCount = 3, template = {}) {
   return {
-    label, type,
+    label, type, templateId: template.id || label,
     p1: type === 'singles' ? [''] : ['', ''],
     p2: type === 'singles' ? [''] : ['', ''],
     sets: Array.from({ length: setCount }, () => ({ a: '', b: '', tieA: '', tieB: '' }))
@@ -598,7 +595,8 @@ function getQuickNameContext(text, cursor, parsed, teams) {
   return { query, suggestions, teamAbbr: team?.abbreviation || 'all teams', replaceStart, replaceEnd: cursor };
 }
 
-export default function ScoreEntry({ teams, matches, eligibilityRules = DEFAULT_ELIGIBILITY_RULES }) {
+export default function ScoreEntry({ teams, matches, eligibilityRules = DEFAULT_ELIGIBILITY_RULES, scoringConfig = DEFAULT_SCORING_CONFIG, seasonScope = {} }) {
+  const scoring = normalizeScoringConfig(scoringConfig);
   const [mode, setMode] = useState('form');
   const [sharedTeam1Id, setSharedTeam1IdRaw] = useState('');
   const [sharedTeam2Id, setSharedTeam2IdRaw] = useState('');
@@ -630,36 +628,43 @@ export default function ScoreEntry({ teams, matches, eligibilityRules = DEFAULT_
           teams={teams}
           matches={matches}
           eligibilityRules={eligibilityRules}
+          scoringConfig={scoring}
           team1Id={sharedTeam1Id}
           setTeam1Id={setSharedTeam1Id}
           team2Id={sharedTeam2Id}
           setTeam2Id={setSharedTeam2Id}
           lineupState={lineupState}
+          seasonScope={seasonScope}
         />
       ) : (
         <QuickEntry
           teams={teams}
           matches={matches}
           eligibilityRules={eligibilityRules}
+          scoringConfig={scoring}
           team1Id={sharedTeam1Id}
           setTeam1Id={setSharedTeam1Id}
           team2Id={sharedTeam2Id}
           setTeam2Id={setSharedTeam2Id}
           lineupState={lineupState}
+          seasonScope={seasonScope}
         />
       )}
     </main>
   );
 }
 
-function FormEntry({ teams, matches, eligibilityRules, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
+function FormEntry({ teams, matches, eligibilityRules, scoringConfig, seasonScope, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const teamList = Object.values(teams || {});
   const myTeam = session.role === ROLES.CAPTAIN ? teams[session.teamId] : null;
   const isAdmin = isAdminRole(session);
 
 
-  const [courts, setCourts] = useState(() => COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
+  const scoring = useMemo(() => normalizeScoringConfig(scoringConfig), [scoringConfig]);
+  const scope = normalizeSeasonScope(seasonScope);
+  const courtTemplates = scoring.templates;
+  const [courts, setCourts] = useState(() => courtTemplates.map(t => newCourt(t.label, t.type, t.setCount, t)));
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [saving, setSaving] = useState(false);
@@ -667,6 +672,10 @@ function FormEntry({ teams, matches, eligibilityRules, team1Id, setTeam1Id, team
   useEffect(() => {
     if (myTeam?.id && !team1Id) setTeam1Id(myTeam.id);
   }, [myTeam, setTeam1Id, team1Id]);
+
+  useEffect(() => {
+    setCourts(courtTemplates.map(t => newCourt(t.label, t.type, t.setCount, t)));
+  }, [courtTemplates]);
 
   const team1 = teams[team1Id];
   const team2 = teams[team2Id];
@@ -746,7 +755,7 @@ function FormEntry({ teams, matches, eligibilityRules, team1Id, setTeam1Id, team
       setError('Please enter at least one court with scores.');
       return;
     }
-    validationErrors.push(...validateEligibilityForLines(lines, team1, team2, matches, teams, eligibilityRules));
+    if (scoring.enforceEligibility) validationErrors.push(...validateEligibilityForLines(lines, team1, team2, matches, teams, eligibilityRules));
     if (validationErrors.length > 0) {
       setError(validationErrors.join('\n'));
       return;
@@ -770,6 +779,9 @@ function FormEntry({ teams, matches, eligibilityRules, team1Id, setTeam1Id, team
       ts: Date.now(),
       enteredBy: session.role === ROLES.CAPTAIN ? session.teamName : 'Admin',
       status: 'APPROVED',
+      clubId: scope.clubId,
+      seasonId: scope.seasonId,
+      scoringConfigVersion: JSON.stringify(scoring.templates.map(t => [t.id, t.setCount, t.tiebreakAt, t.tiebreakPoints])),
       createdAt: Date.now(),
       updatedAt: Date.now(),
       updatedBy: session.teamId || session.role,
@@ -784,7 +796,7 @@ function FormEntry({ teams, matches, eligibilityRules, team1Id, setTeam1Id, team
       await ScoreProcessingService.processMatchResult(saved.key, { session, matchRecord: { ...record, id: saved.key } });
       await writeAuditLog({ actionType: 'Score Entry', session, targetType: 'match', targetId: saved.key, newValue: record });
       setSuccess(`✅ Saved and synchronized ratings, standings, histories, and dashboard:  ${team1.name} vs ${team2.name} — Winner: ${winner}`);
-      setCourts(COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
+      setCourts(courtTemplates.map(t => newCourt(t.label, t.type, t.setCount, t)));
     } catch (e) {
       setError('Save failed: ' + e.message);
     } finally {
@@ -839,7 +851,7 @@ function FormEntry({ teams, matches, eligibilityRules, team1Id, setTeam1Id, team
           setTeam1Selected={lineupState.setTeam1Lineup}
           team2Selected={lineupState.team2Lineup}
           setTeam2Selected={lineupState.setTeam2Lineup}
-          onPopulateForm={(nextCourts) => { setCourts(nextCourts); setError(''); setSuccess(''); }}
+          onPopulateForm={() => { setCourts(buildLineupCourts(selectedNamesFromIndexes(team1, lineupState.team1Lineup), selectedNamesFromIndexes(team2, lineupState.team2Lineup), scoring)); setError(''); setSuccess(''); }}
         />
       )}
 
@@ -926,8 +938,10 @@ function FormEntry({ teams, matches, eligibilityRules, team1Id, setTeam1Id, team
 
 // ==================== QUICK PASTE ENTRY ====================
 
-function QuickEntry({ teams, matches, eligibilityRules, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
+function QuickEntry({ teams, matches, eligibilityRules, scoringConfig, seasonScope, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
+  const scoring = normalizeScoringConfig(scoringConfig);
+  const scope = normalizeSeasonScope(seasonScope);
   const textareaRef = useRef(null);
   const [text, setText] = useState('');
   const [cursor, setCursor] = useState(0);
@@ -1011,7 +1025,7 @@ function QuickEntry({ teams, matches, eligibilityRules, team1Id, setTeam1Id, tea
       };
     });
 
-    const eligibilityErrors = validateEligibilityForLines(lines, team1, team2, matches, teams, eligibilityRules);
+    const eligibilityErrors = scoring.enforceEligibility ? validateEligibilityForLines(lines, team1, team2, matches, teams, eligibilityRules) : [];
     if (eligibilityErrors.length > 0) { setError(eligibilityErrors.join('\n')); return; }
 
     const winner = w1 > w2 ? team1.name : (w2 > w1 ? team2.name : null);
@@ -1029,6 +1043,9 @@ function QuickEntry({ teams, matches, eligibilityRules, team1Id, setTeam1Id, tea
       ts: Date.now(),
       enteredBy: session.role === ROLES.CAPTAIN ? session.teamName : 'Admin',
       status: 'APPROVED',
+      clubId: scope.clubId,
+      seasonId: scope.seasonId,
+      scoringConfigVersion: JSON.stringify(scoring.templates.map(t => [t.id, t.setCount, t.tiebreakAt, t.tiebreakPoints])),
       createdAt: Date.now(),
       updatedAt: Date.now(),
       updatedBy: session.teamId || session.role,

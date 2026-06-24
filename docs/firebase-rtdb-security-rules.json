@@ -1,0 +1,45 @@
+{
+  "rules": {
+    "clubs": {
+      "$clubId": {
+        ".read": "auth != null && (root.child('platformAdmins').child(auth.uid).exists() || root.child('clubs').child($clubId).child('members').child(auth.uid).exists() || root.child('clubs').child($clubId).child('adminUsers').child(auth.uid).exists())",
+        ".write": "auth != null && (root.child('platformAdmins').child(auth.uid).child('role').val() === 'platformOwner' || root.child('clubs').child($clubId).child('adminUsers').child(auth.uid).child('role').val() === 'clubOwner')",
+        "adminUsers": {
+          "$uid": {
+            ".write": "auth != null && (root.child('platformAdmins').child(auth.uid).child('role').val() === 'platformOwner' || root.child('clubs').child($clubId).child('adminUsers').child(auth.uid).child('role').val() === 'clubOwner')"
+          }
+        },
+        "payments": {
+          "$paymentId": {
+            ".read": "auth != null && (root.child('platformAdmins').child(auth.uid).exists() || root.child('clubs').child($clubId).child('adminUsers').child(auth.uid).child('role').val() === 'financeAdmin' || root.child('clubs').child($clubId).child('adminUsers').child(auth.uid).child('role').val() === 'clubOwner')",
+            ".write": "auth != null && (root.child('platformAdmins').child(auth.uid).child('role').val() === 'platformOwner' || root.child('clubs').child($clubId).child('adminUsers').child(auth.uid).child('role').val() === 'financeAdmin' || root.child('clubs').child($clubId).child('adminUsers').child(auth.uid).child('role').val() === 'clubOwner')"
+          }
+        },
+        "seasons": {
+          "$seasonId": {
+            ".read": "auth != null && (root.child('platformAdmins').child(auth.uid).exists() || root.child('clubs').child($clubId).child('members').child(auth.uid).exists() || root.child('clubs').child($clubId).child('adminUsers').child(auth.uid).exists())",
+            "matches": {
+              "$matchId": {
+                ".write": "auth != null && (root.child('platformAdmins').child(auth.uid).exists() || root.child('clubs').child($clubId).child('adminUsers').child(auth.uid).exists() || data.child('team1CaptainUid').val() === auth.uid || data.child('team2CaptainUid').val() === auth.uid)"
+              }
+            },
+            "schedule": {
+              ".write": "auth != null && (root.child('platformAdmins').child(auth.uid).exists() || root.child('clubs').child($clubId).child('adminUsers').child(auth.uid).child('role').val() === 'leagueDirector' || root.child('clubs').child($clubId).child('adminUsers').child(auth.uid).child('role').val() === 'facilityManager' || root.child('clubs').child($clubId).child('adminUsers').child(auth.uid).child('role').val() === 'clubOwner')"
+            },
+            "bookings": {
+              "$bookingId": {
+                ".write": "auth != null && (root.child('platformAdmins').child(auth.uid).exists() || root.child('clubs').child($clubId).child('adminUsers').child(auth.uid).child('role').val() === 'facilityManager' || newData.child('createdBy').val() === auth.uid)"
+              }
+            }
+          }
+        }
+      }
+    },
+    "platformAdmins": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && root.child('platformAdmins').child(auth.uid).child('role').val() === 'platformOwner'"
+      }
+    }
+  }
+}

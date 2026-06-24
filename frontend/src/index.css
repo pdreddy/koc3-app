@@ -975,3 +975,37 @@ table.std tr.q { background: linear-gradient(90deg, #dbeafe 0%, rgba(255,255,255
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+.league-config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.45rem 0.65rem;
+}
+
+
+.settings-toggle-grid,
+.schedule-config-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.9rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-bottom: 0.7rem;
+}
+
+.settings-toggle-grid label {
+  background: #f8fafc;
+  border: 1px solid var(--ring);
+  border-radius: 999px;
+  padding: 0.35rem 0.6rem;
+}
+
+.team-setup-preview {
+  background: #f8fafc;
+  border: 1px solid var(--ring);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  padding: 0.65rem 0.8rem;
+}

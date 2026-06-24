@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { onValue, ref, set, get } from 'firebase/database';
-import { db, ensureAuth, PATHS } from './firebase';
+import { db, ensureAuth, PATHS, LEGACY_PATHS } from './firebase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ROLES, hasRole } from './utils/roles';
 import { buildInitialTeams, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD } from './data/initialTeams';
@@ -10,6 +10,7 @@ import { sortByGroupOrder } from './data/auctionTeams';
 import { auctionPlayerRatingUpdates, buildAuctionPlayerRatingsTable } from './data/auctionPlayers';
 import { buildScheduleFor8x2, KOC3_SCHEDULE_VERSION } from './utils/roundRobin';
 import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from './utils/eligibilityRules';
+import { DEFAULT_LEAGUE_CONFIG, DEFAULT_PLAYER_PROFILE_CONFIG, DEFAULT_SCHEDULE_CONFIG, DEFAULT_SCORING_CONFIG, DEFAULT_SEASON_SCOPE, normalizeLeagueConfig, normalizePlayerProfileConfig, normalizeScheduleConfig, normalizeScoringConfig, normalizeSeasonScope } from './utils/leagueConfig';
 
 import BottomNav from './components/BottomNav';
 import AppHeader from './components/Header';
@@ -54,7 +55,7 @@ function Shell() {
   const [playerRatings, setPlayerRatings] = useState({});
   const [adminConfig, setAdminConfig] = useState({ password: '', users: {} });
   const [schedule, setSchedule] = useState({});
-  const [settings, setSettings] = useState({ eligibilityRules: DEFAULT_ELIGIBILITY_RULES });
+  const [settings, setSettings] = useState({ eligibilityRules: DEFAULT_ELIGIBILITY_RULES, leagueConfig: DEFAULT_LEAGUE_CONFIG, scoringConfig: DEFAULT_SCORING_CONFIG, seasonScope: DEFAULT_SEASON_SCOPE, playerProfileConfig: DEFAULT_PLAYER_PROFILE_CONFIG, scheduleConfig: DEFAULT_SCHEDULE_CONFIG });
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -66,7 +67,8 @@ function Shell() {
         const tSnap = await get(ref(db, PATHS.teams));
         let teamsData;
         if (!tSnap.exists()) {
-          teamsData = buildInitialTeams();
+          const legacyTeamsSnap = await get(ref(db, LEGACY_PATHS.teams));
+          teamsData = legacyTeamsSnap.exists() ? legacyTeamsSnap.val() : buildInitialTeams();
           await set(ref(db, PATHS.teams), teamsData);
         } else {
           teamsData = tSnap.val() || {};
@@ -89,18 +91,21 @@ function Shell() {
 
         const aSnap = await get(ref(db, PATHS.admin));
         if (!aSnap.exists()) {
-          await set(ref(db, PATHS.admin), { password: DEFAULT_ADMIN_PASSWORD });
+          const legacyAdminSnap = await get(ref(db, LEGACY_PATHS.admin));
+          await set(ref(db, PATHS.admin), legacyAdminSnap.exists() ? legacyAdminSnap.val() : { password: DEFAULT_ADMIN_PASSWORD });
         }
 
 
         const settingsSnap = await get(ref(db, PATHS.settings));
         if (!settingsSnap.exists()) {
-          await set(ref(db, PATHS.settings), { eligibilityRules: DEFAULT_ELIGIBILITY_RULES });
+          const legacySettingsSnap = await get(ref(db, LEGACY_PATHS.settings));
+          await set(ref(db, PATHS.settings), { eligibilityRules: DEFAULT_ELIGIBILITY_RULES, leagueConfig: DEFAULT_LEAGUE_CONFIG, scoringConfig: DEFAULT_SCORING_CONFIG, seasonScope: DEFAULT_SEASON_SCOPE, playerProfileConfig: DEFAULT_PLAYER_PROFILE_CONFIG, scheduleConfig: DEFAULT_SCHEDULE_CONFIG, ...(legacySettingsSnap.exists() ? legacySettingsSnap.val() : {}) });
         }
 
         const rSnap = await get(ref(db, PATHS.playerRatings));
         if (!rSnap.exists()) {
-          await set(ref(db, PATHS.playerRatings), { ...buildUtrRatingsTable(), ...buildAuctionPlayerRatingsTable() });
+          const legacyRatingsSnap = await get(ref(db, LEGACY_PATHS.playerRatings));
+          await set(ref(db, PATHS.playerRatings), legacyRatingsSnap.exists() ? legacyRatingsSnap.val() : { ...buildUtrRatingsTable(), ...buildAuctionPlayerRatingsTable() });
         } else {
           const { update } = await import('firebase/database');
           await update(ref(db, PATHS.playerRatings), auctionPlayerRatingUpdates());
@@ -108,9 +113,14 @@ function Shell() {
 
         // Seed schedule on first run
         const sSnap = await get(ref(db, PATHS.schedule));
-        const scheduleData = sSnap.val() || {};
+        if (!sSnap.exists()) {
+          const legacyScheduleSnap = await get(ref(db, LEGACY_PATHS.schedule));
+          if (legacyScheduleSnap.exists()) await set(ref(db, PATHS.schedule), legacyScheduleSnap.val());
+        }
+        const migratedScheduleSnap = await get(ref(db, PATHS.schedule));
+        const scheduleData = migratedScheduleSnap.val() || {};
         const scheduleMatches = Object.values(scheduleData).filter(item => item?.type !== 'buffer');
-        const shouldSeedSchedule = !sSnap.exists() || scheduleMatches.length === 0 || scheduleMatches.some(item => item?.scheduleVersion !== KOC3_SCHEDULE_VERSION);
+        const shouldSeedSchedule = !migratedScheduleSnap.exists() || scheduleMatches.length === 0 || scheduleMatches.some(item => item?.scheduleVersion !== KOC3_SCHEDULE_VERSION);
         if (shouldSeedSchedule) {
           const list = Object.values(buildInitialTeams()).map(canonical => ({
             ...canonical,
@@ -170,7 +180,15 @@ function Shell() {
     });
     const unsubSettings = onValue(ref(db, PATHS.settings), (snap) => {
       const value = snap.val() || {};
-      setSettings({ ...value, eligibilityRules: normalizeEligibilityRules(value.eligibilityRules) });
+      setSettings({
+        ...value,
+        eligibilityRules: normalizeEligibilityRules(value.eligibilityRules),
+        leagueConfig: normalizeLeagueConfig(value.leagueConfig),
+        scoringConfig: normalizeScoringConfig(value.scoringConfig),
+        seasonScope: normalizeSeasonScope(value.seasonScope),
+        playerProfileConfig: normalizePlayerProfileConfig(value.playerProfileConfig),
+        scheduleConfig: normalizeScheduleConfig(value.scheduleConfig)
+      });
     });
     return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubAU(); unsubR(); unsubS(); unsubSettings(); };
   }, []);
@@ -181,17 +199,17 @@ function Shell() {
       <Routes>
         <Route path="/" element={<Navigate to="/teams" replace />} />
         <Route path="/teams" element={<Teams teams={teams} loaded={loaded} />} />
-        <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} />} />
+        <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} settings={settings} />} />
         <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />
         <Route path="/matchups" element={<Matchups matches={matches} teams={teams} />} />
         <Route path="/ptl" element={<PtlRatings matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} teams={teams} ratingLookup={playerRatings} />} />
         <Route path="/history" element={<History matches={matches} teams={teams} />} />
-        <Route path="/rules" element={<Rules />} />
+        <Route path="/rules" element={<Rules settings={settings} />} />
         <Route path="/more" element={<More />} />
         <Route path="/login" element={<Login teams={teams} adminConfig={adminConfig} />} />
         <Route path="/score" element={
           <ProtectedTeam>
-            <ScoreEntry teams={teams} matches={matches} eligibilityRules={settings.eligibilityRules} />
+            <ScoreEntry teams={teams} matches={matches} eligibilityRules={settings.eligibilityRules} scoringConfig={settings.scoringConfig} seasonScope={settings.seasonScope} />
           </ProtectedTeam>
         } />
         <Route path="/audit" element={

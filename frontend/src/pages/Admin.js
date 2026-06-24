@@ -5,6 +5,8 @@ import { buildScheduleFor8x2 } from '../utils/roundRobin';
 import { UTR_RATINGS, matchUtrRating, normalizeNameKey, suggestUtrMatches } from '../data/utrRatings';
 import { groupInfoForTeamId, normalizeAuctionTeam, sortByGroupOrder } from '../data/auctionTeams';
 import { normalizeEligibilityRules } from '../utils/eligibilityRules';
+import { DEFAULT_LEAGUE_CONFIG, DEFAULT_PLAYER_PROFILE_CONFIG, DEFAULT_SCHEDULE_CONFIG, DEFAULT_SCORING_CONFIG, DEFAULT_SEASON_SCOPE, normalizeLeagueConfig, normalizePlayerProfileConfig, normalizeScheduleConfig, normalizeScoringConfig, normalizeSeasonScope } from '../utils/leagueConfig';
+import { buildConfigurableTeams, playerLookupRows } from '../utils/teamSetup';
 
 
 function ratingRowId(row) {
@@ -136,6 +138,71 @@ function NameMappingAdmin({ teams, matches, previousMatches, playerRatings }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+
+function TeamSetupWizard({ teams, playerRatings }) {
+  const [clubKey, setClubKey] = useState('koc');
+  const [teamCount, setTeamCount] = useState(16);
+  const [playersPerTeam, setPlayersPerTeam] = useState(7);
+  const [groupsCount, setGroupsCount] = useState(2);
+  const [namesText, setNamesText] = useState('');
+  const [msg, setMsg] = useState('');
+  const lookupRows = useMemo(() => playerLookupRows(playerRatings), [playerRatings]);
+
+  const playerNamesByTeam = useMemo(() => {
+    return namesText.split('\n\n').map(block => block.split('\n').map(name => name.trim()).filter(Boolean));
+  }, [namesText]);
+
+  const previewTeams = useMemo(() => buildConfigurableTeams({
+    clubKey,
+    teamCount,
+    playersPerTeam,
+    groupsCount,
+    playerNamesByTeam,
+    lookupRows,
+    existingTeams: teams
+  }), [clubKey, groupsCount, lookupRows, playerNamesByTeam, playersPerTeam, teamCount, teams]);
+
+  const saveTeams = async () => {
+    setMsg('');
+    if (!window.confirm(`Create/update ${teamCount} teams with ${playersPerTeam} player slots each? Existing matching slots are preserved.`)) return;
+    try {
+      await set(ref(db, PATHS.teams), previewTeams);
+      setMsg(`✅ Created ${Object.keys(previewTeams).length} ${clubKey.toUpperCase()} team shells with ${playersPerTeam} player slots each.`);
+    } catch (e) {
+      setMsg('Save failed: ' + e.message);
+    }
+  };
+
+  return (
+    <div className="card" data-testid="admin-team-setup-wizard">
+      <h2>🏗️ Team Setup Wizard</h2>
+      <p className="hint">Create configurable team shells for KOC or Triace. Use placeholders first, paste player names manually, or let exact database matches pull ratings into roster slots.</p>
+      <div className="league-config-grid">
+        <div className="field"><div className="field-label">Club preset</div><select className="select" value={clubKey} onChange={e => setClubKey(e.target.value)} data-testid="team-setup-club"><option value="koc">KOC</option><option value="triace">Triace</option></select></div>
+        <div className="field"><div className="field-label">Number of Teams</div><input className="input" type="number" min="1" max="64" value={teamCount} onChange={e => setTeamCount(e.target.value)} data-testid="team-setup-team-count" /></div>
+        <div className="field"><div className="field-label">Players / Team</div><input className="input" type="number" min="1" max="30" value={playersPerTeam} onChange={e => setPlayersPerTeam(e.target.value)} data-testid="team-setup-players-per-team" /></div>
+        <div className="field"><div className="field-label">Groups</div><input className="input" type="number" min="1" max="8" value={groupsCount} onChange={e => setGroupsCount(e.target.value)} data-testid="team-setup-groups" /></div>
+      </div>
+      <div className="field">
+        <div className="field-label">Optional manual player names</div>
+        <textarea className="textarea" value={namesText} onChange={e => setNamesText(e.target.value)} placeholder={'Team 1 player names, one per line\n\nTeam 2 player names, one per line'} data-testid="team-setup-player-names" />
+        <p className="hint">Separate teams with a blank line. Exact matches against the player rating database will prefill UTR; unmatched names remain manual entries and can be mapped later in PTL Name Mapping.</p>
+      </div>
+      <div className="team-setup-preview">
+        <strong>Preview:</strong> {Object.keys(previewTeams).length} teams · {Object.values(previewTeams).reduce((sum, team) => sum + team.players.length, 0)} roster slots · {lookupRows.length} database players available for exact lookup
+      </div>
+      <div className="table-wrap" style={{ marginTop: '.6rem' }}>
+        <table className="std">
+          <thead><tr><th>Team</th><th>Group</th><th>Players</th><th>Captain Slot</th></tr></thead>
+          <tbody>{Object.values(previewTeams).slice(0, 8).map(team => <tr key={team.id}><td><strong>{team.abbreviation}</strong> · {team.name}</td><td>{team.group}</td><td>{team.players.length}</td><td>{team.players[0]?.name}</td></tr>)}</tbody>
+        </table>
+      </div>
+      {msg && <div className={msg.startsWith('✅') ? 'success-box' : 'error-box'} style={{ marginTop: '.6rem' }}>{msg}</div>}
+      <button className="btn full success" onClick={saveTeams} data-testid="team-setup-save">Create / Update Team Shells</button>
     </div>
   );
 }
@@ -475,10 +542,25 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
   const [newAdminPwd, setNewAdminPwd] = useState('');
   const [adminMsg, setAdminMsg] = useState('');
   const [rulesDraft, setRulesDraft] = useState(() => normalizeEligibilityRules(settings.eligibilityRules));
+  const [leagueDraft, setLeagueDraft] = useState(() => normalizeLeagueConfig(settings.leagueConfig));
+  const [scoringDraft, setScoringDraft] = useState(() => normalizeScoringConfig(settings.scoringConfig));
+  const [seasonDraft, setSeasonDraft] = useState(() => normalizeSeasonScope(settings.seasonScope));
+  const [profileDraft, setProfileDraft] = useState(() => normalizePlayerProfileConfig(settings.playerProfileConfig));
+  const [scheduleDraft, setScheduleDraft] = useState(() => normalizeScheduleConfig(settings.scheduleConfig));
 
   const teamList = Object.values(teams || {}).sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
   const currentRules = useMemo(() => normalizeEligibilityRules(settings.eligibilityRules), [settings.eligibilityRules]);
   React.useEffect(() => { setRulesDraft(currentRules); }, [currentRules]);
+  const currentLeagueConfig = useMemo(() => normalizeLeagueConfig(settings.leagueConfig), [settings.leagueConfig]);
+  React.useEffect(() => { setLeagueDraft(currentLeagueConfig); }, [currentLeagueConfig]);
+  const currentScoringConfig = useMemo(() => normalizeScoringConfig(settings.scoringConfig), [settings.scoringConfig]);
+  const currentSeasonScope = useMemo(() => normalizeSeasonScope(settings.seasonScope), [settings.seasonScope]);
+  const currentProfileConfig = useMemo(() => normalizePlayerProfileConfig(settings.playerProfileConfig), [settings.playerProfileConfig]);
+  const currentScheduleConfig = useMemo(() => normalizeScheduleConfig(settings.scheduleConfig), [settings.scheduleConfig]);
+  React.useEffect(() => { setScoringDraft(currentScoringConfig); }, [currentScoringConfig]);
+  React.useEffect(() => { setSeasonDraft(currentSeasonScope); }, [currentSeasonScope]);
+  React.useEffect(() => { setProfileDraft(currentProfileConfig); }, [currentProfileConfig]);
+  React.useEffect(() => { setScheduleDraft(currentScheduleConfig); }, [currentScheduleConfig]);
 
   const saveAdminPwd = async () => {
     if (!newAdminPwd.trim()) { setAdminMsg('Password cannot be empty.'); return; }
@@ -492,6 +574,41 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
     }
   };
 
+
+  const saveLeagueConfig = async () => {
+    const next = normalizeLeagueConfig(leagueDraft);
+    try {
+      await update(ref(db, PATHS.settings), { leagueConfig: next });
+      setAdminMsg('✅ League configuration updated');
+      setTimeout(() => setAdminMsg(''), 2000);
+    } catch (e) {
+      setAdminMsg('Save failed: ' + e.message);
+    }
+  };
+
+  const resetLeagueConfig = () => setLeagueDraft(DEFAULT_LEAGUE_CONFIG);
+
+  const saveCommercialSettings = async () => {
+    try {
+      await update(ref(db, PATHS.settings), {
+        scoringConfig: normalizeScoringConfig(scoringDraft),
+        seasonScope: normalizeSeasonScope(seasonDraft),
+        playerProfileConfig: normalizePlayerProfileConfig(profileDraft),
+        scheduleConfig: normalizeScheduleConfig(scheduleDraft)
+      });
+      setAdminMsg('✅ Commercial operations settings updated');
+      setTimeout(() => setAdminMsg(''), 2000);
+    } catch (e) {
+      setAdminMsg('Save failed: ' + e.message);
+    }
+  };
+
+  const resetCommercialSettings = () => {
+    setScoringDraft(DEFAULT_SCORING_CONFIG);
+    setSeasonDraft(DEFAULT_SEASON_SCOPE);
+    setProfileDraft(DEFAULT_PLAYER_PROFILE_CONFIG);
+    setScheduleDraft(DEFAULT_SCHEDULE_CONFIG);
+  };
 
   const saveEligibilityRules = async () => {
     const next = normalizeEligibilityRules(rulesDraft);
@@ -530,6 +647,7 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
 
       {tab === 'teams' && (
         <>
+          <TeamSetupWizard teams={teams} playerRatings={playerRatings} />
           <TeamJsonImporter />
           {teamList.map(t => <TeamEditor key={t.id} team={t} />)}
         </>
@@ -570,6 +688,71 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
             <button className="btn full" onClick={saveAdminPwd} data-testid="admin-save-pwd-btn">Update Admin Password</button>
           </div>
 
+
+
+          <div className="card" data-testid="admin-league-config-card">
+            <h2>🏢 Commercial League Configuration</h2>
+            <p className="hint" style={{ marginBottom: '.6rem' }}>Make this app reusable for any club: brand it, choose game style, and control team/player limits without code changes.</p>
+            <div className="row">
+              <div className="field"><div className="field-label">League Name</div><input className="input" value={leagueDraft.leagueName} onChange={e => setLeagueDraft({ ...leagueDraft, leagueName: e.target.value })} data-testid="league-config-name" /></div>
+              <div className="field"><div className="field-label">Club Name</div><input className="input" value={leagueDraft.clubName} onChange={e => setLeagueDraft({ ...leagueDraft, clubName: e.target.value })} data-testid="league-config-club" /></div>
+            </div>
+            <div className="row">
+              <div className="field"><div className="field-label">Sport / Activity</div><input className="input" value={leagueDraft.sportName} onChange={e => setLeagueDraft({ ...leagueDraft, sportName: e.target.value })} data-testid="league-config-sport" /></div>
+              <div className="field"><div className="field-label">Rating System</div><input className="input" value={leagueDraft.ratingSystemName} onChange={e => setLeagueDraft({ ...leagueDraft, ratingSystemName: e.target.value })} data-testid="league-config-rating" /></div>
+            </div>
+            <div className="field"><div className="field-label">Game Style</div><select className="select" value={leagueDraft.gameStyle} onChange={e => setLeagueDraft({ ...leagueDraft, gameStyle: e.target.value })} data-testid="league-config-game-style"><option>Round Robin + Playoffs</option><option>Round Robin Only</option><option>Knockout Bracket</option><option>Pool Play + Championship</option><option>Ladder / Flex League</option></select></div>
+            <div className="league-config-grid">
+              {[['teamCount', 'Teams'], ['groupsCount', 'Groups'], ['minPlayersPerTeam', 'Min Players / Team'], ['maxPlayersPerTeam', 'Max Players / Team'], ['activePlayersPerMatch', 'Active Players / Match'], ['linesPerMatch', 'Lines / Match'], ['singlesLines', 'Singles Lines'], ['playoffQualifiersPerGroup', 'Playoff Qualifiers / Group']].map(([key, label]) => (
+                <div className="field" key={key}><div className="field-label">{label}</div><input className="input" type="number" min="1" value={leagueDraft[key]} onChange={e => setLeagueDraft({ ...leagueDraft, [key]: e.target.value })} data-testid={`league-config-${key}`} /></div>
+              ))}
+            </div>
+            <div className="row">
+              <div className="field"><div className="field-label">Season Start</div><input className="input" type="date" value={leagueDraft.regularSeasonStart} onChange={e => setLeagueDraft({ ...leagueDraft, regularSeasonStart: e.target.value })} data-testid="league-config-start" /></div>
+              <div className="field"><div className="field-label">Season End</div><input className="input" type="date" value={leagueDraft.regularSeasonEnd} onChange={e => setLeagueDraft({ ...leagueDraft, regularSeasonEnd: e.target.value })} data-testid="league-config-end" /></div>
+            </div>
+            <div className="row">
+              <div className="field"><div className="field-label">Match Days</div><input className="input" value={leagueDraft.primaryMatchDays} onChange={e => setLeagueDraft({ ...leagueDraft, primaryMatchDays: e.target.value })} data-testid="league-config-days" /></div>
+              <div className="field"><div className="field-label">Score Deadline</div><input className="input" value={leagueDraft.scoreReportingDeadline} onChange={e => setLeagueDraft({ ...leagueDraft, scoreReportingDeadline: e.target.value })} data-testid="league-config-deadline" /></div>
+            </div>
+            <div style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap' }}><button className="btn" onClick={saveLeagueConfig} data-testid="admin-save-league-config">Save League Configuration</button><button className="btn ghost" onClick={resetLeagueConfig} data-testid="admin-reset-league-config">Reset Defaults</button></div>
+          </div>
+
+
+
+          <div className="card" data-testid="admin-commercial-ops-card">
+            <h2>🧩 Commercial Operations Engine</h2>
+            <p className="hint" style={{ marginBottom: '.6rem' }}>Configure scoring, club/season scope, UTR-style player profiles, and scheduling product behavior as data instead of code.</p>
+            <div className="row">
+              <div className="field"><div className="field-label">Club ID</div><input className="input" value={seasonDraft.clubId} onChange={e => setSeasonDraft({ ...seasonDraft, clubId: e.target.value })} data-testid="season-scope-club-id" /></div>
+              <div className="field"><div className="field-label">Season ID</div><input className="input" value={seasonDraft.seasonId} onChange={e => setSeasonDraft({ ...seasonDraft, seasonId: e.target.value })} data-testid="season-scope-season-id" /></div>
+            </div>
+            <div className="row">
+              <div className="field"><div className="field-label">Season Name</div><input className="input" value={seasonDraft.seasonName} onChange={e => setSeasonDraft({ ...seasonDraft, seasonName: e.target.value })} data-testid="season-scope-name" /></div>
+              <div className="field"><div className="field-label">Ranking Metric</div><input className="input" value={profileDraft.rankingMetric} onChange={e => setProfileDraft({ ...profileDraft, rankingMetric: e.target.value })} data-testid="profile-ranking-metric" /></div>
+            </div>
+            <div className="league-config-grid">
+              <div className="field"><div className="field-label">Win Points</div><input className="input" type="number" min="0" value={scoringDraft.winPoints} onChange={e => setScoringDraft({ ...scoringDraft, winPoints: e.target.value })} data-testid="scoring-win-points" /></div>
+              <div className="field"><div className="field-label">Loss Points</div><input className="input" type="number" min="0" value={scoringDraft.lossPoints} onChange={e => setScoringDraft({ ...scoringDraft, lossPoints: e.target.value })} data-testid="scoring-loss-points" /></div>
+              <div className="field"><div className="field-label">Forfeit Points</div><input className="input" type="number" min="0" value={scoringDraft.forfeitPoints} onChange={e => setScoringDraft({ ...scoringDraft, forfeitPoints: e.target.value })} data-testid="scoring-forfeit-points" /></div>
+              <div className="field"><div className="field-label">Courts Available</div><input className="input" type="number" min="1" value={scheduleDraft.courtCount} onChange={e => setScheduleDraft({ ...scheduleDraft, courtCount: e.target.value })} data-testid="schedule-court-count" /></div>
+              <div className="field"><div className="field-label">Slot Minutes</div><input className="input" type="number" min="15" value={scheduleDraft.slotDurationMinutes} onChange={e => setScheduleDraft({ ...scheduleDraft, slotDurationMinutes: e.target.value })} data-testid="schedule-slot-duration" /></div>
+              <div className="field"><div className="field-label">Default Start</div><input className="input" value={scheduleDraft.defaultStartTime} onChange={e => setScheduleDraft({ ...scheduleDraft, defaultStartTime: e.target.value })} data-testid="schedule-default-start" /></div>
+            </div>
+            <div className="field"><div className="field-label">Score Line Templates</div><textarea className="textarea" value={scoringDraft.templates.map(t => `${t.label}|${t.type}|${t.setCount}|${t.tiebreakAt}|${t.tiebreakPoints}`).join('\n')} onChange={e => setScoringDraft({ ...scoringDraft, templates: e.target.value.split('\n').filter(Boolean).map((line, index) => { const [label, type, setCount, tiebreakAt, tiebreakPoints] = line.split('|'); return { id: `line-${index + 1}`, label, type, setCount, tiebreakAt, tiebreakPoints }; }) })} data-testid="scoring-templates-textarea" /></div>
+            <p className="hint">Template format: Label|singles-or-doubles|set count|tiebreak at|tiebreak points. Example: Singles|singles|5|3|7</p>
+            <div className="row">
+              <div className="field"><div className="field-label">Schedule Format</div><select className="select" value={scheduleDraft.format} onChange={e => setScheduleDraft({ ...scheduleDraft, format: e.target.value })} data-testid="schedule-format"><option value="roundRobin">Round Robin</option><option value="ladder">Ladder / Flex</option><option value="knockout">Knockout</option><option value="poolPlay">Pool Play</option></select></div>
+              <div className="field"><div className="field-label">Blackout Dates</div><input className="input" value={scheduleDraft.blackoutDates.join(', ')} onChange={e => setScheduleDraft({ ...scheduleDraft, blackoutDates: e.target.value.split(',').map(v => v.trim()).filter(Boolean) })} data-testid="schedule-blackout-dates" /></div>
+            </div>
+            <div className="settings-toggle-grid">
+              <label><input type="checkbox" checked={scoringDraft.enforceEligibility} onChange={e => setScoringDraft({ ...scoringDraft, enforceEligibility: e.target.checked })} /> Enforce validations</label>
+              <label><input type="checkbox" checked={profileDraft.requireVerifiedPlayers} onChange={e => setProfileDraft({ ...profileDraft, requireVerifiedPlayers: e.target.checked })} /> Require verified player profiles</label>
+              <label><input type="checkbox" checked={profileDraft.trackAvailability} onChange={e => setProfileDraft({ ...profileDraft, trackAvailability: e.target.checked })} /> Track availability</label>
+              <label><input type="checkbox" checked={scheduleDraft.autoSchedulerEnabled} onChange={e => setScheduleDraft({ ...scheduleDraft, autoSchedulerEnabled: e.target.checked })} /> Enable auto-scheduler</label>
+            </div>
+            <div style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap', marginTop: '.6rem' }}><button className="btn" onClick={saveCommercialSettings} data-testid="admin-save-commercial-settings">Save Commercial Operations</button><button className="btn ghost" onClick={resetCommercialSettings} data-testid="admin-reset-commercial-settings">Reset Operations Defaults</button></div>
+          </div>
 
           <div className="card">
             <h2>🎾 Player Eligibility Rules</h2>

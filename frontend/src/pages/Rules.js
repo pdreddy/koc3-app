@@ -1,4 +1,5 @@
 import React from 'react';
+import { normalizeLeagueConfig } from '../utils/leagueConfig';
 
 const ruleCards = [
   {
@@ -88,31 +89,53 @@ function RuleCard({ card, idx }) {
   );
 }
 
-export default function Rules() {
+export default function Rules({ settings = {} }) {
+  const league = normalizeLeagueConfig(settings.leagueConfig);
+  const cards = ruleCards.map(card => {
+    if (card.num === '02') return { ...card, items: [
+      ['👥', 'Team Size', `${league.minPlayersPerTeam}–${league.maxPlayersPerTeam} players per team.`],
+      ['🎯', 'Active Match Roster', `${league.activePlayersPerMatch} active players across ${league.linesPerMatch} lines.`],
+      ['❗', 'Minimum Participation', 'Each player must meet club-configured eligibility rules before playoffs.'],
+      ['🩺', 'Injury Replacement', 'Committee approval required for similar-rating replacements.']
+    ]};
+    if (card.num === '03') return { ...card, groups: [
+      ['Format & Calendar', [['🏟️', 'Format', `${league.teamCount} Teams • ${league.gameStyle}.`], ['🗓️', 'Duration', `${league.regularSeasonStart} → ${league.regularSeasonEnd}.`], ['📆', 'Match Days', league.primaryMatchDays]]],
+      ['Match Format', [['🧍', 'Singles', `${league.singlesLines} singles line${league.singlesLines === 1 ? '' : 's'}.`], ['👥', 'Doubles', `${league.doublesLines} doubles line${league.doublesLines === 1 ? '' : 's'} / match.`]]],
+      ['Scoring', [['✅', 'Win', `Win the majority of ${league.linesPerMatch} lines → 1 point.`], ['❌', 'Loss', 'Loss → 0 points.'], ['📊', 'Tiebreak', 'Points → Sets → Games → Head-to-Head.']]]
+    ]};
+    if (card.num === '04') return { ...card, items: card.items.map(item => {
+      if (item[1] === 'Match Days') return ['🕒', 'Match Days', league.primaryMatchDays + '.'];
+      if (item[1] === 'Weekday Play') return ['🤝', 'Weekday Play', league.allowWeekdayReschedules ? "Captains may choose a weekday if both teams' players are available." : 'Weekday reschedules are disabled for this club.'];
+      if (item[1] === 'Missed Lineups') return ['⏱️', 'Missed Lineups', `If lineups are not shared by ${league.lineupDeadline}.`];
+      if (item[1] === 'Score Reporting') return ['📣', 'Score Reporting', `Winning captain must post before ${league.scoreReportingDeadline}.`];
+      return item;
+    })};
+    return card;
+  });
   return (
     <main className="rules-wrap">
       <section className="rules-hero">
         <div className="rules-hero-text">
-          <span className="rules-eyebrow">● KOC Season 2 — The Rulebook</span>
+          <span className="rules-eyebrow">● {league.leagueName} — {league.clubName}</span>
           <h1><span>Rules &amp;</span><em>Format</em></h1>
-          <p>Everything captains and players need: match limits, scoring, scheduling, and the road to the playoffs.</p>
+          <p>Everything captains and players need: configurable format, match limits, scoring, scheduling, and the road to the playoffs.</p>
           <div className="rules-energy" />
         </div>
         <div className="rules-visual" aria-hidden="true"><div className="rules-orbit" /><div className="rules-ball" /><div className="rules-racket" /></div>
         <div className="rules-stats">
-          <div className="rules-stat"><b>16</b><small>Teams</small></div>
-          <div className="rules-stat"><b>RR</b><small>Round Robin</small></div>
-          <div className="rules-stat"><b>Jun 30</b><small>→ Sep 15</small></div>
-          <div className="rules-stat"><b>Bo5</b><small>Singles Format</small></div>
+          <div className="rules-stat"><b>{league.teamCount}</b><small>Teams</small></div>
+          <div className="rules-stat"><b>{league.groupsCount}</b><small>Groups</small></div>
+          <div className="rules-stat"><b>{league.activePlayersPerMatch}</b><small>Players / Match</small></div>
+          <div className="rules-stat"><b>{league.ratingSystemName}</b><small>Ratings</small></div>
         </div>
       </section>
 
       <nav className="rules-toc" aria-label="Rules sections">
-        {ruleCards.map(card => <a key={card.num} href={`#rule-${card.num}`}><span>{card.num}</span>{card.title}</a>)}
+        {cards.map(card => <a key={card.num} href={`#rule-${card.num}`}><span>{card.num}</span>{card.title}</a>)}
       </nav>
 
       <div className="rules-sec-head"><h2>The Rules</h2><div className="rules-line" /></div>
-      <section className="rules-grid">{ruleCards.map((card, idx) => <RuleCard key={card.num} card={card} idx={idx} />)}</section>
+      <section className="rules-grid">{cards.map((card, idx) => <RuleCard key={card.num} card={card} idx={idx} />)}</section>
 
       <section className="rules-flow-card">
         <div><b>1</b><span>Share lineup</span><small>Captains post lines before play.</small></div>
@@ -123,7 +146,7 @@ export default function Rules() {
 
       <div className="rules-sec-head"><h2>Playoffs</h2><div className="rules-line" /></div>
       <section className="rules-bracket">
-        <p><strong>Top 4 from both groups qualify.</strong> Quarterfinal crossovers pit each group's high seeds against the other group's lowest.</p>
+        <p><strong>Top {league.playoffQualifiersPerGroup} from each group qualify.</strong> Quarterfinal crossovers pit each group's high seeds against the other group's lowest.</p>
         <div className="rules-groups">
           <div><h3>Quarterfinals — Top half</h3><div className="rules-qf"><span>QF1</span><b>A1 <i>vs</i> B4</b></div><div className="rules-qf"><span>QF2</span><b>A2 <i>vs</i> B3</b></div></div>
           <div><h3>Quarterfinals — Bottom half</h3><div className="rules-qf"><span>QF3</span><b>A3 <i>vs</i> B2</b></div><div className="rules-qf"><span>QF4</span><b>A4 <i>vs</i> B1</b></div></div>

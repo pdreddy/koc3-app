@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { normalizeScheduleConfig } from '../utils/leagueConfig';
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -40,7 +41,8 @@ function MatchRow({ m, t1, t2, isCompleted }) {
   );
 }
 
-export default function Schedule({ teams, schedule }) {
+export default function Schedule({ teams, schedule, settings = {} }) {
+  const scheduleConfig = normalizeScheduleConfig(settings.scheduleConfig);
   const [filterTeam, setFilterTeam] = useState('all');
   const [filterGroup, setFilterGroup] = useState('all');
 
@@ -91,10 +93,11 @@ export default function Schedule({ teams, schedule }) {
     <main className="container">
       <div className="page-title">
         <h1>Schedule</h1>
-        <p>7 rounds · Group A Saturdays · Group B Sundays · July 4 buffer week</p>
+        <p>{scheduleConfig.format} · {scheduleConfig.courtCount} courts · {scheduleConfig.primaryDays.join(' / ')} · {scheduleConfig.autoSchedulerEnabled ? 'auto-scheduler ready' : 'manual scheduling'}</p>
       </div>
 
       <div className="card">
+        <div className="schedule-config-summary"><span>Slot length: {scheduleConfig.slotDurationMinutes} min</span><span>Default start: {scheduleConfig.defaultStartTime}</span><span>Blackouts: {scheduleConfig.blackoutDates.length || 'none'}</span></div>
         <div style={{ display: 'flex', gap: '.5rem' }}>
           <div style={{ flex: 1 }}>
             <div className="field-label">Group</div>

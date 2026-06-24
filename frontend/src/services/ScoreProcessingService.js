@@ -3,6 +3,7 @@ import { db, PATHS } from '../firebase';
 import { buildPtlRatings } from '../utils/ptlRating';
 import { resolveMatchTeams, matchWinnerId } from '../utils/matchTeams';
 import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from '../utils/eligibilityRules';
+import { normalizeScoringConfig, normalizeSeasonScope } from '../utils/leagueConfig';
 
 const APPROVED = new Set(['APPROVED', 'approved', undefined, null, '']);
 const keyFor = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'unknown';
@@ -17,7 +18,8 @@ export function validateScore(match) {
   return true;
 }
 
-function computeStandings(teams, matches) {
+function computeStandings(teams, matches, scoringConfig) {
+  const scoring = normalizeScoringConfig(scoringConfig);
   const rows = Object.fromEntries(Object.values(teams || {}).map(t => [t.id, {
     teamId: t.id, team: t.name, abbr: t.abbreviation, group: t.group || 'A', matches: 0, wins: 0, losses: 0,
     points: 0, setsWon: 0, setsLost: 0, gamesWon: 0, gamesLost: 0, singlesWins: 0, position: 0
@@ -36,8 +38,8 @@ function computeStandings(teams, matches) {
       if ((Number(l.g1) || 0) > (Number(l.g2) || 0)) rows[team1.id].singlesWins++;
       if ((Number(l.g2) || 0) > (Number(l.g1) || 0)) rows[team2.id].singlesWins++;
     });
-    if (winId === team1.id) { rows[team1.id].wins++; rows[team1.id].points++; rows[team2.id].losses++; }
-    if (winId === team2.id) { rows[team2.id].wins++; rows[team2.id].points++; rows[team1.id].losses++; }
+    if (winId === team1.id) { rows[team1.id].wins++; rows[team1.id].points += scoring.winPoints; rows[team2.id].losses++; rows[team2.id].points += scoring.lossPoints; }
+    if (winId === team2.id) { rows[team2.id].wins++; rows[team2.id].points += scoring.winPoints; rows[team1.id].losses++; rows[team1.id].points += scoring.lossPoints; }
     headToHead[`${team1.id}:${team2.id}`] = (headToHead[`${team1.id}:${team2.id}`] || 0) + (winId === team1.id ? 1 : 0);
     headToHead[`${team2.id}:${team1.id}`] = (headToHead[`${team2.id}:${team1.id}`] || 0) + (winId === team2.id ? 1 : 0);
   }
@@ -101,12 +103,13 @@ function eligibilityPairKey(teamId, names) {
   return `${teamId}:${names.map(name => String(name || '').trim().toLowerCase()).sort().join('|')}`;
 }
 
-function computePlayerEligibility(teams, matches) {
+function computePlayerEligibility(teams, matches, seasonScope) {
+  const scope = normalizeSeasonScope(seasonScope);
   const rows = {};
   Object.values(teams || {}).forEach(team => {
     (team.players || []).forEach(player => {
       const key = eligibilityKey(team.id, player.name);
-      rows[key] = { playerId: key, playerName: player.name, teamId: team.id, seasonId: 'koc_s3', totalMatchDays: 0, singlesDays: 0, doublesDays: 0, partnerHistory: {} };
+      rows[key] = { playerId: key, playerName: player.name, teamId: team.id, seasonId: scope.seasonId, totalMatchDays: 0, singlesDays: 0, doublesDays: 0, partnerHistory: {} };
     });
   });
   approvedMatches(matches).forEach(match => {
@@ -131,13 +134,13 @@ function computePlayerEligibility(teams, matches) {
     dayPairs.forEach((pair, pairKey) => {
       pair.names.forEach(name => {
         const key = eligibilityKey(pair.teamId, name);
-        const base = rows[key] || { playerId: key, playerName: name, teamId: pair.teamId, seasonId: 'koc_s3', totalMatchDays: 0, singlesDays: 0, doublesDays: 0, partnerHistory: {} };
+        const base = rows[key] || { playerId: key, playerName: name, teamId: pair.teamId, seasonId: scope.seasonId, totalMatchDays: 0, singlesDays: 0, doublesDays: 0, partnerHistory: {} };
         base.partnerHistory[pairKey] = (base.partnerHistory[pairKey] || 0) + 1;
         rows[key] = base;
       });
     });
     dayPlayers.forEach(day => {
-      const row = rows[day.key] || { playerId: day.key, playerName: day.name, teamId: day.teamId, seasonId: 'koc_s3', totalMatchDays: 0, singlesDays: 0, doublesDays: 0, partnerHistory: {} };
+      const row = rows[day.key] || { playerId: day.key, playerName: day.name, teamId: day.teamId, seasonId: scope.seasonId, totalMatchDays: 0, singlesDays: 0, doublesDays: 0, partnerHistory: {} };
       if (day.singles) row.singlesDays += 1;
       if (day.doubles) row.doublesDays += 1;
       row.totalMatchDays = row.singlesDays + row.doublesDays;
@@ -148,9 +151,9 @@ function computePlayerEligibility(teams, matches) {
 }
 
 
-function assertEligibilityRules(teams, matches, eligibilityRules = DEFAULT_ELIGIBILITY_RULES) {
+function assertEligibilityRules(teams, matches, eligibilityRules = DEFAULT_ELIGIBILITY_RULES, seasonScope = {}) {
   const rules = normalizeEligibilityRules(eligibilityRules);
-  const rows = computePlayerEligibility(teams, matches);
+  const rows = computePlayerEligibility(teams, matches, seasonScope);
   const errors = [];
   Object.values(rows).forEach(row => {
     if (row.singlesDays > rules.maxSinglesDays) errors.push(`${row.playerName}: singles limit exceeded (${row.singlesDays}/${rules.maxSinglesDays} Singles Days)`);
@@ -192,10 +195,13 @@ export class ScoreProcessingService {
     const current = matchRecord || matches.find(m => m.id === matchId);
     validateScore(current);
     if (matchRecord && matchId && !matches.some(m => m.id === matchId)) matches = [...matches, { ...matchRecord, id: matchId }];
-    const approved = approvedMatches(matches);
-    const playerEligibility = assertEligibilityRules(teams, approved, settingsSnap.val()?.eligibilityRules);
-    const standings = computeStandings(teams, approved); const pprcRatings = buildPtlRatings(teams, approved, ratingsSnap.val() || {}); const histories = computeHistories(teams, approved);
-    const updatedBy = session?.teamId || session?.role || 'system'; const meta = { updatedAt: now, updatedBy, version: now };
+    const settings = settingsSnap.val() || {};
+    const scoring = normalizeScoringConfig(settings.scoringConfig);
+    const scope = normalizeSeasonScope(settings.seasonScope);
+    const approved = approvedMatches(matches).filter(match => !match.seasonId || match.seasonId === scope.seasonId);
+    const playerEligibility = scoring.enforceEligibility ? assertEligibilityRules(teams, approved, settings.eligibilityRules, scope) : computePlayerEligibility(teams, approved, scope);
+    const standings = computeStandings(teams, approved, scoring); const pprcRatings = buildPtlRatings(teams, approved, ratingsSnap.val() || {}); const histories = computeHistories(teams, approved);
+    const updatedBy = session?.teamId || session?.role || 'system'; const meta = { updatedAt: now, updatedBy, version: now, clubId: scope.clubId, seasonId: scope.seasonId };
     await update(ref(db), {
       [PATHS.standings]: Object.fromEntries(standings.map(r => [r.teamId, { ...r, ...meta }])),
       [PATHS.pprcRatings]: Object.fromEntries(pprcRatings.map(r => [keyFor(r.name), { ...r, ...meta }])),
