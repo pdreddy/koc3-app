@@ -781,6 +781,7 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [shareText, setShareText] = useState('');
+  const [pendingRecord, setPendingRecord] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -796,6 +797,8 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
   }, [team1, team2, setTeam2Id]);
 
   const updateCourt = (idx, patch) => {
+    setPendingRecord(null);
+    setShareText('');
     setCourts(cs => cs.map((c, i) => i === idx ? { ...c, ...patch } : c));
   };
 
@@ -812,7 +815,7 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
   }, [courts]);
 
   const handleSubmit = async () => {
-    setError(''); setSuccess(''); setShareText('');
+    setError(''); setSuccess(''); setShareText(''); setPendingRecord(null);
     if (!team1 || !team2) { setError('Please choose both teams.'); return; }
     if (team1.id === team2.id) { setError('Teams must be different.'); return; }
     if (!teamsShareGroup(team1, team2)) { setError('Teams can only play opponents in the same group.'); return; }
@@ -902,15 +905,23 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
       lines
     };
 
+    setPendingRecord(record);
+    setShareText(formatMatchShareText(record));
+    setSuccess('📋 Preview ready. Copy/share the WhatsApp message, then confirm to save this result to the database.');
+  };
+
+  const confirmSave = async () => {
+    if (!pendingRecord) return;
     try {
       setSaving(true);
       await ensureAuth();
-      const saved = await ScoreProcessingService.updateAfterScoreEntry(record, { session });
+      const saved = await ScoreProcessingService.updateAfterScoreEntry(pendingRecord, { session });
       const savedRecord = saved.matchRecord;
       onScoreSaved?.(savedRecord);
       await writeAuditLog({ actionType: 'Score Entry', session, targetType: 'match', targetId: saved.key, newValue: savedRecord });
-      setSuccess(`✅ Saved and synchronized ratings, standings, histories, and dashboard:  ${team1.name} vs ${team2.name} — Winner: ${winner}`);
+      setSuccess(`✅ Saved and synchronized ratings, standings, histories, and dashboard:  ${pendingRecord.t1} vs ${pendingRecord.t2} — Winner: ${pendingRecord.win}`);
       setShareText(formatMatchShareText(savedRecord));
+      setPendingRecord(null);
       setCourts(COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
     } catch (e) {
       setError('Save failed: ' + e.message);
@@ -926,6 +937,20 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
       {error && <div className="error-box" data-testid="score-error" style={{ whiteSpace: 'pre-line' }}>{error}</div>}
       {success && <div className="success-box" data-testid="score-success">{success}</div>}
       <ShareResultPreview text={shareText} />
+      {pendingRecord && (
+        <div className="card" data-testid="score-save-confirmation">
+          <h2>Confirm database save</h2>
+          <p className="hint">Please copy or share the WhatsApp preview above, then confirm when you are ready to save this result to the database.</p>
+          <div className="row">
+            <button className="btn success full" onClick={confirmSave} disabled={saving} data-testid="confirm-save-db-btn">
+              {saving ? 'Saving...' : 'Confirm & Save to DB'}
+            </button>
+            <button className="btn ghost full" onClick={() => { setPendingRecord(null); setShareText(''); setSuccess(''); }} disabled={saving} data-testid="cancel-save-db-btn">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="card score-teams-card">
         <h2>Match teams</h2>
@@ -970,7 +995,7 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
           setTeam1Selected={lineupState.setTeam1Lineup}
           team2Selected={lineupState.team2Lineup}
           setTeam2Selected={lineupState.setTeam2Lineup}
-          onPopulateForm={(nextCourts) => { setCourts(nextCourts); setError(''); setSuccess(''); setShareText(''); }}
+          onPopulateForm={(nextCourts) => { setCourts(nextCourts); setError(''); setSuccess(''); setShareText(''); setPendingRecord(null); }}
         />
       )}
 
@@ -1047,7 +1072,7 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
             disabled={saving}
             data-testid="submit-score-btn"
           >
-            {saving ? 'Saving...' : 'Save Match Result'}
+            {saving ? 'Saving...' : 'Preview & Confirm Save'}
           </button>
         </div>
       )}
@@ -1065,6 +1090,7 @@ function QuickEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, s
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [shareText, setShareText] = useState('');
+  const [pendingRecord, setPendingRecord] = useState(null);
   const [saving, setSaving] = useState(false);
   const teamList = Object.values(teams || {});
   const myTeam = session.role === ROLES.CAPTAIN ? teams[session.teamId] : null;
@@ -1086,8 +1112,8 @@ function QuickEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, s
   const guidance = useMemo(() => getQuickGuidance(text, parsed, teams), [text, parsed, teams]);
   const normalizedText = useMemo(() => normalizeQuickText(text, teams), [text, teams]);
   const canNormalize = text.trim() && normalizedText !== text;
-  const applyTemplate = () => { setText(quickTemplate); setError(''); setSuccess(''); setShareText(''); };
-  const applyNormalize = () => { setText(normalizedText); setError(''); setSuccess(''); setShareText(''); };
+  const applyTemplate = () => { setText(quickTemplate); setError(''); setSuccess(''); setShareText(''); setPendingRecord(null); };
+  const applyNormalize = () => { setText(normalizedText); setError(''); setSuccess(''); setShareText(''); setPendingRecord(null); };
   const quickNameContext = useMemo(() => getQuickNameContext(text, cursor, parsed, teams), [text, cursor, parsed, teams]);
   const updateCursorFromTextarea = (element) => setCursor(element.selectionStart || 0);
   const applyQuickSuggestion = (name) => {
@@ -1104,6 +1130,8 @@ function QuickEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, s
     });
   };
   const applyQuickTextChange = (value, selectionStart) => {
+    setShareText('');
+    setPendingRecord(null);
     const nextParsed = parseQuickScore(value, teams);
     const nextContext = getQuickNameContext(value, selectionStart, nextParsed, teams);
     const autoName = nextContext ? autoCompleteUniqueRosterName(nextContext.query, nextContext.suggestions) : null;
@@ -1125,7 +1153,7 @@ function QuickEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, s
   };
 
   const handleSubmit = async () => {
-    setError(''); setSuccess(''); setShareText('');
+    setError(''); setSuccess(''); setShareText(''); setPendingRecord(null);
     const { results, errors, team1, team2 } = parsed;
     if (!team1 || !team2) { setError(errors.join('\n') || 'Could not detect teams.'); return; }
     if (errors.length > 0) { setError(errors.join('\n')); return; }
@@ -1183,15 +1211,23 @@ function QuickEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, s
       lines
     };
 
+    setPendingRecord(record);
+    setShareText(formatMatchShareText(record));
+    setSuccess('📋 Preview ready. Copy/share the WhatsApp message, then confirm to save this result to the database.');
+  };
+
+  const confirmSave = async () => {
+    if (!pendingRecord) return;
     try {
       setSaving(true);
       await ensureAuth();
-      const saved = await ScoreProcessingService.updateAfterScoreEntry(record, { session });
+      const saved = await ScoreProcessingService.updateAfterScoreEntry(pendingRecord, { session });
       const savedRecord = saved.matchRecord;
       onScoreSaved?.(savedRecord);
       await writeAuditLog({ actionType: 'Score Entry', session, targetType: 'match', targetId: saved.key, newValue: savedRecord });
-      setSuccess(`✅ Saved and synchronized ratings, standings, histories, and dashboard:  ${team1.name} vs ${team2.name} — Winner: ${winner}`);
+      setSuccess(`✅ Saved and synchronized ratings, standings, histories, and dashboard:  ${pendingRecord.t1} vs ${pendingRecord.t2} — Winner: ${pendingRecord.win}`);
       setShareText(formatMatchShareText(savedRecord));
+      setPendingRecord(null);
       setText('');
     } catch (e) {
       setError('Save failed: ' + e.message);
@@ -1230,6 +1266,20 @@ Final: KC won 3-2`;
       {error && <div className="error-box" data-testid="quick-error" style={{ whiteSpace: 'pre-line' }}>{error}</div>}
       {success && <div className="success-box" data-testid="quick-success">{success}</div>}
       <ShareResultPreview text={shareText} />
+      {pendingRecord && (
+        <div className="card" data-testid="quick-save-confirmation">
+          <h2>Confirm database save</h2>
+          <p className="hint">Please copy or share the WhatsApp preview above, then confirm when you are ready to save this result to the database.</p>
+          <div className="row">
+            <button className="btn success full" onClick={confirmSave} disabled={saving} data-testid="quick-confirm-save-db-btn">
+              {saving ? 'Saving...' : 'Confirm & Save to DB'}
+            </button>
+            <button className="btn ghost full" onClick={() => { setPendingRecord(null); setShareText(''); setSuccess(''); }} disabled={saving} data-testid="quick-cancel-save-db-btn">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="card score-teams-card">
         <h2>Match teams</h2>
@@ -1263,7 +1313,7 @@ Final: KC won 3-2`;
           setTeam1Selected={lineupState.setTeam1Lineup}
           team2Selected={lineupState.team2Lineup}
           setTeam2Selected={lineupState.setTeam2Lineup}
-          onPopulateQuick={(nextText) => { setText(nextText); setError(''); setSuccess(''); setShareText(''); }}
+          onPopulateQuick={(nextText) => { setText(nextText); setError(''); setSuccess(''); setShareText(''); setPendingRecord(null); }}
         />
       )}
 
@@ -1380,14 +1430,14 @@ Final: KC won 3-2`;
           disabled={saving}
           data-testid="quick-submit-btn"
         >
-          {saving ? 'Saving...' : 'Save Match Result'}
+          {saving ? 'Saving...' : 'Preview & Confirm Save'}
         </button>
       )}
 
       <button
         className="btn ghost full"
         style={{ marginTop: '.5rem' }}
-        onClick={() => { setText(''); setError(''); setSuccess(''); setShareText(''); }}
+        onClick={() => { setText(''); setError(''); setSuccess(''); setShareText(''); setPendingRecord(null); }}
         data-testid="quick-clear-btn"
       >Clear Input</button>
     </>
