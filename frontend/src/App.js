@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { onValue, ref, set, get } from 'firebase/database';
-import { db, ensureAuth, PATHS, LEGACY_PATHS } from './firebase';
+import { db, ensureAuth, PATHS, LEGACY_PATHS, readActiveTenantScope, setActiveTenantScope } from './firebase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ROLES, hasRole } from './utils/roles';
 import { buildInitialTeams, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD } from './data/initialTeams';
@@ -48,6 +48,7 @@ function firebaseObjectToList(data, source) {
 function Shell() {
   const location = useLocation();
   const hideChrome = location.pathname === '/login';
+  const [tenantScope, setTenantScope] = useState(() => readActiveTenantScope());
   const [teams, setTeams] = useState({});
   const [matches, setMatches] = useState([]);
   const [legacyMatches, setLegacyMatches] = useState([]);
@@ -59,6 +60,11 @@ function Shell() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    setActiveTenantScope(tenantScope);
+    setLoaded(false);
+    setTeams({});
+    setMatches([]);
+    setSchedule({});
     ensureAuth();
 
     (async () => {
@@ -191,7 +197,7 @@ function Shell() {
       });
     });
     return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubAU(); unsubR(); unsubS(); unsubSettings(); };
-  }, []);
+  }, [tenantScope]);
 
   return (
     <div className="app-shell">
@@ -219,7 +225,7 @@ function Shell() {
         } />
         <Route path="/admin" element={
           <ProtectedAdmin>
-            <Admin teams={teams} adminConfig={adminConfig} matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} schedule={schedule} playerRatings={playerRatings} settings={settings} />
+            <Admin teams={teams} adminConfig={adminConfig} matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} schedule={schedule} playerRatings={playerRatings} settings={settings} tenantScope={tenantScope} onTenantScopeChange={setTenantScope} />
           </ProtectedAdmin>
         } />
         <Route path="*" element={<Navigate to="/teams" replace />} />

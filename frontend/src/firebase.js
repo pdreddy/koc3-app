@@ -1,7 +1,7 @@
 import { getApps, initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
-import { LEGACY_PATHS, PATHS as DEFAULT_TENANT_PATHS, buildTenantPaths } from './utils/tenantPaths';
+import { LEGACY_PATHS, PATHS as DEFAULT_TENANT_PATHS, buildTenantBase, buildTenantPaths } from './utils/tenantPaths';
 
 function envOrDefault(name, fallback) {
   const value = process.env[name];
@@ -44,4 +44,24 @@ export function ensureAuth() {
 // Firebase RTDB paths. New writes default to tenant-scoped commercial paths.
 // Legacy koc_s3 paths remain available through LEGACY_PATHS for migration/rollback.
 export { LEGACY_PATHS, buildTenantPaths };
-export const PATHS = DEFAULT_TENANT_PATHS;
+export const PATHS = { ...DEFAULT_TENANT_PATHS };
+
+export function setActiveTenantScope(scope = {}) {
+  const nextPaths = buildTenantPaths(scope);
+  Object.keys(PATHS).forEach(key => { delete PATHS[key]; });
+  Object.assign(PATHS, nextPaths);
+  const base = buildTenantBase(scope);
+  try { window.localStorage.setItem('koc_active_tenant', JSON.stringify({ clubId: base.clubId, seasonId: base.seasonId })); } catch (_) {}
+  return { clubId: base.clubId, seasonId: base.seasonId, paths: PATHS };
+}
+
+export function readActiveTenantScope() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const queryScope = { clubId: params.get('clubId'), seasonId: params.get('seasonId') };
+    if (queryScope.clubId || queryScope.seasonId) return setActiveTenantScope(queryScope);
+    const stored = JSON.parse(window.localStorage.getItem('koc_active_tenant') || 'null');
+    if (stored?.clubId || stored?.seasonId) return setActiveTenantScope(stored);
+  } catch (_) {}
+  return setActiveTenantScope({});
+}

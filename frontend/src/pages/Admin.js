@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ref, set, update, remove, push } from 'firebase/database';
-import { db, PATHS } from '../firebase';
+import { db, PATHS, buildTenantPaths } from '../firebase';
 import { buildScheduleFor8x2 } from '../utils/roundRobin';
 import { UTR_RATINGS, matchUtrRating, normalizeNameKey, suggestUtrMatches } from '../data/utrRatings';
 import { groupInfoForTeamId, normalizeAuctionTeam, sortByGroupOrder } from '../data/auctionTeams';
@@ -555,7 +555,7 @@ function ScheduleEditor({ schedule, teams }) {
   );
 }
 
-export default function Admin({ teams, adminConfig, matches, previousMatches = [], schedule, playerRatings = {}, settings = {} }) {
+export default function Admin({ teams, adminConfig, matches, previousMatches = [], schedule, playerRatings = {}, settings = {}, tenantScope = {}, onTenantScopeChange }) {
   const [tab, setTab] = useState('teams');
   const [newAdminPwd, setNewAdminPwd] = useState('');
   const [adminMsg, setAdminMsg] = useState('');
@@ -607,14 +607,17 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
   const resetLeagueConfig = () => setLeagueDraft(DEFAULT_LEAGUE_CONFIG);
 
   const saveCommercialSettings = async () => {
+    const nextSeasonScope = normalizeSeasonScope(seasonDraft);
+    const targetPaths = buildTenantPaths(nextSeasonScope);
     try {
-      await update(ref(db, PATHS.settings), {
+      await update(ref(db, targetPaths.settings), {
         scoringConfig: normalizeScoringConfig(scoringDraft),
-        seasonScope: normalizeSeasonScope(seasonDraft),
+        seasonScope: nextSeasonScope,
         playerProfileConfig: normalizePlayerProfileConfig(profileDraft),
         scheduleConfig: normalizeScheduleConfig(scheduleDraft)
       });
-      setAdminMsg('✅ Commercial operations settings updated');
+      if (onTenantScopeChange) onTenantScopeChange({ clubId: nextSeasonScope.clubId, seasonId: nextSeasonScope.seasonId });
+      setAdminMsg(`✅ Commercial operations settings updated for ${nextSeasonScope.clubId}/${nextSeasonScope.seasonId}`);
       setTimeout(() => setAdminMsg(''), 2000);
     } catch (e) {
       setAdminMsg('Save failed: ' + e.message);
@@ -652,7 +655,7 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
     <main className="container">
       <div className="page-title">
         <h1>Admin Dashboard</h1>
-        <p>Manage teams, passwords, and matches</p>
+        <p>Manage teams, passwords, and matches · Active tenant: {(tenantScope.clubId || 'koc')}/{(tenantScope.seasonId || 'koc_s3')}</p>
       </div>
 
       <div className="tabs">
@@ -737,6 +740,12 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
           </div>
 
 
+
+          <div className="card tenant-scope-card" data-testid="admin-tenant-scope-card">
+            <h2>🏢 Active Club / Season</h2>
+            <p className="hint">Current data path is scoped by club and season. To switch clubs, update Club ID and Season ID below, then save Commercial Operations.</p>
+            <div className="tenant-scope-pills"><span>Club: {(tenantScope.clubId || 'koc')}</span><span>Season: {(tenantScope.seasonId || 'koc_s3')}</span></div>
+          </div>
 
           <div className="card" data-testid="admin-commercial-ops-card">
             <h2>🧩 Commercial Operations Engine</h2>

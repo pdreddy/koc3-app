@@ -1050,3 +1050,24 @@ body {
     white-space: nowrap;
   }
 }
+
+.tenant-scope-card {
+  border-left: 5px solid var(--accent);
+}
+
+.tenant-scope-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+}
+
+.tenant-scope-pills span {
+  background: var(--light-blue-bg);
+  border: 1px solid var(--ring);
+  border-radius: 999px;
+  color: var(--primary-blue-dark);
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 0.35rem 0.7rem;
+}
