@@ -20,7 +20,7 @@ const ruleCards = [
     num: '03', icon: '📅', title: 'Scheduling',
     items: [
       ['🤝', 'Mutual Agreement', "Postpone only by mutual agreement. The current week's match comes first."],
-      ['✅', 'Before Round-Robin Ends', 'All postponed matches must be completed before the round-robin ends.'],
+      ['✅', 'Before RR Ends', 'All postponed matches must be completed before the round-robin ends.'],
       ['🌦️', 'Buffer Week', 'There is an extra buffer week at the end of round-robin for weather make-ups.']
     ]
   },
@@ -32,66 +32,27 @@ const ruleCards = [
     ]
   },
   {
-    num: '05', icon: '📋', title: 'Match Day Protocol',
-    items: [
-      ['🎾', 'Arrive Early', 'Arrive 15 minutes early.'],
-      ['🎾', 'Exchange Lineups', 'Exchange lineups before play.'],
-      ['🎾', 'Lineups Lock', 'No lineup changes once started.'],
-      ['🎾', 'Same-Day Finish', 'All lines must finish the same day.']
-    ]
-  },
-  {
-    num: '06', icon: '🏥', title: 'Injuries',
-    items: [
-      ['📃', 'League (Round-Robin)', 'Replace with a similar UTR player or .5 lower level; requires Committee approval.'],
-      ['🏅', 'Playoffs', 'Only if 2+ players are ruled out; requires Committee approval.']
-    ]
-  },
-  {
-    num: '07', icon: '⚡', title: 'No-Ad Scoring',
-    items: [
-      ['🎾', 'Deciding Point', 'Deciding point at deuce.'],
-      ['🎾', 'Receiver Choice', 'Receiver chooses side (no 2-point advantage).']
-    ]
-  },
-  {
-    num: '08', icon: '🤝', title: 'Conduct & Fair Play',
-    items: [
-      ['🎾', 'Line Calls', 'Players make their own line calls.'],
-      ['🎾', 'Disputes', 'Disputes → Committee decision.'],
-      ['🎾', 'Respect', 'Respectful behavior is mandatory.'],
-      ['⚠️', 'Misconduct', 'Misconduct = penalty.']
-    ]
-  },
-  {
-    num: '09', icon: '🌧️', title: 'Weather',
+    num: '05', icon: '🌧️', title: 'Weather',
     items: [
       ['🌧️', 'Full Washout', 'A full washout gives teams a window to reschedule, play, and post.'],
       ['0️⃣', 'No Completion', "Can't make it happen? Zero points for that fixture."]
     ]
   },
   {
-    num: '10', icon: '⚠️', title: 'Postponement (Non-Weather)',
+    num: '06', icon: '⚠️', title: 'Postponement (Non-Weather)',
     items: [
       ['🚫', 'No Mutual Agreement', 'Postpone or no-show for a non-weather reason without mutual agreement? The opponent can raise it.'],
       ['📉', 'Penalty', 'Penalty: 4 games (or a set) deducted — and the match still gets played on a later day.']
     ]
   },
   {
-    num: '11', icon: '🏆', title: 'Playoffs',
+    num: '07', icon: '🏆', title: 'Playoffs',
     items: [
       ['7️⃣', 'Roster Usage', 'No 3–6 limit here — all 7 players play in semis and finals.'],
       ['🗓️', 'Windows', 'Semifinals: 5-day window. Finals: 10-day window.'],
       ['☀️', 'Extra Buffer', 'Extra buffer is included for summer and Labor Day weekend.']
     ]
   }
-];
-
-const matchDayFlow = [
-  ['1', 'Share Lineup', 'Captains post lines before play.'],
-  ['2', 'Play 5 Lines', 'Singles, doubles and reverse doubles.'],
-  ['3', 'Post Scores', 'Winning captain reports before Sunday morning.'],
-  ['4', 'Standings Update', 'Points, sets, games and head-to-head decide rank.']
 ];
 
 function RuleItem({ item }) {
@@ -118,20 +79,11 @@ export default function Rules() {
     <main className="container rules-page-shell" data-testid="rules-page">
       <div className="page-title">
         <h1>Rules &amp; Format</h1>
-        <p>Quick rundown before match day — participation, lineups, scores, weather, injuries, conduct and playoffs.</p>
+        <p>Welcome to the season! Quick rundown before Week 1 — participation, lines, scores, weather and playoffs.</p>
       </div>
 
       <div className="rl-sec-head"><h2>The Rules</h2><div className="ln" /></div>
       <section className="rl-grid">{ruleCards.map(card => <RuleCard key={card.num} card={card} />)}</section>
-
-      <div className="rl-sec-head"><h2>Match Flow</h2><div className="ln" /></div>
-      <section className="rl-flow rl-reminders" data-testid="matchday-flow">
-        {matchDayFlow.map(([num, title, text]) => (
-          <div className="rl-step" key={num}>
-            <b>{num}</b><strong>{title}</strong><small>{text}</small>
-          </div>
-        ))}
-      </section>
 
       <div className="rl-sec-head"><h2>Remember</h2><div className="ln" /></div>
       <section className="rl-flow rl-reminders">
