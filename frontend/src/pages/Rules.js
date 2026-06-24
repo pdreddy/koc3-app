@@ -64,15 +64,10 @@ const ruleCards = [
     ]
   },
   {
-    num: '09', icon: '🌧️', title: 'Weather',
+    num: '09', icon: '🌧️', title: 'Weather & Postponements',
     items: [
       ['🌧️', 'Full Washout', 'A full washout gives teams a window to reschedule, play, and post.'],
-      ['0️⃣', 'No Completion', "Can't make it happen? Zero points for that fixture."]
-    ]
-  },
-  {
-    num: '10', icon: '⚠️', title: 'Postponement (Non-Weather)',
-    items: [
+      ['0️⃣', 'No Completion', "Can't make it happen? Zero points for that fixture."],
       ['🚫', 'No Mutual Agreement', 'Postpone or no-show for a non-weather reason without mutual agreement? The opponent can raise it.'],
       ['📉', 'Penalty', 'Penalty: 4 games (or a set) deducted — and the match still gets played on a later day.']
     ]
@@ -137,13 +132,13 @@ export default function Rules() {
         <p>Welcome to the season! Quick rundown before Week 1 — participation, lines, scores, weather and playoffs.</p>
       </div>
 
-      <div className="rl-sec-head"><h2>The Rules</h2><div className="ln" /></div>
-      <section className="rl-grid">{ruleCards.map(card => <RuleCard key={card.num} card={card} />)}</section>
-
       <div className="rl-sec-head"><h2>Match Flow</h2><div className="ln" /></div>
       <section className="rl-flow rl-flow-four" data-testid="match-flow">
         {matchFlow.map(([num, title, text]) => <div className="rl-step" key={num}><b>{num}</b><strong>{title}</strong><small>{text}</small></div>)}
       </section>
+
+      <div className="rl-sec-head"><h2>The Rules</h2><div className="ln" /></div>
+      <section className="rl-grid">{ruleCards.map(card => <RuleCard key={card.num} card={card} />)}</section>
 
       <div className="rl-sec-head"><h2>Playoffs</h2><div className="ln" /></div>
       <PlayoffBracket />

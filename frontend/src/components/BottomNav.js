@@ -5,7 +5,7 @@ const TABS = [
   { to: '/', label: 'Home', icon: '🏠', testid: 'nav-home' },
   { to: '/schedule', label: 'Schedule', icon: '📅', testid: 'nav-schedule' },
   { to: '/standings', label: 'Standings', icon: '📊', testid: 'nav-standings' },
-  { to: '/matchups', label: 'Matchups', icon: '🎾', testid: 'nav-matchups' },
+  { to: '/rules', label: 'Rules', icon: '📋', testid: 'nav-rules' },
   { to: '/more', label: 'More', icon: '⋯', testid: 'nav-more' }
 ];
 

@@ -9,7 +9,7 @@ const PRIMARY_LINKS = [
   { to: '/teams', label: 'Teams' },
   { to: '/schedule', label: 'Schedule' },
   { to: '/standings', label: 'Standings' },
-  { to: '/matchups', label: 'Matchups' },
+  { to: '/rules', label: 'Rules' },
   { to: '/more', label: 'More' }
 ];
 

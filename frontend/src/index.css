@@ -888,7 +888,7 @@ main.container,
 }
 .rl-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: stretch;
   gap: 1.4rem;
 }
@@ -898,7 +898,7 @@ main.container,
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  padding: 1.45rem 1.55rem;
+  padding: 1.35rem 1.45rem;
   border: 1px solid rgba(191, 219, 254, .95);
   border-radius: 20px;
   box-shadow: 0 22px 50px rgba(37,99,235,.10);

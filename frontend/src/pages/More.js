@@ -15,7 +15,7 @@ export default function More() {
   const items = [
     { to: '/ptl', icon: '📈', label: 'PTL Rating', desc: 'Current UTR beside KOC performance rating', testid: 'more-ptl' },
     { to: '/history', icon: '📜', label: 'Match History', desc: 'View past results', testid: 'more-history' },
-    { to: '/rules', icon: '📋', label: 'Rules', desc: 'Format, scoring & tiebreakers', testid: 'more-rules' }
+    { to: '/matchups', icon: '🎾', label: 'Matchups', desc: 'Head-to-head team matchups and score lines', testid: 'more-matchups' }
   ];
 
   if (hasRole(session, [ROLES.GUEST])) {
