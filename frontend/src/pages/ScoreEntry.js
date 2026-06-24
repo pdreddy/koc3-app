@@ -101,8 +101,20 @@ function getQuickGuidance(text, parsed, teams) {
 }
 
 
+const LINEUP_ROLE_SLOTS = [
+  { code: 'S', label: 'Singles' },
+  { code: 'D1', label: 'Doubles 1 player A' },
+  { code: 'D1', label: 'Doubles 1 player B' },
+  { code: 'D2', label: 'Doubles 2 player A' },
+  { code: 'D2', label: 'Doubles 2 player B' }
+];
+
+function normalizeLineupSelection(selected = []) {
+  return Array.from({ length: LINEUP_ROLE_SLOTS.length }, (_, idx) => selected[idx] || '');
+}
+
 function selectedNamesFromIndexes(team, indexes) {
-  return indexes.map(index => team?.players?.[Number(index)]?.name).filter(Boolean);
+  return normalizeLineupSelection(indexes).map(index => team?.players?.[Number(index)]?.name).filter(Boolean);
 }
 
 function buildLineupCourts(team1Names, team2Names) {
@@ -136,42 +148,59 @@ function buildLineupValidationLines(team1Names, team2Names) {
   return lines;
 }
 
-function lineupRoleLabel(orderIndex) {
-  return ['S', 'D1', 'D1', 'D2', 'D2'][orderIndex] || '';
-}
-
 function TeamLineupPicker({ team, selected, onChange, label }) {
-  const toggle = (index) => {
-    const key = String(index);
-    if (selected.includes(key)) {
-      onChange(selected.filter(item => item !== key));
-      return;
-    }
-    if (selected.length >= 5) return;
-    onChange([...selected, key]);
+  const slots = normalizeLineupSelection(selected);
+  const selectedSet = new Set(slots.filter(Boolean));
+  const setSlot = (slotIdx, value) => {
+    const next = normalizeLineupSelection(slots);
+    next[slotIdx] = value;
+    onChange(next);
   };
+  const smartFill = () => {
+    const next = normalizeLineupSelection(slots);
+    const used = new Set(next.filter(Boolean));
+    (team?.players || []).forEach((player, idx) => {
+      const key = String(idx);
+      if (used.has(key)) return;
+      const emptyIdx = next.findIndex(value => !value);
+      if (emptyIdx === -1) return;
+      next[emptyIdx] = key;
+      used.add(key);
+    });
+    onChange(next);
+  };
+  const clearAll = () => onChange(Array.from({ length: LINEUP_ROLE_SLOTS.length }, () => ''));
+  const pickedCount = slots.filter(Boolean).length;
   return (
     <div className="lineup-picker" data-testid={`lineup-picker-${team?.abbreviation || label}`}>
-      <div className="field-label">{label} lineup · select 5 ({selected.length}/5)</div>
-      <div className="lineup-checkbox-grid">
-        {(team?.players || []).map((player, idx) => {
-          const checked = selected.includes(String(idx));
-          return (
-            <label key={`${player.name}-${idx}`} className={`lineup-check ${checked ? 'active' : ''}`}>
-              <input
-                type="checkbox"
-                checked={checked}
-                disabled={!checked && selected.length >= 5}
-                onChange={() => toggle(idx)}
-                data-testid={`lineup-${team?.abbreviation}-${idx}`}
-              />
-              <span>{selected.indexOf(String(idx)) >= 0 ? lineupRoleLabel(selected.indexOf(String(idx))) : ''}</span>
-              {player.isCaptain ? '🏆 ' : ''}{player.name}
-            </label>
-          );
-        })}
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="field-label">{label} lineup · assign roles ({pickedCount}/5)</div>
+        <div style={{ display: 'flex', gap: '.35rem', flexWrap: 'wrap' }}>
+          <button type="button" className="btn small ghost" onClick={smartFill} data-testid={`lineup-${team?.abbreviation}-smart-fill`}>Smart fill</button>
+          <button type="button" className="btn small ghost" onClick={clearAll} data-testid={`lineup-${team?.abbreviation}-clear`}>Clear</button>
+        </div>
       </div>
-      <p className="hint">Pick order: S, D1, D1, D2, D2. These selections are reused in Form and Quick Paste.</p>
+      <div style={{ display: 'grid', gap: '.45rem', marginTop: '.5rem' }}>
+        {LINEUP_ROLE_SLOTS.map((slot, slotIdx) => (
+          <label key={`${slot.code}-${slotIdx}`} className="field" style={{ margin: 0 }}>
+            <div className="field-label">{slot.code} · {slot.label}</div>
+            <select
+              className="select"
+              value={slots[slotIdx] || ''}
+              onChange={e => setSlot(slotIdx, e.target.value)}
+              data-testid={`lineup-${team?.abbreviation}-${slotIdx}-role-select`}
+            >
+              <option value="">— Choose player —</option>
+              {(team?.players || []).map((player, idx) => {
+                const value = String(idx);
+                const disabled = selectedSet.has(value) && slots[slotIdx] !== value;
+                return <option key={`${player.name}-${idx}`} value={value} disabled={disabled}>{player.isCaptain ? '🏆 ' : ''}{player.name}</option>;
+              })}
+            </select>
+          </label>
+        ))}
+      </div>
+      <p className="hint">Choose each player's role directly. D1 pair plays both D1 courts; D2 pair plays both D2 courts. Smart fill uses roster order but you can override every slot.</p>
     </div>
   );
 }
@@ -185,7 +214,7 @@ function LineupBuilder({ team1, team2, teams, matches, eligibilityRules, team1Se
   return (
     <div className="card lineup-builder-card" data-testid="score-lineup-builder">
       <h2>Lineup builder</h2>
-      <p className="hint">After teams are selected, choose 5 players from each roster. The app will fill Singles, Doubles 1, Reverse Doubles 1, Doubles 2, and Reverse Doubles 2 so you only enter scores.</p>
+      <p className="hint">After teams are selected, assign each roster player to Singles, D1, or D2. Smart fill can prefill by roster order, then captains can override every role before populating scores.</p>
       <div className="lineup-builder-grid">
         <TeamLineupPicker team={team1} selected={team1Selected} onChange={setTeam1Selected} label={team1?.abbreviation || 'Team 1'} />
         <TeamLineupPicker team={team2} selected={team2Selected} onChange={setTeam2Selected} label={team2?.abbreviation || 'Team 2'} />
