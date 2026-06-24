@@ -4,7 +4,7 @@ import { onValue, ref, set, get, update } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ROLES, hasRole } from './utils/roles';
-import { buildInitialTeams, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERS, normalizeAdminUsername } from './data/initialTeams';
+import { buildInitialTeams, canonicalizeTeamsData, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERS, normalizeAdminUsername } from './data/initialTeams';
 import { buildUtrRatingsTable } from './data/utrRatings';
 import { sortByGroupOrder } from './data/auctionTeams';
 import { auctionPlayerRatingUpdates, buildAuctionPlayerRatingsTable } from './data/auctionPlayers';
@@ -25,7 +25,6 @@ import Rules from './pages/Rules';
 import Schedule from './pages/Schedule';
 import Matchups from './pages/Matchups';
 import More from './pages/More';
-import PtlRatings from './pages/PtlRatings';
 import AuditLogs from './pages/AuditLogs';
 import { writeAuditLog } from './services/AuditService';
 
@@ -100,6 +99,10 @@ function Shell() {
           });
           Object.assign(updates, canonicalTeamIdentityUpdates(teamsData));
           if (Object.keys(updates).length > 0) {
+            Object.entries(updates).forEach(([path, value]) => {
+              const [teamId, field] = path.split('/');
+              if (teamId && field && teamsData[teamId]) teamsData[teamId][field] = value;
+            });
             await update(ref(db, PATHS.teams), updates);
           }
         }
@@ -160,7 +163,7 @@ function Shell() {
     })();
 
     const unsubT = onValue(ref(db, PATHS.teams), (snap) => {
-      setTeams(snap.val() || {});
+      setTeams(canonicalizeTeamsData(snap.val() || {}));
       setLoaded(true);
     });
     const unsubM = onValue(ref(db, PATHS.matches), (snap) => {
@@ -222,7 +225,7 @@ function Shell() {
         <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} />} />
         <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />
         <Route path="/matchups" element={<Matchups matches={matches} teams={teams} />} />
-        <Route path="/ptl" element={<PtlRatings matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} teams={teams} ratingLookup={playerRatings} />} />
+        <Route path="/ptl" element={<Navigate to="/more" replace />} />
         <Route path="/history" element={<History matches={matches} teams={teams} onMatchDeleted={syncDeletedMatch} />} />
         <Route path="/rules" element={<Rules />} />
         <Route path="/more" element={<More />} />

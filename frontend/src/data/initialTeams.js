@@ -5,6 +5,23 @@ const canonicalTeams = AUCTION_TEAMS.map(team => ({
   roster: team.players.map((player, index) => normalizeAuctionPlayer(player, index).name)
 }));
 
+const RR_CANONICAL_TEAM = canonicalTeams.find(team => team.abbreviation === 'RR');
+
+export function canonicalizeTeamDisplay(team = {}) {
+  if (team.abbreviation === 'RR' && RR_CANONICAL_TEAM) return { ...team, name: RR_CANONICAL_TEAM.name };
+  return team;
+}
+
+export function canonicalizeTeamsData(teamsData = {}) {
+  return Object.fromEntries(Object.entries(teamsData || {}).map(([id, team]) => [id, canonicalizeTeamDisplay(team)]));
+}
+
+function shouldApplyCanonicalTeamName(team, canonicalTeam) {
+  if (!team.name) return true;
+  if (canonicalTeam.abbreviation === 'RR' && team.abbreviation === 'RR') return team.name !== canonicalTeam.name;
+  return false;
+}
+
 
 
 export function teamIdFromNumber(id) {
@@ -25,7 +42,7 @@ export function canonicalTeamIdentityUpdates(teamsData = {}) {
     const team = teamsData[id] || {};
     const nextPlayers = canonicalPlayersForExistingTeam(team, t);
 
-    if (!team.name) updates[`${id}/name`] = t.name;
+    if (shouldApplyCanonicalTeamName(team, t)) updates[`${id}/name`] = t.name;
     if (!team.abbreviation) updates[`${id}/abbreviation`] = t.abbreviation;
     if (!team.gradient) updates[`${id}/gradient`] = idx + 1;
     const groupInfo = groupInfoForTeamId(id, idx);

@@ -6,7 +6,7 @@
 ## Team Captain Passwords (pattern: `KOC<ABBR>#2`)
 | Team | Abbr | Password |
 |------|------|----------|
-| Rally Royals | RR | `KOCRR#2` |
+| Rudra Racquets | RR | `KOCRR#2` |
 | Karna's Crusaders | KC | `KOCKC#2` |
 | Spin Kings | SK | `KOCSK#2` |
 | KOC Challengers | KOCC | `KOCKOCC#2` |

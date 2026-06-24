@@ -446,7 +446,7 @@ function ScheduleEditor({ schedule, teams }) {
       group: 'A',
       round: 1,
       date: new Date().toISOString().slice(0, 10),
-      time: '5:00 PM',
+      time: '7:15 PM',
       team1Id: teamList[0].id,
       team2Id: teamList[1].id,
       status: 'scheduled',
