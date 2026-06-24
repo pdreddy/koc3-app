@@ -888,14 +888,17 @@ main.container,
 }
 .rl-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  align-items: stretch;
+  gap: 1.4rem;
 }
 .rl-card {
   position: relative;
   overflow: hidden;
-  min-height: 282px;
-  padding: 1.65rem 1.8rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 1.45rem 1.55rem;
   border: 1px solid rgba(191, 219, 254, .95);
   border-radius: 20px;
   box-shadow: 0 22px 50px rgba(37,99,235,.10);
@@ -909,17 +912,20 @@ main.container,
 }
 .rl-card-head {
   display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1.3rem;
+  align-items: flex-start;
+  gap: .85rem;
+  margin-bottom: 1rem;
+  min-height: 3rem;
 }
 .rl-num {
   color: var(--primary-blue-dark);
   font-weight: 950;
   font-size: 1.25rem;
   letter-spacing: .04em;
+  line-height: 2.55rem;
 }
 .rl-chip {
+  flex: 0 0 auto;
   width: 2.55rem;
   height: 2.55rem;
   display: grid;
@@ -933,15 +939,16 @@ main.container,
   font-size: clamp(1.1rem, 1.7vw, 1.3rem);
   font-weight: 900;
   line-height: 1.2;
+  padding-top: .2rem;
 }
 .rl-item {
   display: flex;
   gap: .8rem;
-  padding: .82rem 0;
+  padding: .76rem 0;
   border-top: 1px dashed var(--border-light);
 }
 .rl-item:first-of-type { border-top: 0; }
-.rl-ic { line-height: 1.35; flex: 0 0 1.35rem; font-size: 1.05rem; }
+.rl-ic { line-height: 1.35; flex: 0 0 1.35rem; font-size: 1.05rem; text-align: center; }
 .rl-lbl { color: var(--text-dark); font-weight: 900; font-size: 1.08rem; }
 .rl-val { color: var(--muted); font-size: 1.02rem; line-height: 1.42; }
 .rl-item.solo .rl-val { color: var(--text-dark); }
@@ -979,6 +986,7 @@ main.container,
 }
 .rl-flow-four {
   grid-template-columns: repeat(4, 1fr);
+  margin-bottom: 1.1rem;
 }
 .rl-step {
   position: relative;
@@ -1003,7 +1011,21 @@ main.container,
 }
 .rl-step strong { display: block; color: var(--text-dark); font-size: 1.05rem; text-transform: uppercase; }
 .rl-step small { display: block; color: var(--muted); margin-top: .35rem; line-height: 1.35; font-size: .95rem; }
-.rl-playoffs { padding: 1.15rem; }
+.rl-playoffs {
+  position: relative;
+  overflow: hidden;
+  padding: 1.45rem 1.55rem;
+  border: 1px solid rgba(191, 219, 254, .95);
+  border-radius: 20px;
+  box-shadow: 0 22px 50px rgba(37,99,235,.10);
+}
+.rl-playoffs::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: linear-gradient(180deg, var(--primary-blue), var(--accent));
+}
 .rl-bracket-intro { color: var(--muted); line-height: 1.45; margin-bottom: 1rem; }
 .rl-bracket-intro strong { color: var(--primary-blue-dark); }
 .rl-cross { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
