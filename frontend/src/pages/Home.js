@@ -5,7 +5,7 @@ import { db, ensureAuth, PATHS } from '../firebase';
 import { writeAuditLog } from '../services/AuditService';
 import { useAuth } from '../contexts/AuthContext';
 import { ROLES, hasRole } from '../utils/roles';
-import { DEFAULT_ELIGIBILITY_RULES } from '../utils/eligibilityRules';
+import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from '../utils/eligibilityRules';
 import { approvedMatches } from '../utils/matchStatus';
 import { resolveMatchTeams } from '../utils/matchTeams';
 import { CaptainCapacityCard, buildCaptainCapacityRows } from '../components/CaptainCapacity';
@@ -58,7 +58,98 @@ function buildDashboardLineupLines(names) {
   ];
 }
 
-function validateDashboardLineup(team, selected) {
+function eligibilityPlayerKey(teamId, playerName) {
+  return `${teamId || ''}:${String(playerName || '').trim().toLowerCase()}`;
+}
+
+function eligibilityPairKey(teamId, names) {
+  return `${teamId || ''}:${[...(names || [])].map(name => String(name || '').trim().toLowerCase()).sort().join('|')}`;
+}
+
+function buildExistingEligibility(matches, teams) {
+  const playerDays = new Map();
+  const partnerDays = new Map();
+  (matches || []).forEach(match => {
+    if (match.status && match.status !== 'APPROVED' && match.status !== 'approved') return;
+    const team1 = teams?.[match.t1Id] || Object.values(teams || {}).find(team => team.name === match.t1);
+    const team2 = teams?.[match.t2Id] || Object.values(teams || {}).find(team => team.name === match.t2);
+    if (!team1 || !team2) return;
+    const matchPlayers = new Map();
+    const matchPairs = new Set();
+    (match.lines || []).forEach(line => {
+      const type = line.type === 'singles' ? 'singles' : 'doubles';
+      [[team1, line.players?.team1 || []], [team2, line.players?.team2 || []]].forEach(([lineTeam, names]) => {
+        names.forEach(name => {
+          const key = eligibilityPlayerKey(lineTeam.id, name);
+          const row = matchPlayers.get(key) || { teamId: lineTeam.id, name, singles: false, doubles: false };
+          if (type === 'singles') row.singles = true;
+          if (type === 'doubles') row.doubles = true;
+          matchPlayers.set(key, row);
+        });
+        if (type === 'doubles' && names.length === 2) matchPairs.add(eligibilityPairKey(lineTeam.id, names));
+      });
+    });
+    matchPlayers.forEach(row => {
+      const key = eligibilityPlayerKey(row.teamId, row.name);
+      const previous = playerDays.get(key) || { totalMatchDays: 0, singlesDays: 0, doublesDays: 0 };
+      playerDays.set(key, {
+        totalMatchDays: previous.totalMatchDays + 1,
+        singlesDays: previous.singlesDays + (row.singles ? 1 : 0),
+        doublesDays: previous.doublesDays + (row.doubles ? 1 : 0)
+      });
+    });
+    matchPairs.forEach(pairKey => partnerDays.set(pairKey, (partnerDays.get(pairKey) || 0) + 1));
+  });
+  return { playerDays, partnerDays };
+}
+
+function captainLineupEligibilityErrors(team, names, matches, teams, eligibilityRules = DEFAULT_ELIGIBILITY_RULES) {
+  if (names.length < 5) return [];
+  const rules = normalizeEligibilityRules(eligibilityRules);
+  const existing = buildExistingEligibility(matches, teams);
+  const lines = [
+    { type: 'singles', players: [names[0]] },
+    { type: 'doubles', players: [names[1], names[2]] },
+    { type: 'doubles', players: [names[1], names[2]] },
+    { type: 'doubles', players: [names[3], names[4]] },
+    { type: 'doubles', players: [names[3], names[4]] }
+  ];
+  const currentPlayers = new Map();
+  const currentPairs = new Map();
+  lines.forEach(line => {
+    line.players.forEach(name => {
+      const key = eligibilityPlayerKey(team.id, name);
+      const row = currentPlayers.get(key) || { name, teamId: team.id, singles: false, doublesCount: 0 };
+      if (line.type === 'singles') row.singles = true;
+      if (line.type === 'doubles') row.doublesCount += 1;
+      currentPlayers.set(key, row);
+    });
+    if (line.type === 'doubles' && line.players.length === 2) {
+      const pairKey = eligibilityPairKey(team.id, line.players);
+      const pair = currentPairs.get(pairKey) || { names: line.players, days: 0 };
+      pair.days = 1;
+      currentPairs.set(pairKey, pair);
+    }
+  });
+  const errors = [];
+  currentPlayers.forEach(row => {
+    if (row.singles && row.doublesCount > 0) errors.push(`${row.name}: cannot play singles and doubles on the same match day`);
+    if (row.doublesCount > 0 && row.doublesCount !== 2) errors.push(`${row.name}: doubles players must play both Doubles and Reverse Doubles`);
+    const previous = existing.playerDays.get(eligibilityPlayerKey(row.teamId, row.name)) || { singlesDays: 0, doublesDays: 0 };
+    const nextSingles = previous.singlesDays + (row.singles ? 1 : 0);
+    const nextDoubles = previous.doublesDays + (row.doublesCount > 0 ? 1 : 0);
+    const nextTotal = nextSingles + nextDoubles;
+    if (nextSingles > rules.maxSinglesDays) errors.push(`${row.name}: singles limit exceeded (${nextSingles}/${rules.maxSinglesDays} Singles Days)`);
+    if (nextTotal > rules.maxTotalMatchDays) errors.push(`${row.name}: match-day limit exceeded (${nextTotal}/${rules.maxTotalMatchDays} Match Days)`);
+  });
+  currentPairs.forEach((pair, pairKey) => {
+    const nextPartnerDays = (existing.partnerDays.get(pairKey) || 0) + pair.days;
+    if (nextPartnerDays > rules.maxPartnerDays) errors.push(`${pair.names.join(' + ')}: doubles partner limit exceeded (${nextPartnerDays}/${rules.maxPartnerDays} Match Days)`);
+  });
+  return errors;
+}
+
+function validateDashboardLineup(team, selected, matches, teams, eligibilityRules = DEFAULT_ELIGIBILITY_RULES) {
   const errors = [];
   const normalized = LINEUP_ROLE_SLOTS.map((_, idx) => selected[idx] || '');
   if (normalized.some(value => !value)) errors.push('Select all 5 lineup slots before locking.');
@@ -67,6 +158,7 @@ function validateDashboardLineup(team, selected) {
   picked.forEach(value => {
     if (!team?.players?.[Number(value)]?.name) errors.push('Every selected player must exist on your roster.');
   });
+  errors.push(...captainLineupEligibilityErrors(team, selectedNames(team, normalized), matches, teams, eligibilityRules));
   return Array.from(new Set(errors));
 }
 
@@ -119,7 +211,7 @@ function LineupRoleSelect({ team, selected, onChange, readOnly }) {
   );
 }
 
-function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmission, opponentSubmission, revealedLineup, session, onRefresh }) {
+function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmission, opponentSubmission, revealedLineup, matches, eligibilityRules, session, onRefresh }) {
   const [expanded, setExpanded] = useState(false);
   const [selected, setSelected] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -129,7 +221,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
   const locked = !!lineupSubmission?.lockedAt;
   const revealed = !!revealedLineup?.revealId || !!lineupSubmission?.revealedAt || (!!lineupSubmission?.lockedAt && !!opponentSubmission?.lockedAt);
   const status = statusForFixture(completed, lineupSubmission, opponentSubmission);
-  const errors = validateDashboardLineup(captainTeam, selected);
+  const errors = validateDashboardLineup(captainTeam, selected, matches, teams, eligibilityRules);
   const names = selectedNames(captainTeam, selected);
   const canSubmit = !completed && !locked && errors.length === 0;
   const waText = whatsappMessage(captainTeam, opponent, captainTeam?.players?.find(p => p.isCaptain)?.name || captainTeam?.players?.[0]?.name || session.teamName, lineupSubmission, opponentSubmission);
@@ -146,7 +238,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
   });
 
   const submitLineup = async () => {
-    const validationErrors = validateDashboardLineup(captainTeam, selected);
+    const validationErrors = validateDashboardLineup(captainTeam, selected, matches, teams, eligibilityRules);
     if (validationErrors.length) return;
     const now = Date.now();
     const opponentSubmitted = !!opponentSubmission?.submittedAt && !!opponentSubmission?.lockedAt;
@@ -276,7 +368,7 @@ function ScheduleMiniList({ title, description, fixtures, teams, emptyText, test
   );
 }
 
-function CaptainScheduleList({ fixtures, completedFixtures, teams, captainTeam, lineupSubmissions, revealedLineups, session, lastRefreshed, onRefresh }) {
+function CaptainScheduleList({ fixtures, completedFixtures, teams, captainTeam, lineupSubmissions, revealedLineups, matches, eligibilityRules, session, lastRefreshed, onRefresh }) {
   return (
     <section className="card" data-testid="captain-scheduled-matches-card">
       <div className="dashboard-section-head">
@@ -287,7 +379,7 @@ function CaptainScheduleList({ fixtures, completedFixtures, teams, captainTeam, 
         <div className="captain-fixture-list">
           {fixtures.map(item => {
             const opponentId = item.team1Id === captainTeam.id ? item.team2Id : item.team1Id;
-            return <CaptainFixtureCard key={item.id} item={item} teams={teams} captainTeam={captainTeam} completed={false} lineupSubmission={lineupSubmissions?.[item.id]?.[captainTeam.id]} opponentSubmission={lineupSubmissions?.[item.id]?.[opponentId]} revealedLineup={Object.values(revealedLineups || {}).find(row => row.scheduleId === item.id)} session={session} onRefresh={onRefresh} />;
+            return <CaptainFixtureCard key={item.id} item={item} teams={teams} captainTeam={captainTeam} completed={false} lineupSubmission={lineupSubmissions?.[item.id]?.[captainTeam.id]} opponentSubmission={lineupSubmissions?.[item.id]?.[opponentId]} revealedLineup={Object.values(revealedLineups || {}).find(row => row.scheduleId === item.id)} matches={matches} eligibilityRules={eligibilityRules} session={session} onRefresh={onRefresh} />;
           })}
         </div>
       )}
@@ -414,7 +506,7 @@ export default function Home({ teams, schedule, matches = [], eligibilityRules =
           <p>{captainTeam.name} · your schedule, capacity, and lineup danger bells.</p>
         </div>
         <TeamSnapshot team={captainTeam} upcomingCount={upcomingCaptainFixtures.length} completedCount={completedCaptainFixtures.length} capacityRows={capacityRows} />
-        <CaptainScheduleList fixtures={upcomingCaptainFixtures} completedFixtures={completedCaptainFixtures} teams={teams} captainTeam={captainTeam} lineupSubmissions={lineupSubmissions} revealedLineups={revealedLineups} session={session} lastRefreshed={lastRefreshed} onRefresh={onRefresh} />
+        <CaptainScheduleList fixtures={upcomingCaptainFixtures} completedFixtures={completedCaptainFixtures} teams={teams} captainTeam={captainTeam} lineupSubmissions={lineupSubmissions} revealedLineups={revealedLineups} matches={matches} eligibilityRules={eligibilityRules} session={session} lastRefreshed={lastRefreshed} onRefresh={onRefresh} />
         <OwnerGaps overdueFixtures={overdueFixtures} capacityRows={capacityRows} />
         <DangerBells rows={capacityRows} />
         <CaptainCapacityCard team={captainTeam} teams={teams} matches={matches} eligibilityRules={eligibilityRules} />
