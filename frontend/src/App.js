@@ -31,7 +31,7 @@ import { writeAuditLog } from './services/AuditService';
 function sanitizeLineupSubmissionsForSession(data, session) {
   const teamId = session?.teamId;
   return Object.fromEntries(Object.entries(data || {}).map(([scheduleId, submissions]) => {
-    const bothSubmitted = Object.values(submissions || {}).filter(row => row?.submittedAt).length >= 2;
+    const bothSubmitted = Object.values(submissions || {}).filter(row => row?.submittedAt && row?.lockedAt).length >= 2;
     const safeSubmissions = Object.fromEntries(Object.entries(submissions || {}).map(([submissionTeamId, row]) => {
       if (bothSubmitted || submissionTeamId === teamId) return [submissionTeamId, row];
       return [submissionTeamId, {

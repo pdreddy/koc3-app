@@ -821,7 +821,7 @@ function scoreLineupFixtures(schedule, lineupSubmissions, team1Id, team2Id) {
       const submissions = lineupSubmissions?.[item.id] || {};
       const team1Submission = submissions[team1Id];
       const team2Submission = submissions[team2Id];
-      const revealed = !!team1Submission?.revealedAt || !!team2Submission?.revealedAt || (!!team1Submission?.submittedAt && !!team2Submission?.submittedAt);
+      const revealed = !!team1Submission?.revealedAt || !!team2Submission?.revealedAt || (!!team1Submission?.lockedAt && !!team2Submission?.lockedAt);
       const team1Names = submittedLineupNames(team1Submission);
       const team2Names = submittedLineupNames(team2Submission);
       return { item, team1Submission, team2Submission, revealed, team1Names, team2Names, ready: revealed && team1Names.length === 5 && team2Names.length === 5 };

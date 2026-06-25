@@ -70,13 +70,30 @@ function validateDashboardLineup(team, selected) {
   return Array.from(new Set(errors));
 }
 
-function whatsappMessage(team, opponent, captainName) {
-  return `KOC Match\n\n${team?.name || 'Our Team'} vs ${opponent?.name || 'Opponent'}\n\nCaptain:\n${captainName || 'Captain'}\n\nOur official lineup has been submitted through the KOC App.\n\nPlease submit your lineup through the app.\n\nThe KOC App remains the official source of truth.`;
+function lineupByLabel(submission) {
+  return Object.fromEntries((submission?.lineup || []).map(line => [line.label, line.players || []]));
+}
+
+function revealedLineupRows(mySubmission, opponentSubmission) {
+  const mine = lineupByLabel(mySubmission);
+  const theirs = lineupByLabel(opponentSubmission);
+  return ['S1', 'D1', 'D2'].map(label => ({
+    label,
+    mine: mine[label] || [],
+    theirs: theirs[label] || []
+  }));
+}
+
+function whatsappMessage(team, opponent, captainName, mySubmission, opponentSubmission) {
+  const rows = revealedLineupRows(mySubmission, opponentSubmission)
+    .map(row => `${row.label}: ${row.mine.join(' / ')} vs ${row.theirs.join(' / ')}`)
+    .join('\n');
+  return `KOC Match\n\n${team?.name || 'Our Team'} vs ${opponent?.name || 'Opponent'}\n\nCaptain:\n${captainName || 'Captain'}\n\nOfficial revealed lineups:\n${rows}\n\nThe KOC App remains the official source of truth.`;
 }
 
 function statusForFixture(isCompleted, mine, theirs) {
   if (isCompleted) return LINEUP_STATUS.completed;
-  if (mine?.revealedAt || (mine?.submittedAt && theirs?.submittedAt)) return LINEUP_STATUS.revealed;
+  if (mine?.revealedAt || (mine?.lockedAt && theirs?.lockedAt)) return LINEUP_STATUS.revealed;
   if (mine?.lockedAt) return LINEUP_STATUS.submitted;
   if (theirs?.lockedAt) return LINEUP_STATUS.waiting;
   return LINEUP_STATUS.notSubmitted;
@@ -110,12 +127,12 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
   const { team1, team2 } = fixtureTeams(item, teams);
   const opponent = item.team1Id === captainTeam.id ? team2 : team1;
   const locked = !!lineupSubmission?.lockedAt;
-  const revealed = !!lineupSubmission?.revealedAt || (!!lineupSubmission?.submittedAt && !!opponentSubmission?.submittedAt);
+  const revealed = !!lineupSubmission?.revealedAt || (!!lineupSubmission?.lockedAt && !!opponentSubmission?.lockedAt);
   const status = statusForFixture(completed, lineupSubmission, opponentSubmission);
   const errors = validateDashboardLineup(captainTeam, selected);
   const names = selectedNames(captainTeam, selected);
   const canSubmit = !completed && !locked && errors.length === 0;
-  const waText = whatsappMessage(captainTeam, opponent, captainTeam?.players?.find(p => p.isCaptain)?.name || captainTeam?.players?.[0]?.name || session.teamName);
+  const waText = whatsappMessage(captainTeam, opponent, captainTeam?.players?.find(p => p.isCaptain)?.name || captainTeam?.players?.[0]?.name || session.teamName, lineupSubmission, opponentSubmission);
   const waHref = `https://wa.me/?text=${encodeURIComponent(waText)}`;
 
   useEffect(() => {
@@ -132,7 +149,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
     const validationErrors = validateDashboardLineup(captainTeam, selected);
     if (validationErrors.length) return;
     const now = Date.now();
-    const opponentSubmitted = !!opponentSubmission?.submittedAt;
+    const opponentSubmitted = !!opponentSubmission?.submittedAt && !!opponentSubmission?.lockedAt;
     const payload = {
       scheduleId: item.id,
       teamId: captainTeam.id,
@@ -199,12 +216,12 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
             <div className="dashboard-submitted-panel">
               <h3>✅ Submitted & Locked</h3>
               <p>Submitted<br /><strong>{timeLabel(lineupSubmission.submittedAt)}</strong></p>
-              <p>WhatsApp<br /><strong>{lineupSubmission.whatsappShared ? `WhatsApp Shared ${timeLabel(lineupSubmission.whatsappSharedAt)}` : 'Not Shared'}</strong></p>
-              <a className="btn success" href={waHref} target="_blank" rel="noreferrer" onClick={markWhatsappShared} data-testid={`share-lineup-whatsapp-${item.id}`}>Share via WhatsApp</a>
+              <p>WhatsApp<br /><strong>{revealed ? (lineupSubmission.whatsappShared ? `WhatsApp Shared ${timeLabel(lineupSubmission.whatsappSharedAt)}` : 'Not Shared') : 'Available after both teams lock'}</strong></p>
+              {revealed && <a className="btn success" href={waHref} target="_blank" rel="noreferrer" onClick={markWhatsappShared} data-testid={`share-lineup-whatsapp-${item.id}`}>Share via WhatsApp</a>}
               <button className="btn ghost" type="button" onClick={onRefresh}>Refresh</button>
               <p className="hint">Last Updated<br />{timeLabel(lineupSubmission.lastUpdatedAt)}</p>
-              {revealed && <div className="lineup-reveal"><h4>Your Lineup</h4>{(lineupSubmission.lineup || []).map(line => <div key={line.label}><strong>{line.label}:</strong> {line.players.join(' / ')}</div>)}</div>}
-              {!revealed && <p className="hint">Lineup details stay hidden until both captains submit.</p>}
+              {revealed && <div className="lineup-reveal"><h4>Revealed Lineups</h4>{revealedLineupRows(lineupSubmission, opponentSubmission).map(row => <div key={row.label}><strong>{row.label}:</strong> {row.mine.join(' / ')} <strong>vs</strong> {row.theirs.join(' / ')}</div>)}</div>}
+              {!revealed && <p className="hint">Lineup details and WhatsApp sharing stay hidden until both captains submit and lock.</p>}
             </div>
           )}
         </div>
