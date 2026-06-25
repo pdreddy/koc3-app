@@ -168,7 +168,7 @@ function formatMatchShareText(match) {
   return `${team1Abbr} vs ${team2Abbr}\n\n${lines.join('\n\n')}\n\nFinal: ${winnerAbbr} won ${match.courtsWon1}-${match.courtsWon2}`;
 }
 
-function ShareResultPreview({ text, compact = false }) {
+function ShareResultPreview({ text, compact = false, title = '📤 WhatsApp-friendly result preview' }) {
   const [copied, setCopied] = useState(false);
   if (!text) return null;
   const whatsappHref = `https://wa.me/?text=${encodeURIComponent(text)}`;
@@ -179,7 +179,7 @@ function ShareResultPreview({ text, compact = false }) {
   };
   return (
     <div className={compact ? 'share-preview-panel' : 'card'} data-testid="result-share-preview">
-      <h2>📤 WhatsApp-friendly result preview</h2>
+      <h2>{title}</h2>
       <pre className="hint" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{text}</pre>
       <div className="row" style={{ marginTop: '.8rem' }}>
         <button type="button" className="btn small" onClick={copyText} data-testid="copy-result-preview">
@@ -215,6 +215,39 @@ function ResultPreviewModal({ text, saving, onConfirm, onCancel, confirmTestId, 
           </button>
           <button className="btn ghost full" onClick={onCancel} disabled={saving} data-testid={cancelTestId}>
             Cancel
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function buildLineupShareText(team1, team2, team1Names, team2Names) {
+  const courts = buildLineupCourts(team1Names, team2Names);
+  const labels = ['S1', 'D1', 'D1', 'D2', 'D2'];
+  const lines = courts.map((court, idx) => `${labels[idx]}: ${court.p1.join('/')} vs ${court.p2.join('/')}`);
+  return `${team1.abbreviation} vs ${team2.abbreviation}\n\n${lines.join('\n')}`;
+}
+
+function LineupShareModal({ text, onCancel }) {
+  if (!text) return null;
+  return (
+    <div className="score-modal-backdrop" role="presentation">
+      <section className="score-modal" role="dialog" aria-modal="true" aria-labelledby="lineup-share-preview-modal-title" data-testid="lineup-share-preview-modal">
+        <div className="score-modal-head">
+          <div>
+            <p className="score-modal-kicker">Preview/share before match day</p>
+            <h2 id="lineup-share-preview-modal-title">Copy/share lineup only — no Firebase save</h2>
+          </div>
+          <button type="button" className="btn small ghost" onClick={onCancel} aria-label="Close lineup share dialog">
+            ✕
+          </button>
+        </div>
+        <p className="hint">Use this captain-friendly preview to copy or share the planned lineup before match day. This action does not save anything to Firebase.</p>
+        <ShareResultPreview text={text} compact title="📤 WhatsApp-friendly lineup preview" />
+        <div className="score-modal-actions">
+          <button className="btn ghost full" onClick={onCancel} data-testid="close-lineup-share-preview">
+            Close
           </button>
         </div>
       </section>
@@ -290,12 +323,16 @@ function TeamLineupPicker({ team, selected, onChange, label }) {
 }
 
 function LineupBuilder({ team1, team2, teams, matches, eligibilityRules, team1Selected, setTeam1Selected, team2Selected, setTeam2Selected, onPopulateForm, onPopulateQuick }) {
+  const [lineupShareText, setLineupShareText] = useState('');
   const team1Names = selectedNamesFromIndexes(team1, team1Selected);
   const team2Names = selectedNamesFromIndexes(team2, team2Selected);
   const lineupValidationLines = buildLineupValidationLines(team1Names, team2Names);
   const lineupErrors = lineupValidationLines.length > 0 ? validateEligibilityForLines(lineupValidationLines, team1, team2, matches, teams, eligibilityRules) : [];
   const ready = team1Names.length === 5 && team2Names.length === 5 && lineupErrors.length === 0;
+  const previewLineupShare = () => setLineupShareText(buildLineupShareText(team1, team2, team1Names, team2Names));
   return (
+    <>
+      <LineupShareModal text={lineupShareText} onCancel={() => setLineupShareText('')} />
     <div className="card lineup-builder-card" data-testid="score-lineup-builder">
       <h2>Lineup builder</h2>
       <p className="hint">After teams are selected, assign each roster player to Singles, D1, or D2. Smart fill can prefill by roster order, then captains can override every role before populating scores.</p>
@@ -306,9 +343,11 @@ function LineupBuilder({ team1, team2, teams, matches, eligibilityRules, team1Se
       {lineupErrors.length > 0 && <div className="error-box" data-testid="lineup-validation-error" style={{ whiteSpace: 'pre-line', marginTop: '.75rem' }}>{lineupErrors.join('\n')}</div>}
       <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginTop: '.75rem' }}>
         {onPopulateForm && <button type="button" className="btn small success" disabled={!ready} onClick={() => onPopulateForm(buildLineupCourts(team1Names, team2Names))} data-testid="populate-form-lineup">Populate form lines</button>}
+        <button type="button" className="btn small" disabled={!ready} onClick={previewLineupShare} data-testid="preview-share-lineup">Preview/share lineup</button>
         {onPopulateQuick && <button type="button" className="btn small success" disabled={!ready} onClick={() => onPopulateQuick(buildQuickLineupText(team1, team2, team1Names, team2Names))} data-testid="populate-quick-lineup">Populate quick paste</button>}
       </div>
     </div>
+    </>
   );
 }
 
