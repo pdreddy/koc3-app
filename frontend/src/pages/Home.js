@@ -104,16 +104,15 @@ function buildExistingEligibility(matches, teams) {
 }
 
 function captainLineupEligibilityErrors(team, names, matches, teams, eligibilityRules = DEFAULT_ELIGIBILITY_RULES) {
-  if (names.length < 5) return [];
   const rules = normalizeEligibilityRules(eligibilityRules);
   const existing = buildExistingEligibility(matches, teams);
   const lines = [
-    { type: 'singles', players: [names[0]] },
-    { type: 'doubles', players: [names[1], names[2]] },
-    { type: 'doubles', players: [names[1], names[2]] },
-    { type: 'doubles', players: [names[3], names[4]] },
-    { type: 'doubles', players: [names[3], names[4]] }
-  ];
+    { type: 'singles', players: [names[0]].filter(Boolean) },
+    { type: 'doubles', players: [names[1], names[2]].filter(Boolean) },
+    { type: 'doubles', players: [names[1], names[2]].filter(Boolean) },
+    { type: 'doubles', players: [names[3], names[4]].filter(Boolean) },
+    { type: 'doubles', players: [names[3], names[4]].filter(Boolean) }
+  ].filter(line => line.players.length > 0);
   const currentPlayers = new Map();
   const currentPairs = new Map();
   lines.forEach(line => {
@@ -191,7 +190,7 @@ function statusForFixture(isCompleted, mine, theirs) {
   return LINEUP_STATUS.notSubmitted;
 }
 
-function LineupRoleSelect({ team, selected, onChange, readOnly }) {
+function LineupRoleSelect({ team, selected, onChange, readOnly, optionErrors = {} }) {
   const selectedSet = new Set(selected.filter(Boolean));
   return (
     <div className="dashboard-lineup-grid">
@@ -202,7 +201,7 @@ function LineupRoleSelect({ team, selected, onChange, readOnly }) {
             <option value="">— Choose player —</option>
             {(team?.players || []).map((player, playerIdx) => {
               const value = String(playerIdx);
-              return <option key={`${player.name}-${playerIdx}`} value={value} disabled={selectedSet.has(value) && selected[idx] !== value}>{player.name}</option>;
+              return <option key={`${player.name}-${playerIdx}`} value={value} disabled={(selectedSet.has(value) && selected[idx] !== value) || !!optionErrors[`${idx}:${value}`]}>{optionErrors[`${idx}:${value}`] ? `⚠️ ${player.name}` : player.name}</option>;
             })}
           </select>
         </label>
@@ -216,6 +215,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
   const [selected, setSelected] = useState([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [selectionWarning, setSelectionWarning] = useState('');
   const { team1, team2 } = fixtureTeams(item, teams);
   const opponent = item.team1Id === captainTeam.id ? team2 : team1;
   const locked = !!lineupSubmission?.lockedAt && !lineupSubmission?.unlockedAt;
@@ -231,9 +231,26 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
     if (lineupSubmission?.selected) setSelected(lineupSubmission.selected);
   }, [lineupSubmission?.selected]);
 
+  const optionErrors = useMemo(() => {
+    const map = {};
+    LINEUP_ROLE_SLOTS.forEach((_, slotIdx) => {
+      (captainTeam?.players || []).forEach((player, playerIdx) => {
+        const next = [...selected];
+        next[slotIdx] = String(playerIdx);
+        const nextErrors = validateDashboardLineup(captainTeam, next, matches, teams, eligibilityRules)
+          .filter(error => !error.startsWith('Select all 5 lineup slots'));
+        if (nextErrors.length > 0) map[`${slotIdx}:${playerIdx}`] = nextErrors[0];
+      });
+    });
+    return map;
+  }, [captainTeam, selected, matches, teams, eligibilityRules]);
+
   const setSlot = (idx, value) => setSelected(prev => {
     const next = [...prev];
     next[idx] = value;
+    const nextErrors = validateDashboardLineup(captainTeam, next, matches, teams, eligibilityRules)
+      .filter(error => !error.startsWith('Select all 5 lineup slots'));
+    setSelectionWarning(nextErrors[0] || '');
     return next;
   });
 
@@ -316,7 +333,8 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
           {message && <div className={message.startsWith('✅') ? 'success-box' : 'error-box'}>{message}</div>}
           {!locked ? (
             <>
-              <LineupRoleSelect team={captainTeam} selected={selected} onChange={setSlot} readOnly={busy} />
+              <LineupRoleSelect team={captainTeam} selected={selected} onChange={setSlot} readOnly={busy} optionErrors={optionErrors} />
+              {selectionWarning && <div className="error-box" style={{ whiteSpace: 'pre-line' }} data-testid={`lineup-selection-warning-${item.id}`}>{selectionWarning}</div>}
               {errors.length > 0 && <div className="error-box" style={{ whiteSpace: 'pre-line' }}>{errors.join('\n')}</div>}
               <div className="dashboard-sticky-actions"><button className="btn success full" disabled={!canSubmit || busy} onClick={submitLineup} data-testid={`lock-lineup-${item.id}`}>{busy ? 'Submitting...' : 'Submit & Lock Lineup'}</button></div>
             </>
