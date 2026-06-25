@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ROLES, hasRole } from '../utils/roles';
@@ -56,6 +56,150 @@ function ScheduleMiniList({ title, description, fixtures, teams, emptyText, test
   );
 }
 
+
+function formatTime(value) {
+  if (!value) return '—';
+  return new Date(value).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
+function lineupStorageKey(matchScheduleId, teamId) {
+  return `koc3-lineup:${matchScheduleId}:${teamId}`;
+}
+
+function readStoredLineup(matchScheduleId, teamId) {
+  try {
+    return JSON.parse(localStorage.getItem(lineupStorageKey(matchScheduleId, teamId)) || 'null');
+  } catch (err) {
+    return null;
+  }
+}
+
+function writeStoredLineup(matchScheduleId, teamId, value) {
+  localStorage.setItem(lineupStorageKey(matchScheduleId, teamId), JSON.stringify(value));
+}
+
+const LINEUP_SLOTS = [
+  { key: 'singles', label: 'Singles', count: 1 },
+  { key: 'doubles1', label: 'Doubles 1', count: 2 },
+  { key: 'doubles2', label: 'Doubles 2', count: 2 },
+  { key: 'reverseDoubles', label: 'Reverse Doubles', count: 2 },
+  { key: 'reverseSingles', label: 'Reverse Singles', count: 1 }
+];
+
+function emptyLineup() {
+  return LINEUP_SLOTS.reduce((acc, slot) => ({ ...acc, [slot.key]: Array(slot.count).fill('') }), {});
+}
+
+function flattenLineup(lineup) {
+  return LINEUP_SLOTS.flatMap(slot => lineup?.[slot.key] || []).filter(Boolean);
+}
+
+function validateCaptainLineup(lineup, team, capacityRows) {
+  const errors = [];
+  LINEUP_SLOTS.forEach(slot => {
+    const names = lineup?.[slot.key] || [];
+    if (names.filter(Boolean).length !== slot.count) errors.push(`${slot.label} requires ${slot.count} player${slot.count > 1 ? 's' : ''}.`);
+  });
+  const picked = flattenLineup(lineup);
+  const duplicates = picked.filter((name, idx) => picked.indexOf(name) !== idx);
+  [...new Set(duplicates)].forEach(name => errors.push(`${name} is assigned more than once in this lineup.`));
+  const rosterNames = new Set((team?.players || []).map(player => player.name));
+  picked.filter(name => !rosterNames.has(name)).forEach(name => errors.push(`${name} is not on your roster.`));
+  capacityRows.forEach(row => {
+    if (picked.includes(row.name) && row.warnings.some(message => message.includes('reached'))) {
+      errors.push(`${row.name} is blocked by an existing KOC capacity rule.`);
+    }
+  });
+  if ((lineup?.singles || []).length > 2) errors.push('Maximum 2 Singles is enforced.');
+  return errors;
+}
+
+function StatusBadge({ status }) {
+  const meta = {
+    notSubmitted: ['🟢', 'Not Submitted'],
+    locked: ['🟡', 'Submitted & Locked'],
+    waiting: ['🔵', 'Waiting for Opponent'],
+    revealed: ['🟣', 'Revealed'],
+    completed: ['⚫', 'Completed']
+  }[status] || ['🟢', 'Not Submitted'];
+  return <span className={`line-status ${status}`}>{meta[0]} {meta[1]}</span>;
+}
+
+function LineupDisplay({ title, lineup }) {
+  return (
+    <div className="lineup-reveal-panel">
+      <h4>{title}</h4>
+      {LINEUP_SLOTS.map(slot => <div key={slot.key} className="lineup-read-row"><strong>{slot.label}</strong><span>{(lineup?.[slot.key] || []).join(' / ') || 'Hidden until reveal'}</span></div>)}
+    </div>
+  );
+}
+
+function CaptainMatchCard({ item, teams, captainTeam, capacityRows }) {
+  const { team1, team2 } = fixtureTeams(item, teams);
+  const opponent = team1?.id === captainTeam.id ? team2 : team1;
+  const matchScheduleId = item.id;
+  const [expanded, setExpanded] = useState(false);
+  const [lineup, setLineup] = useState(emptyLineup);
+  const [submission, setSubmission] = useState(() => readStoredLineup(matchScheduleId, captainTeam.id));
+  const [lastRefreshed, setLastRefreshed] = useState(new Date());
+  const errors = validateCaptainLineup(lineup, captainTeam, capacityRows);
+  const opponentSubmission = readStoredLineup(matchScheduleId, opponent?.id);
+  const revealed = submission?.lockedAt && opponentSubmission?.lockedAt;
+  const status = item.status === 'completed' ? 'completed' : revealed ? 'revealed' : submission?.lockedAt ? 'locked' : 'notSubmitted';
+  const whatsappText = encodeURIComponent(`KOC Match\n\n${captainTeam.name} vs ${opponent?.name || 'Opponent'}\n\nCaptain:\n${captainTeam.players?.[0]?.name || captainTeam.captain || 'Captain'}\n\nOur official lineup has been submitted through the KOC App.\n\nPlease submit your lineup through the app.\n\nThe KOC App remains the official source of truth.`);
+
+  useEffect(() => {
+    const timer = setInterval(() => setLastRefreshed(new Date()), 120000);
+    return () => clearInterval(timer);
+  }, []);
+
+  function updateSlot(key, index, value) {
+    setLineup(current => ({ ...current, [key]: current[key].map((entry, idx) => idx === index ? value : entry) }));
+  }
+
+  function submitLineup() {
+    const now = new Date().toISOString();
+    const payload = { matchScheduleId, teamId: captainTeam.id, lineup, submissionStatus: 'Submitted & Locked', submittedAt: now, lockedAt: now, lastUpdatedAt: now, validationErrors: [] };
+    writeStoredLineup(matchScheduleId, captainTeam.id, payload);
+    setSubmission(payload);
+  }
+
+  function markWhatsappShared() {
+    const now = new Date().toISOString();
+    const next = { ...submission, whatsappShared: true, whatsappSharedAt: now, lastUpdatedAt: now };
+    writeStoredLineup(matchScheduleId, captainTeam.id, next);
+    setSubmission(next);
+  }
+
+  return (
+    <article className="captain-match-card" data-testid={`captain-match-${matchScheduleId}`}>
+      <div className="captain-match-top">
+        <div>
+          <div className="round-chip">Round {item.round || '—'} · Match Schedule ID {matchScheduleId}</div>
+          <h3>{team1?.name || 'TBD'} vs {team2?.name || 'TBD'}</h3>
+          <div className="match-meta"><span>{formatDate(item.date)}</span><span>{item.time || 'TBD'}</span><span>{item.location || item.court || 'Prosper Courts'}</span></div>
+        </div>
+        <StatusBadge status={status} />
+      </div>
+      <div className="opponent-strip"><strong>Opponent Submission Status</strong><span>{opponentSubmission?.lockedAt ? `Submitted · ${formatTime(opponentSubmission.lockedAt)}` : 'Waiting...'}</span></div>
+      {item.status !== 'completed' && !submission?.lockedAt && <button type="button" className="btn submit-lines-btn" onClick={() => setExpanded(v => !v)}>{expanded ? 'Hide Lines' : 'Submit Lines'}</button>}
+      {expanded && !submission?.lockedAt && (
+        <div className="inline-lineup-editor">
+          {LINEUP_SLOTS.map(slot => <div key={slot.key} className="lineup-slot"><label>{slot.label}</label>{slot.count === 1 ? <select className="select" value={lineup[slot.key][0]} onChange={e => updateSlot(slot.key, 0, e.target.value)}><option value="">Player</option>{captainTeam.players?.map(player => <option key={player.name} value={player.name}>{player.name}</option>)}</select> : <div className="lineup-pair">{[0,1].map(idx => <select key={idx} className="select" value={lineup[slot.key][idx]} onChange={e => updateSlot(slot.key, idx, e.target.value)}><option value="">Player {idx ? 'B' : 'A'}</option>{captainTeam.players?.map(player => <option key={player.name} value={player.name}>{player.name}</option>)}</select>)}</div>}</div>)}
+          {errors.length > 0 && <div className="error-box">{errors.map(error => <div key={error}>{error}</div>)}</div>}
+          <div className="sticky-actions"><button type="button" className="btn ghost" disabled={errors.length > 0}>Validate</button><button type="button" className="btn" disabled={errors.length > 0} onClick={submitLineup}>Submit & Lock Lineup</button></div>
+        </div>
+      )}
+      {submission?.lockedAt && !revealed && <div className="submitted-panel"><h3>✅ Submitted & Locked</h3><p>Submitted <strong>{formatTime(submission.submittedAt)}</strong></p><p>WhatsApp <strong>{submission.whatsappShared ? `Shared · ${formatTime(submission.whatsappSharedAt)}` : 'Not Shared'}</strong></p><a className="btn whatsapp-btn" href={`https://wa.me/?text=${whatsappText}`} target="_blank" rel="noreferrer" onClick={markWhatsappShared}>Share via WhatsApp</a></div>}
+      {revealed && <div className="reveal-grid"><LineupDisplay title="Your Lineup" lineup={submission.lineup} /><LineupDisplay title="Opponent Lineup" lineup={opponentSubmission.lineup} /></div>}
+      <div className="refresh-row"><button type="button" className="btn small ghost" onClick={() => setLastRefreshed(new Date())}>Refresh</button><span>Last Refreshed {formatTime(lastRefreshed)}</span></div>
+    </article>
+  );
+}
+
+function CaptainScheduledMatches({ fixtures, teams, captainTeam, capacityRows }) {
+  return <section className="captain-dashboard-section"><h2>Scheduled Matches</h2>{fixtures.length === 0 ? <div className="card muted center">No scheduled matches found for your team.</div> : fixtures.map(item => <CaptainMatchCard key={item.id} item={item} teams={teams} captainTeam={captainTeam} capacityRows={capacityRows} />)}</section>;
+}
 
 function TeamSnapshot({ team, upcomingCount, completedCount, capacityRows }) {
   const rosterCount = team?.players?.length || 0;
@@ -166,26 +310,16 @@ export default function Home({ teams, schedule, matches = [], eligibilityRules =
           <p>{captainTeam.name} · your schedule, capacity, and lineup danger bells.</p>
         </div>
         <TeamSnapshot team={captainTeam} upcomingCount={upcomingCaptainFixtures.length} completedCount={completedCaptainFixtures.length} capacityRows={capacityRows} />
-        <div className="rl-grid">
-          <ScheduleMiniList
-            title="Upcoming Fixtures"
-            description="Only unplayed fixtures for your team are shown here."
-            fixtures={upcomingCaptainFixtures}
-            teams={teams}
-            emptyText="No upcoming fixtures found for your team."
-            testid="captain-upcoming-schedule-card"
-            showStatus
-          />
-          <ScheduleMiniList
-            title="Completed Fixtures"
-            description="Completed fixtures for your team."
-            fixtures={completedCaptainFixtures}
-            teams={teams}
-            emptyText="No completed fixtures yet."
-            testid="captain-completed-schedule-card"
-            showStatus
-          />
-        </div>
+        <CaptainScheduledMatches fixtures={upcomingCaptainFixtures} teams={teams} captainTeam={captainTeam} capacityRows={capacityRows} />
+        <ScheduleMiniList
+          title="Completed Matches"
+          description="Completed matches for your team."
+          fixtures={completedCaptainFixtures}
+          teams={teams}
+          emptyText="No completed matches yet."
+          testid="captain-completed-schedule-card"
+          showStatus
+        />
         <OwnerGaps overdueFixtures={overdueFixtures} capacityRows={capacityRows} />
         <DangerBells rows={capacityRows} />
         <CaptainCapacityCard team={captainTeam} teams={teams} matches={matches} eligibilityRules={eligibilityRules} />
