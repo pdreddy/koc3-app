@@ -5,11 +5,10 @@ import { ROLES, hasRole, canViewAudit } from '../utils/roles';
 import { writeAuditLog } from '../services/AuditService';
 
 const PRIMARY_LINKS = [
-  { to: '/', label: 'Dashboard' },
+  { to: '/', label: 'Home' },
   { to: '/teams', label: 'Teams' },
-  { to: '/schedule', label: 'Matches' },
+  { to: '/schedule', label: 'Schedule' },
   { to: '/standings', label: 'Standings' },
-  { to: '/score', label: 'Lineups' },
   { to: '/rules', label: 'Rules' },
   { to: '/more', label: 'More' }
 ];
@@ -44,7 +43,6 @@ export default function AppHeader() {
       </nav>
 
       <div className="header-actions">
-        <span className="notification-bell" aria-label="Notifications"><span>🔔</span><b>3</b></span>
         {hasRole(session, [ROLES.ADMIN, ROLES.SUPER_ADMIN]) && (
           <span className="user-pill" data-testid="user-pill">ADMIN</span>
         )}
@@ -57,7 +55,6 @@ export default function AppHeader() {
         {!hasRole(session, [ROLES.GUEST]) && (
           <button onClick={handleLogout} className="btn small ghost" data-testid="header-logout-btn">Logout</button>
         )}
-        <span className="profile-orb" aria-hidden="true">K</span>
       </div>
     </header>
   );

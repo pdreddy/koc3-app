@@ -1,13 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ROLES, hasRole } from '../utils/roles';
 import { DEFAULT_ELIGIBILITY_RULES } from '../utils/eligibilityRules';
 import { approvedMatches } from '../utils/matchStatus';
 import { resolveMatchTeams } from '../utils/matchTeams';
-import { buildCaptainCapacityRows } from '../components/CaptainCapacity';
-import TeamShield from '../components/TeamShield';
-import { getRevealedLineupSubmission, readStoredLineup, writeStoredLineup } from '../utils/lineupSubmissions';
+import { CaptainCapacityCard, buildCaptainCapacityRows } from '../components/CaptainCapacity';
 
 function formatDate(iso) {
   if (!iso) return 'TBD';
@@ -59,107 +57,69 @@ function ScheduleMiniList({ title, description, fixtures, teams, emptyText, test
 }
 
 
-function formatTime(value) {
-  if (!value) return '—';
-  return new Date(value).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-}
-
-function PremiumLineupTile({ icon, title, subtitle, tone = 'blue', onClick }) {
+function TeamSnapshot({ team, upcomingCount, completedCount, capacityRows }) {
+  const rosterCount = team?.players?.length || 0;
+  const blockedCount = capacityRows.filter(row => row.warnings.some(message => message.includes('reached'))).length;
+  const warningCount = capacityRows.filter(row => row.warnings.length).length;
   return (
-    <button type="button" className={`premium-lineup-tile ${tone}`} onClick={onClick}>
-      <span className="tile-icon">{icon}</span>
-      <span><strong>{title}</strong><small>{subtitle}</small></span>
-      <b>+</b>
-    </button>
+    <section className="card" data-testid="captain-team-snapshot">
+      <h2>Team Snapshot</h2>
+      <div className="rl-grid" style={{ marginTop: '.75rem' }}>
+        <div className="rl-item"><span className="rl-ic" aria-hidden="true">👥</span><div><div className="rl-lbl">Roster</div><div className="rl-val">{rosterCount} players · Captain: {team.players?.[0]?.name || team.captain || 'TBD'}</div></div></div>
+        <div className="rl-item"><span className="rl-ic" aria-hidden="true">🏷️</span><div><div className="rl-lbl">Group / Auction</div><div className="rl-val">Group {team.group || '—'} · Spent ${Number(team.totalSpent || 0).toLocaleString()} · Left ${Number(team.moneyLeft || 0).toLocaleString()}</div></div></div>
+        <div className="rl-item"><span className="rl-ic" aria-hidden="true">📅</span><div><div className="rl-lbl">Schedule</div><div className="rl-val">{upcomingCount} upcoming · {completedCount} completed</div></div></div>
+        <div className="rl-item"><span className="rl-ic" aria-hidden="true">🚨</span><div><div className="rl-lbl">Capacity Risk</div><div className="rl-val">{blockedCount} capped · {warningCount} with warnings</div></div></div>
+      </div>
+    </section>
   );
 }
 
-function PremiumCaptainDashboard({ captainTeam, upcomingFixtures, completedFixtures, teams, capacityRows }) {
-  const nextMatch = upcomingFixtures[0];
-  const { team1, team2 } = nextMatch ? fixtureTeams(nextMatch, teams) : {};
-  const opponent = team1?.id === captainTeam.id ? team2 : team1;
-  const matchScheduleId = nextMatch?.id;
-  const [lastRefreshed, setLastRefreshed] = useState(new Date());
-  const [submission, setSubmission] = useState(() => readStoredLineup(matchScheduleId, captainTeam.id));
-  const opponentSubmission = readStoredLineup(matchScheduleId, opponent?.id);
-  const reveal = getRevealedLineupSubmission(matchScheduleId, team1?.id, team2?.id);
-  const status = reveal ? 'REVEALED' : submission?.lockedAt ? 'SUBMITTED & LOCKED' : 'NOT SUBMITTED';
-  const whatsappText = encodeURIComponent(`KOC Match\n\n${captainTeam.name} vs ${opponent?.name || 'Opponent'}\n\nCaptain:\n${captainTeam.players?.[0]?.name || captainTeam.captain || 'Captain'}\n\nOur official lineup has been submitted through the KOC App.\n\nPlease submit your lineup through the app.\n\nThe KOC App remains the official source of truth.`);
-
-  useEffect(() => {
-    const timer = setInterval(() => setLastRefreshed(new Date()), 120000);
-    return () => clearInterval(timer);
-  }, []);
-
-  function quickLockDemo() {
-    if (!matchScheduleId || submission?.lockedAt) return;
-    const roster = captainTeam.players || [];
-    const pick = (idx) => roster[idx]?.name || '';
-    const now = new Date().toISOString();
-    const lineup = {
-      singles: [pick(0)],
-      doubles1: [pick(1), pick(2)],
-      doubles2: [pick(3), pick(4)],
-      reverseDoubles: [pick(5), pick(6)],
-      reverseSingles: [pick(7)]
-    };
-    const payload = { matchScheduleId, teamId: captainTeam.id, lineup, submissionStatus: 'Submitted & Locked', submittedAt: now, lockedAt: now, revealedAt: opponentSubmission?.lockedAt ? now : null, lastUpdatedAt: now, validationErrors: [] };
-    writeStoredLineup(matchScheduleId, captainTeam.id, payload);
-    setSubmission(payload);
-  }
-
-  if (!nextMatch) {
-    return (
-      <main className="container captain-premium-page" data-testid="captain-dashboard-page">
-        <section className="captain-topbar"><div className="hamburger">☰</div><div className="koc-wordmark">♛<strong>KOC</strong><small>SEASON 3</small></div><div className="captain-title"><h1>Captain Dashboard</h1><p>Season 3</p></div><div className="captain-bells">🔔<b>3</b></div><div className="captain-avatar">🎾</div></section>
-        <section className="captain-hero-card"><h2>No scheduled matches</h2><p className="hint">Your completed matches are listed below.</p></section>
-      </main>
-    );
-  }
-
+function OwnerGaps({ overdueFixtures, capacityRows }) {
+  const cappedPlayers = capacityRows.filter(row => row.warnings.some(message => message.includes('reached')));
+  const nearCapPlayers = capacityRows.filter(row => row.warnings.length && !row.warnings.some(message => message.includes('reached')));
   return (
-    <main className="container captain-premium-page" data-testid="captain-dashboard-page">
-      <section className="captain-topbar">
-        <div className="hamburger">☰</div>
-        <div className="koc-wordmark">♛<strong>KOC</strong><small>SEASON 3</small></div>
-        <div className="captain-title"><h1>Captain Dashboard</h1><p>Season 3</p></div>
-        <div className="captain-bells">🔔<b>3</b></div>
-        <div className="captain-avatar">🎾</div>
-      </section>
-
-      <section className="captain-hero-card">
-        <div className="hero-icon">▣</div>
-        <div className="hero-main"><span>Next Match</span><h2>{team1?.name || 'TBD'} vs {team2?.name || 'TBD'}</h2><p>▣ {formatDate(nextMatch.date)} &nbsp;&nbsp; ◷ {nextMatch.time || '07:30 PM'} &nbsp;&nbsp; ♙ {nextMatch.location || nextMatch.court || 'KOC Arena 1'}</p></div>
-        <div className="hero-side"><span className="scheduled-pill">SCHEDULED</span><div className="countdown-box"><b>02</b><b>15</b><b>42</b><small>HRS</small><small>MIN</small><small>SEC</small></div></div>
-      </section>
-
-      <nav className="captain-tabbar" aria-label="Captain dashboard sections">
-        <a className="active" href="#scheduled">▣ Scheduled Matches</a><a href="#completed">♕ Completed Matches</a><a href="#tournament">◈ Tournament</a><a href="#standings">▥ Standings</a>
-      </nav>
-
-      <div className="captain-dashboard-grid" id="scheduled">
-        <section className="premium-match-console">
-          <div className="round-badge">Round {nextMatch.round || '3'}</div><button className="collapse-caret" type="button">⌃</button>
-          <div className="premium-versus-row">
-            <div className="team-lockup"><TeamShield team={team1} size="lg" /><div><h2>{team1?.name || 'TBD'} <span>YOU</span></h2><p>Captain: {team1?.players?.[0]?.name || team1?.captain || 'John'}</p></div></div>
-            <div className="vs-orb">VS</div>
-            <div className="team-lockup right"><div><h2>{team2?.name || 'TBD'}</h2><p>Captain: {team2?.players?.[0]?.name || team2?.captain || 'Mike'}</p></div><TeamShield team={team2} size="lg" /></div>
-          </div>
-          <div className="match-info-strip"><div>▣<span>Date</span><strong>{formatDate(nextMatch.date)}</strong></div><div>◷<span>Time</span><strong>{nextMatch.time || '06:30 PM'}</strong></div><div>◌<span>Court</span><strong>{nextMatch.location || nextMatch.court || 'Prosper Courts'}</strong></div><div><span>Match Status</span><em>{status}</em></div></div>
-          <div className="submit-panel">
-            <div className="panel-head"><h3>Submit Your Lineup</h3><strong>Submit before 05:30 PM</strong></div>
-            <div className="premium-lineup-grid"><PremiumLineupTile icon="🎾" title="SINGLES 1" subtitle="Select Player" tone="green" /><PremiumLineupTile icon="🎾" title="SINGLES 2" subtitle="Select Player" tone="lime" /><PremiumLineupTile icon="👥" title="DOUBLES 1" subtitle="Select 2 Players" tone="purple" /><PremiumLineupTile icon="👥" title="DOUBLES 2" subtitle="Select 2 Players" tone="blue" /><PremiumLineupTile icon="👑" title="REVERSE DOUBLES" subtitle="Select 2 Players" tone="gold" /><PremiumLineupTile icon="🎾" title="REVERSE SINGLES" subtitle="Select Player" tone="pink" /></div>
-            <div className="lineup-actions"><button className="btn ghost" type="button">♡ Validate Lineup</button><button className="btn" type="button" onClick={quickLockDemo}>▣ Submit & Lock Lineup</button></div><p className="submission-note">ⓘ After submission, you cannot edit your lineup.</p>
-          </div>
-          <div className="status-panels"><div className="status-panel mine"><h3>Your Submission Status</h3><div><span className="lock-orb">🔒</span><p><strong>{submission?.lockedAt ? 'Submitted & Locked' : 'Not Submitted'}</strong><small>{submission?.submittedAt ? `Submitted ${formatTime(submission.submittedAt)}` : 'Submit your lineup before the deadline.'}</small></p></div></div><div className="status-panel opponent"><h3>Opponent Submission Status</h3><div><span className="hourglass-orb">⌛</span><p><strong>{opponentSubmission?.lockedAt ? 'Submitted' : 'Waiting for Opponent'}</strong><small>{opponentSubmission?.lockedAt ? `Submitted ${formatTime(opponentSubmission.lockedAt)}` : 'Opponent has not submitted yet.'}</small></p></div></div></div>
-        </section>
-        <aside className="captain-side-panel"><h3>Match Timeline</h3><ol className="timeline"><li><span></span><p>Lineup Deadline<small>25 May 2025, 05:30 PM</small></p></li><li className="done"><span></span><p>Your Submission<small>{submission?.lockedAt ? 'Submitted' : 'Not Submitted'}</small></p></li><li><span></span><p>Opponent Submission<small>{opponentSubmission?.lockedAt ? 'Submitted' : 'Waiting...'}</small></p></li><li><span></span><p>Lineups Revealed<small>After both submissions</small></p></li></ol><div className="how-it-works"><h3>How It Works</h3><p>🖊️ <strong>1. Submit your lineup</strong><br />Enter and lock before the deadline.</p><p>💬 <strong>2. Share on WhatsApp</strong><br />Notify your opponent.</p><p>🛡️ <strong>3. Opponent submits</strong><br />Waiting stays blind.</p><p>🔁 <strong>4. Lineups revealed</strong><br />Both lines reveal automatically.</p></div><div className="need-help"><h3>Need Help?</h3><button className="btn ghost full">View Rules</button><button className="btn ghost full">Contact Admin</button></div></aside>
+    <section className="card" data-testid="captain-owner-gaps">
+      <h2>Owner Checks</h2>
+      <p className="hint">Tight checklist before lines or score entry.</p>
+      <div style={{ display: 'grid', gap: '.5rem' }}>
+        {overdueFixtures.length > 0 && (
+          <div className="rl-flag warn"><span aria-hidden="true">⏰</span><span>{overdueFixtures.length} past fixture(s) still need a completed/approved score.</span></div>
+        )}
+        {cappedPlayers.length > 0 && (
+          <div className="rl-flag warn"><span aria-hidden="true">🚫</span><span>{cappedPlayers.length} player(s) are already at a hard capacity cap. Do not place them in capped lines.</span></div>
+        )}
+        {nearCapPlayers.length > 0 && (
+          <div className="rl-flag warn"><span aria-hidden="true">⚠️</span><span>{nearCapPlayers.length} player(s) are one use away from a cap. Double-check lineup balance.</span></div>
+        )}
+        {overdueFixtures.length === 0 && cappedPlayers.length === 0 && nearCapPlayers.length === 0 && (
+          <div className="rl-flag ok"><span aria-hidden="true">✅</span><span>No owner gaps detected right now.</span></div>
+        )}
       </div>
+    </section>
+  );
+}
 
-      <div className="captain-action-row"><div className="share-card"><h3>Share After Submission</h3><div>💬<p><strong>Share via WhatsApp</strong><small>Notify your opponent once you submit.</small></p><a className="btn small" href={`https://wa.me/?text=${whatsappText}`} target="_blank" rel="noreferrer">Preview Message</a></div></div><div className="refresh-card"><h3>Refresh Status</h3><div>↻<p><span>Last Refreshed</span><strong>{formatTime(lastRefreshed)}</strong></p><button className="btn small ghost" type="button" onClick={() => setLastRefreshed(new Date())}>Refresh Now</button></div></div></div>
-
-      <section className="completed-premium" id="completed"><div className="section-head"><h2>Completed Matches</h2><a href="/schedule">View All</a></div><div className="completed-card-grid">{completedFixtures.slice(0, 3).map((item, idx) => { const ft = fixtureTeams(item, teams); const other = ft.team1?.id === captainTeam.id ? ft.team2 : ft.team1; return <div className="completed-mini-card" key={item.id}><span>{idx === 2 ? 'Playoffs' : `Round ${item.round || idx + 1}`}</span><div><TeamShield team={captainTeam} /><b>VS</b><TeamShield team={other} /></div><p>{captainTeam.name} <strong>{idx === 1 ? '5 - 4' : idx === 2 ? '6 - 2' : '6 - 3'}</strong> {other?.name || 'Opponent'}</p><em>{captainTeam.name} Won</em></div>; })}</div></section>
-    </main>
+function DangerBells({ rows }) {
+  const warnings = rows
+    .filter(row => row.warnings.length)
+    .flatMap(row => row.warnings.map(message => ({ player: row.name, message })));
+  return (
+    <section className="card" data-testid="captain-danger-bells">
+      <h2>🚨 Danger Bells</h2>
+      <p className="hint">Players at or near eligibility capacity before you set lines.</p>
+      {warnings.length === 0 ? (
+        <div className="rl-flag ok"><span aria-hidden="true">✅</span><span>No capacity danger bells right now.</span></div>
+      ) : (
+        <div style={{ display: 'grid', gap: '.5rem' }}>
+          {warnings.map((warning, idx) => (
+            <div key={`${warning.player}-${warning.message}-${idx}`} className="rl-flag warn">
+              <span aria-hidden="true">⚠️</span>
+              <span><strong>{warning.player}</strong>: {warning.message}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -186,17 +146,54 @@ export default function Home({ teams, schedule, matches = [], eligibilityRules =
   const upcomingCaptainFixtures = useMemo(() => captainFixtures
     .filter(item => item.status !== 'completed' && !completedFixtureKeys.has(pairKey(item.team1Id, item.team2Id)))
     .map(item => ({ ...item, homeStatus: 'Upcoming' })), [captainFixtures, completedFixtureKeys]);
+  const overdueFixtures = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return upcomingCaptainFixtures.filter(item => {
+      if (!item.date) return false;
+      const [y, m, d] = item.date.split('-').map(Number);
+      const fixtureDate = new Date(y, m - 1, d);
+      return fixtureDate < today;
+    });
+  }, [upcomingCaptainFixtures]);
   const capacityRows = useMemo(() => captainTeam ? buildCaptainCapacityRows(captainTeam, teams, matches, eligibilityRules) : [], [captainTeam, teams, matches, eligibilityRules]);
 
   if (captainTeam) {
     return (
-      <PremiumCaptainDashboard
-        captainTeam={captainTeam}
-        upcomingFixtures={upcomingCaptainFixtures}
-        completedFixtures={completedCaptainFixtures}
-        teams={teams}
-        capacityRows={capacityRows}
-      />
+      <main className="container" data-testid="captain-dashboard-page">
+        <div className="page-title">
+          <h1>Captain Dashboard</h1>
+          <p>{captainTeam.name} · your schedule, capacity, and lineup danger bells.</p>
+        </div>
+        <TeamSnapshot team={captainTeam} upcomingCount={upcomingCaptainFixtures.length} completedCount={completedCaptainFixtures.length} capacityRows={capacityRows} />
+        <div className="rl-grid">
+          <ScheduleMiniList
+            title="Upcoming Fixtures"
+            description="Only unplayed fixtures for your team are shown here."
+            fixtures={upcomingCaptainFixtures}
+            teams={teams}
+            emptyText="No upcoming fixtures found for your team."
+            testid="captain-upcoming-schedule-card"
+            showStatus
+          />
+          <ScheduleMiniList
+            title="Completed Fixtures"
+            description="Completed fixtures for your team."
+            fixtures={completedCaptainFixtures}
+            teams={teams}
+            emptyText="No completed fixtures yet."
+            testid="captain-completed-schedule-card"
+            showStatus
+          />
+        </div>
+        <OwnerGaps overdueFixtures={overdueFixtures} capacityRows={capacityRows} />
+        <DangerBells rows={capacityRows} />
+        <CaptainCapacityCard team={captainTeam} teams={teams} matches={matches} eligibilityRules={eligibilityRules} />
+        <div style={{ display: 'flex', gap: '.6rem', flexWrap: 'wrap', marginTop: '1rem' }}>
+          <Link className="btn" to="/score">Enter score</Link>
+          <Link className="btn ghost" to="/schedule">Open schedule</Link>
+        </div>
+      </main>
     );
   }
 
