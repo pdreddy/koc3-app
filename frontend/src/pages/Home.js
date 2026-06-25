@@ -6,6 +6,7 @@ import { DEFAULT_ELIGIBILITY_RULES } from '../utils/eligibilityRules';
 import { approvedMatches } from '../utils/matchStatus';
 import { resolveMatchTeams } from '../utils/matchTeams';
 import { CaptainCapacityCard, buildCaptainCapacityRows } from '../components/CaptainCapacity';
+import { LINEUP_SLOTS, emptyLineup, flattenLineup, getRevealedLineupSubmission, readStoredLineup, writeStoredLineup } from '../utils/lineupSubmissions';
 
 function formatDate(iso) {
   if (!iso) return 'TBD';
@@ -62,38 +63,6 @@ function formatTime(value) {
   return new Date(value).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
-function lineupStorageKey(matchScheduleId, teamId) {
-  return `koc3-lineup:${matchScheduleId}:${teamId}`;
-}
-
-function readStoredLineup(matchScheduleId, teamId) {
-  try {
-    return JSON.parse(localStorage.getItem(lineupStorageKey(matchScheduleId, teamId)) || 'null');
-  } catch (err) {
-    return null;
-  }
-}
-
-function writeStoredLineup(matchScheduleId, teamId, value) {
-  localStorage.setItem(lineupStorageKey(matchScheduleId, teamId), JSON.stringify(value));
-}
-
-const LINEUP_SLOTS = [
-  { key: 'singles', label: 'Singles', count: 1 },
-  { key: 'doubles1', label: 'Doubles 1', count: 2 },
-  { key: 'doubles2', label: 'Doubles 2', count: 2 },
-  { key: 'reverseDoubles', label: 'Reverse Doubles', count: 2 },
-  { key: 'reverseSingles', label: 'Reverse Singles', count: 1 }
-];
-
-function emptyLineup() {
-  return LINEUP_SLOTS.reduce((acc, slot) => ({ ...acc, [slot.key]: Array(slot.count).fill('') }), {});
-}
-
-function flattenLineup(lineup) {
-  return LINEUP_SLOTS.flatMap(slot => lineup?.[slot.key] || []).filter(Boolean);
-}
-
 function validateCaptainLineup(lineup, team, capacityRows) {
   const errors = [];
   LINEUP_SLOTS.forEach(slot => {
@@ -144,7 +113,8 @@ function CaptainMatchCard({ item, teams, captainTeam, capacityRows }) {
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
   const errors = validateCaptainLineup(lineup, captainTeam, capacityRows);
   const opponentSubmission = readStoredLineup(matchScheduleId, opponent?.id);
-  const revealed = submission?.lockedAt && opponentSubmission?.lockedAt;
+  const reveal = getRevealedLineupSubmission(matchScheduleId, team1?.id, team2?.id);
+  const revealed = !!reveal;
   const status = item.status === 'completed' ? 'completed' : revealed ? 'revealed' : submission?.lockedAt ? 'locked' : 'notSubmitted';
   const whatsappText = encodeURIComponent(`KOC Match\n\n${captainTeam.name} vs ${opponent?.name || 'Opponent'}\n\nCaptain:\n${captainTeam.players?.[0]?.name || captainTeam.captain || 'Captain'}\n\nOur official lineup has been submitted through the KOC App.\n\nPlease submit your lineup through the app.\n\nThe KOC App remains the official source of truth.`);
 
@@ -159,7 +129,8 @@ function CaptainMatchCard({ item, teams, captainTeam, capacityRows }) {
 
   function submitLineup() {
     const now = new Date().toISOString();
-    const payload = { matchScheduleId, teamId: captainTeam.id, lineup, submissionStatus: 'Submitted & Locked', submittedAt: now, lockedAt: now, lastUpdatedAt: now, validationErrors: [] };
+    const opponentLocked = readStoredLineup(matchScheduleId, opponent?.id)?.lockedAt;
+    const payload = { matchScheduleId, teamId: captainTeam.id, lineup, submissionStatus: 'Submitted & Locked', submittedAt: now, lockedAt: now, revealedAt: opponentLocked ? now : null, lastUpdatedAt: now, validationErrors: [] };
     writeStoredLineup(matchScheduleId, captainTeam.id, payload);
     setSubmission(payload);
   }

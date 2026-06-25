@@ -9,6 +9,7 @@ import { resolveMatchTeams } from '../utils/matchTeams';
 import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from '../utils/eligibilityRules';
 import { parseQuickScore } from '../utils/quickScoreParser';
 import { regularSetWinner, validateLineScore } from '../utils/tennisScoreRules';
+import { getRevealedLineupMatches, lineupToQuickScoreText, lineupToScoreCourts } from '../utils/lineupSubmissions';
 
 const COURT_TEMPLATES = [
   { label: 'Singles', type: 'singles', setCount: 5 },
@@ -730,7 +731,7 @@ function getQuickNameContext(text, cursor, parsed, teams) {
   return { query, suggestions, teamAbbr: team?.abbreviation || 'all teams', replaceStart, replaceEnd: cursor };
 }
 
-export default function ScoreEntry({ teams, matches, eligibilityRules = DEFAULT_ELIGIBILITY_RULES, onScoreSaved }) {
+export default function ScoreEntry({ teams, schedule = {}, matches, eligibilityRules = DEFAULT_ELIGIBILITY_RULES, onScoreSaved }) {
   const [mode, setMode] = useState('form');
   const [sharedTeam1Id, setSharedTeam1IdRaw] = useState('');
   const [sharedTeam2Id, setSharedTeam2IdRaw] = useState('');
@@ -760,6 +761,7 @@ export default function ScoreEntry({ teams, matches, eligibilityRules = DEFAULT_
       {mode === 'form' ? (
         <FormEntry
           teams={teams}
+          schedule={schedule}
           matches={matches}
           eligibilityRules={eligibilityRules}
           onScoreSaved={onScoreSaved}
@@ -772,6 +774,7 @@ export default function ScoreEntry({ teams, matches, eligibilityRules = DEFAULT_
       ) : (
         <QuickEntry
           teams={teams}
+          schedule={schedule}
           matches={matches}
           eligibilityRules={eligibilityRules}
           onScoreSaved={onScoreSaved}
@@ -799,7 +802,7 @@ function groupFilteredOpponents(teamList, selectedTeam) {
   return teamList.filter(team => team.id !== selectedTeam?.id && (!selectedTeam || teamsShareGroup(team, selectedTeam)));
 }
 
-function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
+function FormEntry({ teams, schedule = {}, matches, eligibilityRules, onScoreSaved, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const teamList = Object.values(teams || {});
   const myTeam = session.role === ROLES.CAPTAIN ? teams[session.teamId] : null;
@@ -812,6 +815,9 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
   const [shareText, setShareText] = useState('');
   const [pendingRecord, setPendingRecord] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [selectedRevealId, setSelectedRevealId] = useState('');
+  const [, setLastLineupRefresh] = useState(0);
+  const revealedLineups = getRevealedLineupMatches(schedule, teams);
 
   useEffect(() => {
     if (myTeam?.id && !team1Id) setTeam1Id(myTeam.id);
@@ -820,6 +826,19 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
   const team1 = teams[team1Id];
   const team2 = teams[team2Id];
   const opponentList = groupFilteredOpponents(teamList, team1);
+
+  const applyRevealedLineup = (matchScheduleId) => {
+    const row = revealedLineups.find(entry => entry.item.id === matchScheduleId);
+    if (!row) return;
+    setSelectedRevealId(matchScheduleId);
+    setTeam1Id(row.team1.id);
+    setTeam2Id(row.team2.id);
+    setCourts(lineupToScoreCourts(row.reveal.submissions[row.team1.id]?.lineup, row.reveal.submissions[row.team2.id]?.lineup, newCourt));
+    setError('');
+    setSuccess(`✅ Lines auto-populated from Match Schedule ID ${matchScheduleId}. Enter scores and save.`);
+    setShareText('');
+    setPendingRecord(null);
+  };
 
   useEffect(() => {
     if (team2 && !teamsShareGroup(team1, team2)) setTeam2Id('');
@@ -913,6 +932,7 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
     if (!winner) { setError('Match is tied on courts won. Please verify scores.'); return; }
 
     const record = {
+      matchScheduleId: selectedRevealId || null,
       t1Id: team1.id,
       t2Id: team2.id,
       winnerId: totals.w1 > totals.w2 ? team1.id : team2.id,
@@ -976,6 +996,24 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
           modalTestId="score-save-confirmation-modal"
         />
       )}
+
+      <div className="card revealed-lineup-score-card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '.75rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <div>
+            <h2>Revealed lineup → score auto-fill</h2>
+            <p className="hint">When both captains lock lines, choose the Match Schedule ID to populate score courts with the revealed player order.</p>
+          </div>
+          <button type="button" className="btn small ghost" onClick={() => setLastLineupRefresh(Date.now())}>Refresh lineups</button>
+        </div>
+        {revealedLineups.length === 0 ? <div className="muted" style={{ marginTop: '.65rem' }}>No fully revealed lineups are ready for score entry yet.</div> : (
+          <div className="row" style={{ marginTop: '.75rem' }}>
+            <select className="select" value={selectedRevealId} onChange={e => applyRevealedLineup(e.target.value)} data-testid="revealed-lineup-score-select">
+              <option value="">— Select revealed Match Schedule ID —</option>
+              {revealedLineups.map(row => <option key={row.item.id} value={row.item.id}>Round {row.item.round || '—'} · {row.team1.name} vs {row.team2.name} · ID {row.item.id}</option>)}
+            </select>
+          </div>
+        )}
+      </div>
 
       <div className="card score-teams-card">
         <h2>Match teams</h2>
@@ -1107,7 +1145,7 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
 
 // ==================== QUICK PASTE ENTRY ====================
 
-function QuickEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
+function QuickEntry({ teams, schedule = {}, matches, eligibilityRules, onScoreSaved, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const textareaRef = useRef(null);
   const [text, setText] = useState('');
@@ -1117,12 +1155,28 @@ function QuickEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, s
   const [shareText, setShareText] = useState('');
   const [pendingRecord, setPendingRecord] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [selectedRevealId, setSelectedRevealId] = useState('');
+  const [, setLastLineupRefresh] = useState(0);
+  const revealedLineups = getRevealedLineupMatches(schedule, teams);
   const teamList = Object.values(teams || {});
   const myTeam = session.role === ROLES.CAPTAIN ? teams[session.teamId] : null;
   const isAdmin = isAdminRole(session);
   const selectedTeam1 = teams[team1Id];
   const selectedTeam2 = teams[team2Id];
   const opponentList = groupFilteredOpponents(teamList, selectedTeam1);
+
+  const applyRevealedQuickLineup = (matchScheduleId) => {
+    const row = revealedLineups.find(entry => entry.item.id === matchScheduleId);
+    if (!row) return;
+    setSelectedRevealId(matchScheduleId);
+    setTeam1Id(row.team1.id);
+    setTeam2Id(row.team2.id);
+    setText(lineupToQuickScoreText(row.team1, row.team2, row.reveal.submissions[row.team1.id]?.lineup, row.reveal.submissions[row.team2.id]?.lineup));
+    setError('');
+    setSuccess(`✅ Quick paste auto-populated from Match Schedule ID ${matchScheduleId}. Add actual scores and save.`);
+    setShareText('');
+    setPendingRecord(null);
+  };
 
   useEffect(() => {
     if (myTeam?.id && !team1Id) setTeam1Id(myTeam.id);
@@ -1301,6 +1355,24 @@ Final: KC won 3-2`;
           modalTestId="quick-save-confirmation-modal"
         />
       )}
+
+      <div className="card revealed-lineup-score-card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '.75rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <div>
+            <h2>Revealed lineup → quick score</h2>
+            <p className="hint">Choose a fully revealed Match Schedule ID to create the quick-paste skeleton from both captains' locked lines.</p>
+          </div>
+          <button type="button" className="btn small ghost" onClick={() => setLastLineupRefresh(Date.now())}>Refresh lineups</button>
+        </div>
+        {revealedLineups.length === 0 ? <div className="muted" style={{ marginTop: '.65rem' }}>No fully revealed lineups are ready for score entry yet.</div> : (
+          <div className="row" style={{ marginTop: '.75rem' }}>
+            <select className="select" value={selectedRevealId} onChange={e => applyRevealedQuickLineup(e.target.value)} data-testid="revealed-lineup-quick-select">
+              <option value="">— Select revealed Match Schedule ID —</option>
+              {revealedLineups.map(row => <option key={row.item.id} value={row.item.id}>Round {row.item.round || '—'} · {row.team1.name} vs {row.team2.name} · ID {row.item.id}</option>)}
+            </select>
+          </div>
+        )}
+      </div>
 
       <div className="card score-teams-card">
         <h2>Match teams</h2>
