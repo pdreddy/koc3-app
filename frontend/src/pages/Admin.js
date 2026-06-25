@@ -7,6 +7,7 @@ import { buildScheduleFor8x2 } from '../utils/roundRobin';
 import { UTR_RATINGS, matchUtrRating, normalizeNameKey, suggestUtrMatches } from '../data/utrRatings';
 import { groupInfoForTeamId, normalizeAuctionTeam, sortByGroupOrder } from '../data/auctionTeams';
 import { normalizeEligibilityRules } from '../utils/eligibilityRules';
+import { writeAuditLog } from '../services/AuditService';
 
 
 function ratingRowId(row) {
@@ -549,7 +550,69 @@ function ScheduleEditor({ schedule, teams }) {
   );
 }
 
-export default function Admin({ teams, adminConfig, matches, previousMatches = [], schedule, playerRatings = {}, settings = {} }) {
+function AdminLineupManager({ teams, schedule, lineupSubmissions, revealedLineups }) {
+  const { session } = useAuth();
+  const [busyKey, setBusyKey] = useState('');
+  const fixtures = Object.values(schedule || {}).filter(item => item?.type !== 'buffer');
+  const unlock = async (fixture, teamId, submission) => {
+    const reason = window.prompt('Reason for unlocking this lineup?');
+    if (!reason?.trim()) return;
+    const now = Date.now();
+    const unlockId = `${fixture.id}-${teamId}-${now}`;
+    const updates = {
+      [`${PATHS.lineupSubmissions}/${fixture.id}/${teamId}/unlockedAt`]: now,
+      [`${PATHS.lineupSubmissions}/${fixture.id}/${teamId}/unlockedBy`]: session?.userId || session?.name || 'SUPER_ADMIN',
+      [`${PATHS.lineupSubmissions}/${fixture.id}/${teamId}/unlockReason`]: reason.trim(),
+      [`${PATHS.lineupSubmissions}/${fixture.id}/${teamId}/submissionStatus`]: 'unlocked',
+      [`${PATHS.lineupSubmissions}/${fixture.id}/${teamId}/lastUpdatedAt`]: now,
+      [`${PATHS.lineupSubmissions}/${fixture.id}/${teamId}/previousVersions/${submission?.version || 1}`]: { ...submission, archivedAt: now },
+      [`${PATHS.lineupUnlocks}/${unlockId}`]: { scheduleId: fixture.id, teamId, unlockedAt: now, unlockedBy: session?.userId || session?.name || 'SUPER_ADMIN', reason: reason.trim(), previousVersion: submission?.version || 1 }
+    };
+    try {
+      setBusyKey(`${fixture.id}-${teamId}`);
+      await update(ref(db), updates);
+      await writeAuditLog({ actionType: 'Lineup Unlocked', session, targetType: 'schedule', targetId: fixture.id, newValue: updates[`${PATHS.lineupUnlocks}/${unlockId}`] });
+    } finally {
+      setBusyKey('');
+    }
+  };
+  return (
+    <div className="card" data-testid="admin-lineup-manager">
+      <h2>🔐 Lineup Submissions</h2>
+      <p className="hint">Before reveal, Super Admin sees only submission status, timestamps, WhatsApp status, and audit/unlock metadata. Player names appear only after reveal.</p>
+      <div style={{ display: 'grid', gap: '.65rem' }}>
+        {fixtures.map(fixture => {
+          const submissions = lineupSubmissions?.[fixture.id] || {};
+          const reveal = Object.values(revealedLineups || {}).find(row => row.scheduleId === fixture.id);
+          return (
+            <div key={fixture.id} className="captain-fixture-card">
+              <strong>{teams[fixture.team1Id]?.name || 'Team 1'} vs {teams[fixture.team2Id]?.name || 'Team 2'}</strong>
+              <div className="hint">Schedule ID: {fixture.id} {reveal?.revealCode ? `· Reveal code ${reveal.revealCode}` : ''}</div>
+              {[fixture.team1Id, fixture.team2Id].map(teamId => {
+                const submission = submissions[teamId] || {};
+                const locked = !!submission.lockedAt && !submission.unlockedAt;
+                return (
+                  <div key={teamId} className="rl-item" style={{ marginTop: '.45rem' }}>
+                    <span className="rl-ic">🔒</span>
+                    <div style={{ flex: 1 }}>
+                      <div className="rl-lbl">{teams[teamId]?.name || teamId}</div>
+                      <div className="rl-val">Status: {submission.submissionStatus || 'not_submitted'} · Submitted: {submission.submittedAt ? new Date(submission.submittedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '—'} · WhatsApp: {submission.whatsappShared ? 'Shared' : 'Not Shared'}</div>
+                      {submission.unlockedAt && <div className="hint">Unlocked: {new Date(submission.unlockedAt).toLocaleString()} · {submission.unlockReason}</div>}
+                      {reveal && <div className="hint">Revealed lineup available in score entry with code {reveal.revealCode}.</div>}
+                    </div>
+                    {locked && <button className="btn small danger" disabled={busyKey === `${fixture.id}-${teamId}`} onClick={() => unlock(fixture, teamId, submission)}>Unlock</button>}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export default function Admin({ teams, adminConfig, matches, previousMatches = [], schedule, lineupSubmissions = {}, revealedLineups = {}, playerRatings = {}, settings = {} }) {
   const [tab, setTab] = useState('teams');
   const [newAdminPwd, setNewAdminPwd] = useState('');
   const [adminMsg, setAdminMsg] = useState('');
@@ -602,6 +665,7 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
       <div className="tabs">
         <button className={`tab ${tab === 'teams' ? 'active' : ''}`} onClick={() => setTab('teams')} data-testid="admin-tab-teams">Teams</button>
         <button className={`tab ${tab === 'schedule' ? 'active' : ''}`} onClick={() => setTab('schedule')} data-testid="admin-tab-schedule">Schedule</button>
+        <button className={`tab ${tab === 'lineups' ? 'active' : ''}`} onClick={() => setTab('lineups')} data-testid="admin-tab-lineups">Lineups</button>
         <button className={`tab ${tab === 'settings' ? 'active' : ''}`} onClick={() => setTab('settings')} data-testid="admin-tab-settings">Settings</button>
         <button className={`tab ${tab === 'nameMapping' ? 'active' : ''}`} onClick={() => setTab('nameMapping')} data-testid="admin-tab-name-mapping">PTL Name Mapping</button>
         <button className={`tab ${tab === 'passwords' ? 'active' : ''}`} onClick={() => setTab('passwords')} data-testid="admin-tab-passwords">Passwords</button>
@@ -615,6 +679,8 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
       )}
 
       {tab === 'schedule' && <ScheduleEditor schedule={schedule} teams={teams} />}
+
+      {tab === 'lineups' && <AdminLineupManager teams={teams} schedule={schedule} lineupSubmissions={lineupSubmissions} revealedLineups={revealedLineups} />}
 
       {tab === 'nameMapping' && <NameMappingAdmin teams={teams} matches={matches} previousMatches={previousMatches} playerRatings={playerRatings} />}
 

@@ -186,7 +186,7 @@ function whatsappMessage(team, opponent, captainName, mySubmission, opponentSubm
 function statusForFixture(isCompleted, mine, theirs) {
   if (isCompleted) return LINEUP_STATUS.completed;
   if (mine?.revealedAt || (mine?.lockedAt && theirs?.lockedAt)) return LINEUP_STATUS.revealed;
-  if (mine?.lockedAt) return LINEUP_STATUS.submitted;
+  if (mine?.lockedAt && !mine?.unlockedAt) return LINEUP_STATUS.submitted;
   if (theirs?.lockedAt) return LINEUP_STATUS.waiting;
   return LINEUP_STATUS.notSubmitted;
 }
@@ -218,7 +218,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
   const [message, setMessage] = useState('');
   const { team1, team2 } = fixtureTeams(item, teams);
   const opponent = item.team1Id === captainTeam.id ? team2 : team1;
-  const locked = !!lineupSubmission?.lockedAt;
+  const locked = !!lineupSubmission?.lockedAt && !lineupSubmission?.unlockedAt;
   const revealed = !!revealedLineup?.revealId || !!lineupSubmission?.revealedAt || (!!lineupSubmission?.lockedAt && !!opponentSubmission?.lockedAt);
   const status = statusForFixture(completed, lineupSubmission, opponentSubmission);
   const errors = validateDashboardLineup(captainTeam, selected, matches, teams, eligibilityRules);
