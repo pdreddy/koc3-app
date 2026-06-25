@@ -23,6 +23,7 @@ export const PATHS = {
   lineupSubmissions: seasonPath('lineupSubmissions'),
   revealedLineups: seasonPath('revealedLineups'),
   lineupUnlocks: seasonPath('lineupUnlocks'),
+  lineupDeletes: seasonPath('lineupDeletes'),
   koc2db: 'KOC2DB',
   season1: 'KOC2DBPONEW'
 };

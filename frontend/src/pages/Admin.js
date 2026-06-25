@@ -576,6 +576,34 @@ function AdminLineupManager({ teams, schedule, lineupSubmissions, revealedLineup
       setBusyKey('');
     }
   };
+
+  const deleteFixtureLineups = async (fixture, submissions, reveal) => {
+    const reason = window.prompt('Reason for deleting/resetting these lineup references? Captains will be able to submit fresh lineups.');
+    if (!reason?.trim()) return;
+    if (!window.confirm('Confirm reset: active lineup submissions and revealed lineup reference for this schedule will be removed from active views and archived to audit history.')) return;
+    const now = Date.now();
+    const deleteId = `${fixture.id}-${now}`;
+    const deleteRecord = {
+      scheduleId: fixture.id,
+      deletedAt: now,
+      deletedBy: session?.userId || session?.name || 'SUPER_ADMIN',
+      reason: reason.trim(),
+      previousSubmissions: submissions || {},
+      previousReveal: reveal || null
+    };
+    const updates = {
+      [`${PATHS.lineupDeletes}/${deleteId}`]: deleteRecord,
+      [`${PATHS.lineupSubmissions}/${fixture.id}`]: null
+    };
+    if (reveal?.revealId) updates[`${PATHS.revealedLineups}/${reveal.revealId}`] = null;
+    try {
+      setBusyKey(`${fixture.id}-delete`);
+      await update(ref(db), updates);
+      await writeAuditLog({ actionType: 'Lineup References Deleted', session, targetType: 'schedule', targetId: fixture.id, oldValue: { submissions, reveal }, newValue: deleteRecord });
+    } finally {
+      setBusyKey('');
+    }
+  };
   return (
     <div className="card" data-testid="admin-lineup-manager">
       <h2>🔐 Lineup Submissions</h2>
@@ -588,6 +616,7 @@ function AdminLineupManager({ teams, schedule, lineupSubmissions, revealedLineup
             <div key={fixture.id} className="captain-fixture-card">
               <strong>{teams[fixture.team1Id]?.name || 'Team 1'} vs {teams[fixture.team2Id]?.name || 'Team 2'}</strong>
               <div className="hint">Schedule ID: {fixture.id} {reveal?.revealCode ? `· Reveal code ${reveal.revealCode}` : ''}</div>
+              {(Object.keys(submissions).length > 0 || reveal) && <button className="btn small danger" disabled={busyKey === `${fixture.id}-delete`} onClick={() => deleteFixtureLineups(fixture, submissions, reveal)} data-testid={`admin-delete-lineups-${fixture.id}`}>Delete lineup refs</button>}
               {[fixture.team1Id, fixture.team2Id].map(teamId => {
                 const submission = submissions[teamId] || {};
                 const locked = !!submission.lockedAt && !submission.unlockedAt;
