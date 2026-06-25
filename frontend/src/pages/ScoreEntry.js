@@ -730,7 +730,7 @@ function getQuickNameContext(text, cursor, parsed, teams) {
   return { query, suggestions, teamAbbr: team?.abbreviation || 'all teams', replaceStart, replaceEnd: cursor };
 }
 
-export default function ScoreEntry({ teams, matches, eligibilityRules = DEFAULT_ELIGIBILITY_RULES, onScoreSaved }) {
+export default function ScoreEntry({ teams, schedule = {}, lineupSubmissions = {}, matches, eligibilityRules = DEFAULT_ELIGIBILITY_RULES, onScoreSaved }) {
   const [mode, setMode] = useState('form');
   const [sharedTeam1Id, setSharedTeam1IdRaw] = useState('');
   const [sharedTeam2Id, setSharedTeam2IdRaw] = useState('');
@@ -761,6 +761,8 @@ export default function ScoreEntry({ teams, matches, eligibilityRules = DEFAULT_
         <FormEntry
           teams={teams}
           matches={matches}
+          schedule={schedule}
+          lineupSubmissions={lineupSubmissions}
           eligibilityRules={eligibilityRules}
           onScoreSaved={onScoreSaved}
           team1Id={sharedTeam1Id}
@@ -773,6 +775,8 @@ export default function ScoreEntry({ teams, matches, eligibilityRules = DEFAULT_
         <QuickEntry
           teams={teams}
           matches={matches}
+          schedule={schedule}
+          lineupSubmissions={lineupSubmissions}
           eligibilityRules={eligibilityRules}
           onScoreSaved={onScoreSaved}
           team1Id={sharedTeam1Id}
@@ -799,7 +803,59 @@ function groupFilteredOpponents(teamList, selectedTeam) {
   return teamList.filter(team => team.id !== selectedTeam?.id && (!selectedTeam || teamsShareGroup(team, selectedTeam)));
 }
 
-function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
+function fixtureCode(item) {
+  return item?.id ? String(item.id).slice(-6).toUpperCase() : 'MATCH';
+}
+
+function submittedLineupNames(submission) {
+  const byLabel = Object.fromEntries((submission?.lineup || []).map(line => [line.label, line.players || []]));
+  return [byLabel.S1?.[0], byLabel.D1?.[0], byLabel.D1?.[1], byLabel.D2?.[0], byLabel.D2?.[1]].filter(Boolean);
+}
+
+function scoreLineupFixtures(schedule, lineupSubmissions, team1Id, team2Id) {
+  if (!team1Id || !team2Id) return [];
+  return Object.values(schedule || {})
+    .filter(item => item?.type !== 'buffer')
+    .filter(item => [item.team1Id, item.team2Id].includes(team1Id) && [item.team1Id, item.team2Id].includes(team2Id))
+    .map(item => {
+      const submissions = lineupSubmissions?.[item.id] || {};
+      const team1Submission = submissions[team1Id];
+      const team2Submission = submissions[team2Id];
+      const revealed = !!team1Submission?.revealedAt || !!team2Submission?.revealedAt || (!!team1Submission?.submittedAt && !!team2Submission?.submittedAt);
+      const team1Names = submittedLineupNames(team1Submission);
+      const team2Names = submittedLineupNames(team2Submission);
+      return { item, team1Submission, team2Submission, revealed, team1Names, team2Names, ready: revealed && team1Names.length === 5 && team2Names.length === 5 };
+    });
+}
+
+function ScoreLineupLoader({ fixtures, teams, selectedId, onSelectedId, onLoad, mode }) {
+  if (!fixtures.length) return null;
+  const selected = fixtures.find(row => row.item.id === selectedId) || fixtures[0];
+  const { item, ready, revealed } = selected;
+  const team1 = teams[item.team1Id];
+  const team2 = teams[item.team2Id];
+  return (
+    <div className="card score-lineup-loader" data-testid={`${mode}-score-lineup-loader`}>
+      <h2>Use submitted dashboard lineup</h2>
+      <p className="hint">Select the match schedule code for the lines you are scoring. Lines can load after both captains have submitted and the matchup is revealed.</p>
+      <div className="row">
+        <label className="field" style={{ margin: 0 }}>
+          <div className="field-label">Match schedule code</div>
+          <select className="select" value={item.id} onChange={e => onSelectedId(e.target.value)} data-testid={`${mode}-schedule-code-select`}>
+            {fixtures.map(row => {
+              const f = row.item;
+              return <option key={f.id} value={f.id}>{fixtureCode(f)} · Round {f.round || '—'} · {f.date || 'TBD'} · {teams[f.team1Id]?.abbreviation || 'T1'} vs {teams[f.team2Id]?.abbreviation || 'T2'}</option>;
+            })}
+          </select>
+        </label>
+        <button className="btn small success" type="button" disabled={!ready} onClick={() => onLoad(selected)} data-testid={`${mode}-load-submitted-lineup`}>Load submitted lines</button>
+      </div>
+      <p className="hint">{team1?.name || 'Team 1'} vs {team2?.name || 'Team 2'} · {revealed ? (ready ? 'Revealed and ready for score entry.' : 'Revealed, but submitted lineup data is incomplete.') : 'Waiting for both captains to submit before line details are available.'}</p>
+    </div>
+  );
+}
+
+function FormEntry({ teams, matches, schedule, lineupSubmissions, eligibilityRules, onScoreSaved, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const teamList = Object.values(teams || {});
   const myTeam = session.role === ROLES.CAPTAIN ? teams[session.teamId] : null;
@@ -812,6 +868,7 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
   const [shareText, setShareText] = useState('');
   const [pendingRecord, setPendingRecord] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [selectedScheduleId, setSelectedScheduleId] = useState('');
 
   useEffect(() => {
     if (myTeam?.id && !team1Id) setTeam1Id(myTeam.id);
@@ -820,6 +877,7 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
   const team1 = teams[team1Id];
   const team2 = teams[team2Id];
   const opponentList = groupFilteredOpponents(teamList, team1);
+  const submittedLineupFixtures = useMemo(() => scoreLineupFixtures(schedule, lineupSubmissions, team1Id, team2Id), [schedule, lineupSubmissions, team1Id, team2Id]);
 
   useEffect(() => {
     if (team2 && !teamsShareGroup(team1, team2)) setTeam2Id('');
@@ -1010,6 +1068,17 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
       </div>
 
       {team1 && team2 && (
+        <ScoreLineupLoader
+          fixtures={submittedLineupFixtures}
+          teams={teams}
+          selectedId={selectedScheduleId}
+          onSelectedId={setSelectedScheduleId}
+          mode="form"
+          onLoad={(row) => { setCourts(buildLineupCourts(row.team1Names, row.team2Names)); setError(''); setSuccess(`Loaded submitted dashboard lineup for schedule code ${fixtureCode(row.item)}.`); setShareText(''); setPendingRecord(null); }}
+        />
+      )}
+
+      {team1 && team2 && (
         <LineupBuilder
           team1={team1}
           team2={team2}
@@ -1107,7 +1176,7 @@ function FormEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, se
 
 // ==================== QUICK PASTE ENTRY ====================
 
-function QuickEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
+function QuickEntry({ teams, matches, schedule, lineupSubmissions, eligibilityRules, onScoreSaved, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
   const { session } = useAuth();
   const textareaRef = useRef(null);
   const [text, setText] = useState('');
@@ -1117,12 +1186,14 @@ function QuickEntry({ teams, matches, eligibilityRules, onScoreSaved, team1Id, s
   const [shareText, setShareText] = useState('');
   const [pendingRecord, setPendingRecord] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [selectedScheduleId, setSelectedScheduleId] = useState('');
   const teamList = Object.values(teams || {});
   const myTeam = session.role === ROLES.CAPTAIN ? teams[session.teamId] : null;
   const isAdmin = isAdminRole(session);
   const selectedTeam1 = teams[team1Id];
   const selectedTeam2 = teams[team2Id];
   const opponentList = groupFilteredOpponents(teamList, selectedTeam1);
+  const submittedLineupFixtures = useMemo(() => scoreLineupFixtures(schedule, lineupSubmissions, team1Id, team2Id), [schedule, lineupSubmissions, team1Id, team2Id]);
 
   useEffect(() => {
     if (myTeam?.id && !team1Id) setTeam1Id(myTeam.id);
@@ -1322,6 +1393,17 @@ Final: KC won 3-2`;
           </div>
         </div>
       </div>
+
+      {selectedTeam1 && selectedTeam2 && (
+        <ScoreLineupLoader
+          fixtures={submittedLineupFixtures}
+          teams={teams}
+          selectedId={selectedScheduleId}
+          onSelectedId={setSelectedScheduleId}
+          mode="quick"
+          onLoad={(row) => { setText(buildQuickLineupText(selectedTeam1, selectedTeam2, row.team1Names, row.team2Names)); setError(''); setSuccess(`Loaded submitted dashboard lineup for schedule code ${fixtureCode(row.item)}.`); setShareText(''); setPendingRecord(null); }}
+        />
+      )}
 
       {selectedTeam1 && selectedTeam2 && (
         <LineupBuilder
