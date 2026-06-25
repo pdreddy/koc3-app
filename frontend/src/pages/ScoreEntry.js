@@ -814,7 +814,7 @@ function submittedLineupNames(submission) {
   return [byLabel.S1?.[0], byLabel.D1?.[0], byLabel.D1?.[1], byLabel.D2?.[0], byLabel.D2?.[1]].filter(Boolean);
 }
 
-function scoreLineupFixtures(schedule, revealedLineups, team1Id, team2Id) {
+function scoreLineupFixtures(schedule, revealedLineups, team1Id, team2Id, teams, matches, eligibilityRules) {
   if (!team1Id || !team2Id) return [];
   return Object.values(revealedLineups || {})
     .filter(row => [row.team1Id, row.team2Id].includes(team1Id) && [row.team1Id, row.team2Id].includes(team2Id))
@@ -822,14 +822,18 @@ function scoreLineupFixtures(schedule, revealedLineups, team1Id, team2Id) {
       const item = schedule?.[row.scheduleId] || { id: row.scheduleId, team1Id: row.team1Id, team2Id: row.team2Id };
       const team1Names = submittedLineupNames({ lineup: row.lineups?.[team1Id] });
       const team2Names = submittedLineupNames({ lineup: row.lineups?.[team2Id] });
-      return { item, revealId: row.revealId, revealCode: row.revealCode || row.revealId?.slice(-8).toUpperCase(), revealed: true, team1Names, team2Names, ready: team1Names.length === 5 && team2Names.length === 5 };
+      const lineupLines = buildLineupValidationLines(team1Names, team2Names);
+      const eligibilityErrors = team1Names.length === 5 && team2Names.length === 5
+        ? validateEligibilityForLines(lineupLines, teams[team1Id], teams[team2Id], matches, teams, eligibilityRules)
+        : [];
+      return { item, revealId: row.revealId, revealCode: row.revealCode || row.revealId?.slice(-8).toUpperCase(), revealed: true, team1Names, team2Names, eligibilityErrors, ready: team1Names.length === 5 && team2Names.length === 5 && eligibilityErrors.length === 0 };
     });
 }
 
 function ScoreLineupLoader({ fixtures, teams, selectedId, onSelectedId, onLoad, mode }) {
   if (!fixtures.length) return null;
   const selected = fixtures.find(row => row.revealId === selectedId) || fixtures[0];
-  const { item, ready, revealed } = selected;
+  const { item, ready, revealed, eligibilityErrors = [] } = selected;
   const team1 = teams[item.team1Id];
   const team2 = teams[item.team2Id];
   return (
@@ -848,7 +852,8 @@ function ScoreLineupLoader({ fixtures, teams, selectedId, onSelectedId, onLoad, 
         </label>
         <button className="btn small success" type="button" disabled={!ready} onClick={() => onLoad(selected)} data-testid={`${mode}-load-submitted-lineup`}>Load submitted lines</button>
       </div>
-      <p className="hint">{team1?.name || 'Team 1'} vs {team2?.name || 'Team 2'} · {revealed ? (ready ? 'Revealed and ready for score entry.' : 'Revealed, but submitted lineup data is incomplete.') : 'Waiting for both captains to submit before line details are available.'}</p>
+      <p className="hint">{team1?.name || 'Team 1'} vs {team2?.name || 'Team 2'} · {revealed ? (ready ? 'Revealed, valid, and ready for score entry.' : 'Revealed, but blocked by lineup completeness or eligibility rules.') : 'Waiting for both captains to submit before line details are available.'}</p>
+      {eligibilityErrors.length > 0 && <div className="error-box" style={{ whiteSpace: 'pre-line', marginTop: '.65rem' }} data-testid={`${mode}-revealed-lineup-eligibility-error`}>{eligibilityErrors.join('\n')}</div>}
     </div>
   );
 }
@@ -875,7 +880,7 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
   const team1 = teams[team1Id];
   const team2 = teams[team2Id];
   const opponentList = groupFilteredOpponents(teamList, team1);
-  const submittedLineupFixtures = useMemo(() => scoreLineupFixtures(schedule, revealedLineups, team1Id, team2Id), [schedule, revealedLineups, team1Id, team2Id]);
+  const submittedLineupFixtures = useMemo(() => scoreLineupFixtures(schedule, revealedLineups, team1Id, team2Id, teams, matches, eligibilityRules), [schedule, revealedLineups, team1Id, team2Id, teams, matches, eligibilityRules]);
 
   useEffect(() => {
     if (team2 && !teamsShareGroup(team1, team2)) setTeam2Id('');
@@ -1191,7 +1196,7 @@ function QuickEntry({ teams, matches, schedule, lineupSubmissions, revealedLineu
   const selectedTeam1 = teams[team1Id];
   const selectedTeam2 = teams[team2Id];
   const opponentList = groupFilteredOpponents(teamList, selectedTeam1);
-  const submittedLineupFixtures = useMemo(() => scoreLineupFixtures(schedule, revealedLineups, team1Id, team2Id), [schedule, revealedLineups, team1Id, team2Id]);
+  const submittedLineupFixtures = useMemo(() => scoreLineupFixtures(schedule, revealedLineups, team1Id, team2Id, teams, matches, eligibilityRules), [schedule, revealedLineups, team1Id, team2Id, teams, matches, eligibilityRules]);
 
   useEffect(() => {
     if (myTeam?.id && !team1Id) setTeam1Id(myTeam.id);
