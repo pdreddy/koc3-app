@@ -28,6 +28,28 @@ import More from './pages/More';
 import AuditLogs from './pages/AuditLogs';
 import { writeAuditLog } from './services/AuditService';
 
+function sanitizeLineupSubmissionsForSession(data, session) {
+  const teamId = session?.teamId;
+  return Object.fromEntries(Object.entries(data || {}).map(([scheduleId, submissions]) => {
+    const bothSubmitted = Object.values(submissions || {}).filter(row => row?.submittedAt).length >= 2;
+    const safeSubmissions = Object.fromEntries(Object.entries(submissions || {}).map(([submissionTeamId, row]) => {
+      if (bothSubmitted || submissionTeamId === teamId) return [submissionTeamId, row];
+      return [submissionTeamId, {
+        scheduleId: row?.scheduleId,
+        teamId: submissionTeamId,
+        submissionStatus: row?.submissionStatus,
+        submittedAt: row?.submittedAt,
+        lockedAt: row?.lockedAt,
+        whatsappShared: !!row?.whatsappShared,
+        whatsappSharedAt: row?.whatsappSharedAt,
+        lastUpdatedAt: row?.lastUpdatedAt,
+        revealedAt: row?.revealedAt || null
+      }];
+    }));
+    return [scheduleId, safeSubmissions];
+  }));
+}
+
 function firebaseObjectToList(data, source) {
   if (!data) return [];
   const node = data.matches || data.matchResults || data.results || data;
@@ -56,6 +78,8 @@ function Shell() {
   const [playerRatings, setPlayerRatings] = useState({});
   const [adminConfig, setAdminConfig] = useState({ password: '', users: {} });
   const [schedule, setSchedule] = useState({});
+  const [lineupSubmissions, setLineupSubmissions] = useState({});
+  const [lastRefreshed, setLastRefreshed] = useState(Date.now());
   const [settings, setSettings] = useState({ eligibilityRules: DEFAULT_ELIGIBILITY_RULES });
   const [loaded, setLoaded] = useState(false);
 
@@ -200,12 +224,16 @@ function Shell() {
     const unsubS = onValue(ref(db, PATHS.schedule), (snap) => {
       setSchedule(snap.val() || {});
     });
+    const unsubLineups = onValue(ref(db, PATHS.lineupSubmissions), (snap) => {
+      setLineupSubmissions(sanitizeLineupSubmissionsForSession(snap.val() || {}, session));
+      setLastRefreshed(Date.now());
+    });
     const unsubSettings = onValue(ref(db, PATHS.settings), (snap) => {
       const value = snap.val() || {};
       setSettings({ ...value, eligibilityRules: normalizeEligibilityRules(value.eligibilityRules) });
     });
-    return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubAU(); unsubR(); unsubS(); unsubSettings(); };
-  }, []);
+    return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubAU(); unsubR(); unsubS(); unsubLineups(); unsubSettings(); };
+  }, [session]);
 
   useEffect(() => {
     if (session?.role !== ROLES.CAPTAIN || !session.teamId) return;
@@ -220,7 +248,7 @@ function Shell() {
       <ActivityAudit />
       {!hideChrome && <AppHeader />}
       <Routes>
-        <Route path="/" element={<Home teams={teams} schedule={schedule} matches={matches} eligibilityRules={settings.eligibilityRules} />} />
+        <Route path="/" element={<Home teams={teams} schedule={schedule} matches={matches} eligibilityRules={settings.eligibilityRules} lineupSubmissions={lineupSubmissions} lastRefreshed={lastRefreshed} onRefresh={() => setLastRefreshed(Date.now())} />} />
         <Route path="/teams" element={<Teams teams={teams} loaded={loaded} />} />
         <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} />} />
         <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />
