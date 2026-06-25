@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import TeamShield from '../components/TeamShield';
 
 function TeamCard({ t, isOpen, onToggle }) {
   const gradClass = `team-grad-${t.gradient || 1}`;
@@ -9,7 +10,7 @@ function TeamCard({ t, isOpen, onToggle }) {
         onClick={onToggle}
         data-testid={`team-toggle-${t.abbreviation}`}
       >
-        <h2>{t.name}</h2>
+        <div className="team-title-lockup"><TeamShield team={t} /><h2>{t.name}</h2></div>
         <span className="abbr">{t.abbreviation}</span>
       </div>
       {isOpen && (

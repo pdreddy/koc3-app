@@ -2,10 +2,10 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 
 const TABS = [
-  { to: '/', label: 'Home', icon: '🏠', testid: 'nav-home' },
-  { to: '/schedule', label: 'Schedule', icon: '📅', testid: 'nav-schedule' },
+  { to: '/', label: 'Dashboard', icon: '🏠', testid: 'nav-home' },
+  { to: '/schedule', label: 'Matches', icon: '📅', testid: 'nav-schedule' },
+  { to: '/score', label: 'Lineups', icon: '🎾', testid: 'nav-lineups' },
   { to: '/standings', label: 'Standings', icon: '📊', testid: 'nav-standings' },
-  { to: '/rules', label: 'Rules', icon: '📋', testid: 'nav-rules' },
   { to: '/more', label: 'More', icon: '⋯', testid: 'nav-more' }
 ];
 
