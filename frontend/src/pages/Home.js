@@ -119,7 +119,7 @@ function LineupRoleSelect({ team, selected, onChange, readOnly }) {
   );
 }
 
-function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmission, opponentSubmission, session, onRefresh }) {
+function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmission, opponentSubmission, revealedLineup, session, onRefresh }) {
   const [expanded, setExpanded] = useState(false);
   const [selected, setSelected] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -127,7 +127,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
   const { team1, team2 } = fixtureTeams(item, teams);
   const opponent = item.team1Id === captainTeam.id ? team2 : team1;
   const locked = !!lineupSubmission?.lockedAt;
-  const revealed = !!lineupSubmission?.revealedAt || (!!lineupSubmission?.lockedAt && !!opponentSubmission?.lockedAt);
+  const revealed = !!revealedLineup?.revealId || !!lineupSubmission?.revealedAt || (!!lineupSubmission?.lockedAt && !!opponentSubmission?.lockedAt);
   const status = statusForFixture(completed, lineupSubmission, opponentSubmission);
   const errors = validateDashboardLineup(captainTeam, selected);
   const names = selectedNames(captainTeam, selected);
@@ -150,6 +150,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
     if (validationErrors.length) return;
     const now = Date.now();
     const opponentSubmitted = !!opponentSubmission?.submittedAt && !!opponentSubmission?.lockedAt;
+    const revealId = opponentSubmitted ? (opponentSubmission?.revealId || lineupSubmission?.revealId || `${item.id}-${now}`) : null;
     const payload = {
       scheduleId: item.id,
       teamId: captainTeam.id,
@@ -163,14 +164,29 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
       validationErrors: [],
       lastUpdatedAt: now,
       version: (lineupSubmission?.version || 0) + 1,
-      revealedAt: opponentSubmitted ? now : (lineupSubmission?.revealedAt || null)
+      revealedAt: opponentSubmitted ? now : (lineupSubmission?.revealedAt || null),
+      revealId
     };
-    const updates = { [`${item.id}/${captainTeam.id}`]: payload };
-    if (opponentSubmitted && opponent?.id) updates[`${item.id}/${opponent.id}/revealedAt`] = opponentSubmission.revealedAt || now;
+    const updates = { [`${PATHS.lineupSubmissions}/${item.id}/${captainTeam.id}`]: payload };
+    if (opponentSubmitted && opponent?.id) {
+      const team1Submission = item.team1Id === captainTeam.id ? payload : opponentSubmission;
+      const team2Submission = item.team2Id === captainTeam.id ? payload : opponentSubmission;
+      updates[`${PATHS.lineupSubmissions}/${item.id}/${opponent.id}/revealedAt`] = opponentSubmission.revealedAt || now;
+      updates[`${PATHS.lineupSubmissions}/${item.id}/${opponent.id}/revealId`] = revealId;
+      updates[`${PATHS.revealedLineups}/${revealId}`] = {
+        revealId,
+        scheduleId: item.id,
+        revealCode: revealId.slice(-8).toUpperCase(),
+        team1Id: item.team1Id,
+        team2Id: item.team2Id,
+        revealedAt: now,
+        lineups: { [item.team1Id]: team1Submission.lineup || [], [item.team2Id]: team2Submission.lineup || [] }
+      };
+    }
     try {
       setBusy(true);
       await ensureAuth();
-      await update(ref(db, PATHS.lineupSubmissions), updates);
+      await update(ref(db), updates);
       await writeAuditLog({ actionType: 'Lineup Submitted & Locked', session, targetType: 'schedule', targetId: item.id, newValue: { scheduleId: item.id, teamId: captainTeam.id, submittedAt: now, lockedAt: now, revealedAt: payload.revealedAt } });
       setMessage('✅ Submitted & Locked');
     } catch (e) {
@@ -220,7 +236,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
               {revealed && <a className="btn success" href={waHref} target="_blank" rel="noreferrer" onClick={markWhatsappShared} data-testid={`share-lineup-whatsapp-${item.id}`}>Share via WhatsApp</a>}
               <button className="btn ghost" type="button" onClick={onRefresh}>Refresh</button>
               <p className="hint">Last Updated<br />{timeLabel(lineupSubmission.lastUpdatedAt)}</p>
-              {revealed && <div className="lineup-reveal"><h4>Revealed Lineups</h4>{revealedLineupRows(lineupSubmission, opponentSubmission).map(row => <div key={row.label}><strong>{row.label}:</strong> {row.mine.join(' / ')} <strong>vs</strong> {row.theirs.join(' / ')}</div>)}</div>}
+              {revealed && <div className="lineup-reveal"><h4>Revealed Lineups {lineupSubmission?.revealId ? `· Code ${lineupSubmission.revealId.slice(-8).toUpperCase()}` : ''}</h4>{revealedLineupRows(lineupSubmission, opponentSubmission).map(row => <div key={row.label}><strong>{row.label}:</strong> {row.mine.join(' / ')} <strong>vs</strong> {row.theirs.join(' / ')}</div>)}</div>}
               {!revealed && <p className="hint">Lineup details and WhatsApp sharing stay hidden until both captains submit and lock.</p>}
             </div>
           )}
@@ -260,7 +276,7 @@ function ScheduleMiniList({ title, description, fixtures, teams, emptyText, test
   );
 }
 
-function CaptainScheduleList({ fixtures, completedFixtures, teams, captainTeam, lineupSubmissions, session, lastRefreshed, onRefresh }) {
+function CaptainScheduleList({ fixtures, completedFixtures, teams, captainTeam, lineupSubmissions, revealedLineups, session, lastRefreshed, onRefresh }) {
   return (
     <section className="card" data-testid="captain-scheduled-matches-card">
       <div className="dashboard-section-head">
@@ -271,7 +287,7 @@ function CaptainScheduleList({ fixtures, completedFixtures, teams, captainTeam, 
         <div className="captain-fixture-list">
           {fixtures.map(item => {
             const opponentId = item.team1Id === captainTeam.id ? item.team2Id : item.team1Id;
-            return <CaptainFixtureCard key={item.id} item={item} teams={teams} captainTeam={captainTeam} completed={false} lineupSubmission={lineupSubmissions?.[item.id]?.[captainTeam.id]} opponentSubmission={lineupSubmissions?.[item.id]?.[opponentId]} session={session} onRefresh={onRefresh} />;
+            return <CaptainFixtureCard key={item.id} item={item} teams={teams} captainTeam={captainTeam} completed={false} lineupSubmission={lineupSubmissions?.[item.id]?.[captainTeam.id]} opponentSubmission={lineupSubmissions?.[item.id]?.[opponentId]} revealedLineup={Object.values(revealedLineups || {}).find(row => row.scheduleId === item.id)} session={session} onRefresh={onRefresh} />;
           })}
         </div>
       )}
@@ -349,7 +365,7 @@ function DangerBells({ rows }) {
   );
 }
 
-export default function Home({ teams, schedule, matches = [], eligibilityRules = DEFAULT_ELIGIBILITY_RULES, lineupSubmissions = {}, lastRefreshed = Date.now(), onRefresh = () => {} }) {
+export default function Home({ teams, schedule, matches = [], eligibilityRules = DEFAULT_ELIGIBILITY_RULES, lineupSubmissions = {}, revealedLineups = {}, lastRefreshed = Date.now(), onRefresh = () => {} }) {
   const { session } = useAuth();
   const scheduleItems = useMemo(() => Object.values(schedule || {}).filter(item => item?.type !== 'buffer'), [schedule]);
   const sortedFixtures = useMemo(() => [...scheduleItems].sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')) || String(a.time || '').localeCompare(String(b.time || ''))), [scheduleItems]);
@@ -398,7 +414,7 @@ export default function Home({ teams, schedule, matches = [], eligibilityRules =
           <p>{captainTeam.name} · your schedule, capacity, and lineup danger bells.</p>
         </div>
         <TeamSnapshot team={captainTeam} upcomingCount={upcomingCaptainFixtures.length} completedCount={completedCaptainFixtures.length} capacityRows={capacityRows} />
-        <CaptainScheduleList fixtures={upcomingCaptainFixtures} completedFixtures={completedCaptainFixtures} teams={teams} captainTeam={captainTeam} lineupSubmissions={lineupSubmissions} session={session} lastRefreshed={lastRefreshed} onRefresh={onRefresh} />
+        <CaptainScheduleList fixtures={upcomingCaptainFixtures} completedFixtures={completedCaptainFixtures} teams={teams} captainTeam={captainTeam} lineupSubmissions={lineupSubmissions} revealedLineups={revealedLineups} session={session} lastRefreshed={lastRefreshed} onRefresh={onRefresh} />
         <OwnerGaps overdueFixtures={overdueFixtures} capacityRows={capacityRows} />
         <DangerBells rows={capacityRows} />
         <CaptainCapacityCard team={captainTeam} teams={teams} matches={matches} eligibilityRules={eligibilityRules} />

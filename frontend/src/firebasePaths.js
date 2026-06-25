@@ -21,6 +21,7 @@ export const PATHS = {
   cachedSummaries: seasonPath('cachedSummaries'),
   auditLogs: seasonPath('auditLogs'),
   lineupSubmissions: seasonPath('lineupSubmissions'),
+  revealedLineups: seasonPath('revealedLineups'),
   koc2db: 'KOC2DB',
   season1: 'KOC2DBPONEW'
 };

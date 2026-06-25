@@ -79,6 +79,7 @@ function Shell() {
   const [adminConfig, setAdminConfig] = useState({ password: '', users: {} });
   const [schedule, setSchedule] = useState({});
   const [lineupSubmissions, setLineupSubmissions] = useState({});
+  const [revealedLineups, setRevealedLineups] = useState({});
   const [lastRefreshed, setLastRefreshed] = useState(Date.now());
   const [settings, setSettings] = useState({ eligibilityRules: DEFAULT_ELIGIBILITY_RULES });
   const [loaded, setLoaded] = useState(false);
@@ -228,11 +229,15 @@ function Shell() {
       setLineupSubmissions(sanitizeLineupSubmissionsForSession(snap.val() || {}, session));
       setLastRefreshed(Date.now());
     });
+    const unsubRevealedLineups = onValue(ref(db, PATHS.revealedLineups), (snap) => {
+      setRevealedLineups(snap.val() || {});
+      setLastRefreshed(Date.now());
+    });
     const unsubSettings = onValue(ref(db, PATHS.settings), (snap) => {
       const value = snap.val() || {};
       setSettings({ ...value, eligibilityRules: normalizeEligibilityRules(value.eligibilityRules) });
     });
-    return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubAU(); unsubR(); unsubS(); unsubLineups(); unsubSettings(); };
+    return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubAU(); unsubR(); unsubS(); unsubLineups(); unsubRevealedLineups(); unsubSettings(); };
   }, [session]);
 
   useEffect(() => {
@@ -248,7 +253,7 @@ function Shell() {
       <ActivityAudit />
       {!hideChrome && <AppHeader />}
       <Routes>
-        <Route path="/" element={<Home teams={teams} schedule={schedule} matches={matches} eligibilityRules={settings.eligibilityRules} lineupSubmissions={lineupSubmissions} lastRefreshed={lastRefreshed} onRefresh={() => setLastRefreshed(Date.now())} />} />
+        <Route path="/" element={<Home teams={teams} schedule={schedule} matches={matches} eligibilityRules={settings.eligibilityRules} lineupSubmissions={lineupSubmissions} revealedLineups={revealedLineups} lastRefreshed={lastRefreshed} onRefresh={() => setLastRefreshed(Date.now())} />} />
         <Route path="/teams" element={<Teams teams={teams} loaded={loaded} />} />
         <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} />} />
         <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />
@@ -260,7 +265,7 @@ function Shell() {
         <Route path="/login" element={<Login teams={teams} adminConfig={adminConfig} />} />
         <Route path="/score" element={
           <ProtectedTeam>
-            <ScoreEntry teams={teams} schedule={schedule} lineupSubmissions={lineupSubmissions} matches={matches} eligibilityRules={settings.eligibilityRules} onScoreSaved={syncSavedMatch} />
+            <ScoreEntry teams={teams} schedule={schedule} lineupSubmissions={lineupSubmissions} revealedLineups={revealedLineups} matches={matches} eligibilityRules={settings.eligibilityRules} onScoreSaved={syncSavedMatch} />
           </ProtectedTeam>
         } />
         <Route path="/audit" element={
