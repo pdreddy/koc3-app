@@ -10,6 +10,8 @@ import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from '../utils/e
 import { parseQuickScore } from '../utils/quickScoreParser';
 import { regularSetWinner, validateLineScore } from '../utils/tennisScoreRules';
 
+const QUICK_PASTE_ENABLED = false;
+
 const COURT_TEMPLATES = [
   { label: 'Singles', type: 'singles', setCount: 5 },
   { label: 'Doubles 1', type: 'doubles', setCount: 3 },
@@ -731,7 +733,6 @@ function getQuickNameContext(text, cursor, parsed, teams) {
 }
 
 export default function ScoreEntry({ teams, schedule = {}, lineupSubmissions = {}, revealedLineups = {}, matches, eligibilityRules = DEFAULT_ELIGIBILITY_RULES, onScoreSaved }) {
-  const [mode, setMode] = useState('form');
   const [sharedTeam1Id, setSharedTeam1IdRaw] = useState('');
   const [sharedTeam2Id, setSharedTeam2IdRaw] = useState('');
   const [team1Lineup, setTeam1Lineup] = useState([]);
@@ -743,36 +744,23 @@ export default function ScoreEntry({ teams, schedule = {}, lineupSubmissions = {
     <main className="container">
       <div className="page-title">
         <h1>Enter Score</h1>
-        <p>Quick paste or fill the form — both validate names against rosters</p>
+        <p>Score lines load from submitted dashboard lineups or can be filled in the form.</p>
       </div>
-      <div className="tabs">
-        <button
-          className={`tab ${mode === 'form' ? 'active' : ''}`}
-          onClick={() => setMode('form')}
-          data-testid="score-tab-form"
-        >📝 Form</button>
-        <button
-          className={`tab ${mode === 'paste' ? 'active' : ''}`}
-          onClick={() => setMode('paste')}
-          data-testid="score-tab-paste"
-        >⚡ Quick Paste</button>
-      </div>
-      {mode === 'form' ? (
-        <FormEntry
-          teams={teams}
-          matches={matches}
-          schedule={schedule}
-          lineupSubmissions={lineupSubmissions}
-          revealedLineups={revealedLineups}
-          eligibilityRules={eligibilityRules}
-          onScoreSaved={onScoreSaved}
-          team1Id={sharedTeam1Id}
-          setTeam1Id={setSharedTeam1Id}
-          team2Id={sharedTeam2Id}
-          setTeam2Id={setSharedTeam2Id}
-          lineupState={lineupState}
-        />
-      ) : (
+      <FormEntry
+        teams={teams}
+        matches={matches}
+        schedule={schedule}
+        lineupSubmissions={lineupSubmissions}
+        revealedLineups={revealedLineups}
+        eligibilityRules={eligibilityRules}
+        onScoreSaved={onScoreSaved}
+        team1Id={sharedTeam1Id}
+        setTeam1Id={setSharedTeam1Id}
+        team2Id={sharedTeam2Id}
+        setTeam2Id={setSharedTeam2Id}
+        lineupState={lineupState}
+      />
+      {QUICK_PASTE_ENABLED && (
         <QuickEntry
           teams={teams}
           matches={matches}

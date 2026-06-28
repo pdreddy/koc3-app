@@ -194,20 +194,35 @@ function statusForFixture(isCompleted, mine, theirs) {
 
 function LineupRoleSelect({ team, selected, onChange, readOnly, optionErrors = {} }) {
   const selectedSet = new Set(selected.filter(Boolean));
+  const renderSlot = (slotIdx) => {
+    const slot = LINEUP_ROLE_SLOTS[slotIdx];
+    return (
+      <label className="field" key={`${slot.code}-${slotIdx}`}>
+        <div className="field-label">{slot.code} · {slot.label}</div>
+        <select className="select" value={selected[slotIdx] || ''} onChange={e => onChange(slotIdx, e.target.value)} disabled={readOnly} data-testid={`dashboard-lineup-slot-${slotIdx}`}>
+          <option value="">— Choose player —</option>
+          {(team?.players || []).map((player, playerIdx) => {
+            const value = String(playerIdx);
+            return <option key={`${player.name}-${playerIdx}`} value={value} disabled={selectedSet.has(value) && selected[slotIdx] !== value}>{optionErrors[`${slotIdx}:${value}`] ? `⚠️ ${player.name}` : player.name}</option>;
+          })}
+        </select>
+      </label>
+    );
+  };
   return (
-    <div className="dashboard-lineup-grid">
-      {LINEUP_ROLE_SLOTS.map((slot, idx) => (
-        <label className="field" key={`${slot.code}-${idx}`}>
-          <div className="field-label">{slot.code} · {slot.label}</div>
-          <select className="select" value={selected[idx] || ''} onChange={e => onChange(idx, e.target.value)} disabled={readOnly} data-testid={`dashboard-lineup-slot-${idx}`}>
-            <option value="">— Choose player —</option>
-            {(team?.players || []).map((player, playerIdx) => {
-              const value = String(playerIdx);
-              return <option key={`${player.name}-${playerIdx}`} value={value} disabled={selectedSet.has(value) && selected[idx] !== value}>{optionErrors[`${idx}:${value}`] ? `⚠️ ${player.name}` : player.name}</option>;
-            })}
-          </select>
-        </label>
-      ))}
+    <div className="dashboard-lineup-roles">
+      <div className="dashboard-lineup-row dashboard-lineup-singles">
+        <h4>Singles</h4>
+        {renderSlot(0)}
+      </div>
+      <div className="dashboard-lineup-row">
+        <h4>Doubles 1</h4>
+        <div className="dashboard-lineup-pair">{renderSlot(1)}{renderSlot(2)}</div>
+      </div>
+      <div className="dashboard-lineup-row">
+        <h4>Doubles 2</h4>
+        <div className="dashboard-lineup-pair">{renderSlot(3)}{renderSlot(4)}</div>
+      </div>
     </div>
   );
 }
