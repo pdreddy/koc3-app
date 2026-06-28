@@ -37,6 +37,7 @@ const LINEUP_STATUS = {
   notSubmitted: { label: '🟢 Not Submitted', className: 'lineup-status not-submitted' },
   submitted: { label: '🟡 Submitted & Locked', className: 'lineup-status submitted' },
   waiting: { label: '🔵 Waiting for Opponent', className: 'lineup-status waiting' },
+  yourTurn: { label: '🟠 Waiting for Your Lineup', className: 'lineup-status your-turn' },
   revealed: { label: '🟣 Revealed', className: 'lineup-status revealed' },
   completed: { label: '⚫ Completed', className: 'lineup-status completed' }
 };
@@ -186,6 +187,7 @@ function statusForFixture(isCompleted, mine, theirs) {
   if (isCompleted) return LINEUP_STATUS.completed;
   if (mine?.revealedAt || (mine?.lockedAt && theirs?.lockedAt)) return LINEUP_STATUS.revealed;
   if (mine?.lockedAt && !mine?.unlockedAt) return LINEUP_STATUS.submitted;
+  if (theirs?.lockedAt && !mine?.lockedAt) return LINEUP_STATUS.yourTurn;
   if (theirs?.lockedAt) return LINEUP_STATUS.waiting;
   return LINEUP_STATUS.notSubmitted;
 }
