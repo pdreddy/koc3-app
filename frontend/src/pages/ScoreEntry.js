@@ -796,9 +796,14 @@ function fixtureCode(item) {
   return item?.id ? String(item.id).slice(-6).toUpperCase() : 'MATCH';
 }
 
-function submittedLineupNames(submission) {
-  const byLabel = Object.fromEntries((submission?.lineup || []).map(line => [line.label, line.players || []]));
-  return [byLabel.S1?.[0], byLabel.D1?.[0], byLabel.D1?.[1], byLabel.D2?.[0], byLabel.D2?.[1]].filter(Boolean);
+function submittedLineupNames(submission, team) {
+  const byLabel = Object.fromEntries((submission?.lineup || []).map(line => [shareLabel(line.label), line.players || []]));
+  const names = [byLabel.S1?.[0], byLabel.D1?.[0], byLabel.D1?.[1], byLabel.D2?.[0], byLabel.D2?.[1]].filter(Boolean);
+  if (names.length === 5) return names;
+  const selectedNames = Array.isArray(submission?.selected)
+    ? submission.selected.map(index => team?.players?.[Number(index)]?.name).filter(Boolean)
+    : [];
+  return selectedNames.length === 5 ? selectedNames : names;
 }
 
 function scoreLineupFixtures(schedule, revealedLineups, lineupSubmissions, team1Id, team2Id, teams, matches, eligibilityRules) {
@@ -817,12 +822,12 @@ function scoreLineupFixtures(schedule, revealedLineups, lineupSubmissions, team1
     .forEach(row => {
       const item = schedule?.[row.scheduleId] || { id: row.scheduleId, team1Id: row.team1Id, team2Id: row.team2Id };
       const fallbackSubmission = lineupSubmissions?.[row.scheduleId] || {};
-      const team1Names = submittedLineupNames({ lineup: row.lineups?.[team1Id] }).length === 5
-        ? submittedLineupNames({ lineup: row.lineups?.[team1Id] })
-        : submittedLineupNames(fallbackSubmission[team1Id]);
-      const team2Names = submittedLineupNames({ lineup: row.lineups?.[team2Id] }).length === 5
-        ? submittedLineupNames({ lineup: row.lineups?.[team2Id] })
-        : submittedLineupNames(fallbackSubmission[team2Id]);
+      const team1Names = submittedLineupNames({ lineup: row.lineups?.[team1Id] }, teams[team1Id]).length === 5
+        ? submittedLineupNames({ lineup: row.lineups?.[team1Id] }, teams[team1Id])
+        : submittedLineupNames(fallbackSubmission[team1Id], teams[team1Id]);
+      const team2Names = submittedLineupNames({ lineup: row.lineups?.[team2Id] }, teams[team2Id]).length === 5
+        ? submittedLineupNames({ lineup: row.lineups?.[team2Id] }, teams[team2Id])
+        : submittedLineupNames(fallbackSubmission[team2Id], teams[team2Id]);
       rows.set(row.scheduleId, buildRow(item, row.revealId, row.revealCode || row.revealId?.slice(-8).toUpperCase(), team1Names, team2Names, true));
     });
 
@@ -833,7 +838,7 @@ function scoreLineupFixtures(schedule, revealedLineups, lineupSubmissions, team1
     if (!mine?.lockedAt || !theirs?.lockedAt) return;
     const item = schedule?.[scheduleId] || { id: scheduleId, team1Id: mine.teamId || team1Id, team2Id: theirs.teamId || team2Id };
     const revealId = mine.revealId || theirs.revealId || `submitted-${scheduleId}`;
-    rows.set(scheduleId, buildRow(item, revealId, String(revealId).slice(-8).toUpperCase(), submittedLineupNames(mine), submittedLineupNames(theirs), true));
+    rows.set(scheduleId, buildRow(item, revealId, String(revealId).slice(-8).toUpperCase(), submittedLineupNames(mine, teams[team1Id]), submittedLineupNames(theirs, teams[team2Id]), true));
   });
 
   return Array.from(rows.values());
@@ -1089,7 +1094,7 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
         </div>
       </div>
 
-      {team1 && team2 && submittedLineupFixtures.length > 1 && (
+      {team1 && team2 && submittedLineupFixtures.length > 0 && (
         <ScoreLineupLoader
           fixtures={submittedLineupFixtures}
           teams={teams}
@@ -1418,7 +1423,7 @@ Final: KC won 3-2`;
         </div>
       </div>
 
-      {selectedTeam1 && selectedTeam2 && submittedLineupFixtures.length > 1 && (
+      {selectedTeam1 && selectedTeam2 && submittedLineupFixtures.length > 0 && (
         <ScoreLineupLoader
           fixtures={submittedLineupFixtures}
           teams={teams}
