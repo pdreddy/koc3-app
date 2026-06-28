@@ -283,6 +283,11 @@ table.std .pts { font-weight: 900; }
   padding: 0.5rem 0.65rem;
   width: 100%;
 }
+.score-lineup-loader { padding: 1rem 1.15rem; }
+.score-lineup-loader .hint { margin-top: .35rem; }
+.lineup-loader-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, .85fr); align-items: end; gap: .75rem; margin-top: .35rem; }
+.lineup-loader-select { margin: 0; min-width: 0; }
+.lineup-loader-row .btn { width: 100%; min-height: 46px; align-self: end; }
 .court-card.classic {
   background: #fff;
   border-left: 4px solid #64748b;
@@ -308,11 +313,14 @@ table.std .pts { font-weight: 900; }
 }
 .score-entry-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
-  gap: 0.55rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(170px, max-content);
+  gap: 0.65rem;
   align-items: start;
 }
 .compact-field { margin-bottom: 0.3rem; }
+.player-entry-col, .sets-entry-col { min-width: 0; }
+.sets-entry-col { justify-self: end; min-width: 170px; }
+.sets-entry-col > .field-label { text-align: center; }
 .court-card.classic .input {
   min-height: 36px;
   padding: 0.45rem 0.55rem;
@@ -334,11 +342,14 @@ table.std .pts { font-weight: 900; }
 .set-input input { width: 56px; text-align: center; }
 .set-input .label { font-size: 0.72rem; color: var(--muted); font-weight: 700; width: 38px; }
 .court-card.classic .set-input {
-  gap: 0.22rem;
+  display: grid;
+  grid-template-columns: 38px 46px auto 46px;
+  gap: 0.25rem;
   margin-bottom: 0.28rem;
+  align-items: center;
 }
-.court-card.classic .set-input input { width: 42px; }
-.court-card.classic .set-input .label { width: 32px; font-size: 0.68rem; }
+.court-card.classic .set-input input { width: 46px; }
+.court-card.classic .set-input .label { width: auto; font-size: 0.68rem; text-align: right; }
 
 .tag {
   display: inline-block;
@@ -793,6 +804,9 @@ table.std tr.q { background: linear-gradient(90deg, #dbeafe 0%, rgba(255,255,255
   .row .vs { align-self: center; }
   .score-teams-row { grid-template-columns: 1fr; }
   .score-teams-row .vs { justify-self: center; }
+  .lineup-loader-row { grid-template-columns: 1fr; }
+  .score-entry-grid { grid-template-columns: 1fr; }
+  .sets-entry-col { justify-self: stretch; min-width: 0; }
   .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   table.std, .ptl-table { min-width: 620px; }
   .bottom-nav a { min-height: 58px; }

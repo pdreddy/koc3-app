@@ -854,8 +854,8 @@ function ScoreLineupLoader({ fixtures, teams, selectedId, onSelectedId, onLoad, 
     <div className="card score-lineup-loader" data-testid={`${mode}-score-lineup-loader`}>
       <h2>Use submitted dashboard lineup</h2>
       <p className="hint">Select the match schedule code for the lines you are scoring. Lines can load after both captains have submitted and the matchup is revealed.</p>
-      <div className="row">
-        <label className="field" style={{ margin: 0 }}>
+      <div className="lineup-loader-row">
+        <label className="field lineup-loader-select">
           <div className="field-label">Match schedule code</div>
           <select className="select" value={selected.revealId} onChange={e => onSelectedId(e.target.value)} data-testid={`${mode}-schedule-code-select`}>
             {fixtures.map(row => {
