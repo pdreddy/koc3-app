@@ -1081,7 +1081,7 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
         />
       )}
 
-      {team1 && team2 && (
+      {team1 && team2 && submittedLineupFixtures.length === 0 && (
         <LineupBuilder
           team1={team1}
           team2={team2}
@@ -1408,7 +1408,7 @@ Final: KC won 3-2`;
         />
       )}
 
-      {selectedTeam1 && selectedTeam2 && (
+      {selectedTeam1 && selectedTeam2 && submittedLineupFixtures.length === 0 && (
         <LineupBuilder
           team1={selectedTeam1}
           team2={selectedTeam2}

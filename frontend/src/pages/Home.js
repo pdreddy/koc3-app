@@ -201,7 +201,7 @@ function LineupRoleSelect({ team, selected, onChange, readOnly, optionErrors = {
             <option value="">— Choose player —</option>
             {(team?.players || []).map((player, playerIdx) => {
               const value = String(playerIdx);
-              return <option key={`${player.name}-${playerIdx}`} value={value} disabled={(selectedSet.has(value) && selected[idx] !== value) || !!optionErrors[`${idx}:${value}`]}>{optionErrors[`${idx}:${value}`] ? `⚠️ ${player.name}` : player.name}</option>;
+              return <option key={`${player.name}-${playerIdx}`} value={value} disabled={selectedSet.has(value) && selected[idx] !== value}>{optionErrors[`${idx}:${value}`] ? `⚠️ ${player.name}` : player.name}</option>;
             })}
           </select>
         </label>
