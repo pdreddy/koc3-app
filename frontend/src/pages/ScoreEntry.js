@@ -801,20 +801,42 @@ function submittedLineupNames(submission) {
   return [byLabel.S1?.[0], byLabel.D1?.[0], byLabel.D1?.[1], byLabel.D2?.[0], byLabel.D2?.[1]].filter(Boolean);
 }
 
-function scoreLineupFixtures(schedule, revealedLineups, team1Id, team2Id, teams, matches, eligibilityRules) {
+function scoreLineupFixtures(schedule, revealedLineups, lineupSubmissions, team1Id, team2Id, teams, matches, eligibilityRules) {
   if (!team1Id || !team2Id) return [];
-  return Object.values(revealedLineups || {})
+  const rows = new Map();
+  const buildRow = (item, revealId, revealCode, team1Names, team2Names, revealed = true) => {
+    const lineupLines = buildLineupValidationLines(team1Names, team2Names);
+    const eligibilityErrors = team1Names.length === 5 && team2Names.length === 5
+      ? validateEligibilityForLines(lineupLines, teams[team1Id], teams[team2Id], matches, teams, eligibilityRules)
+      : [];
+    return { item, revealId, revealCode, revealed, team1Names, team2Names, eligibilityErrors, ready: team1Names.length === 5 && team2Names.length === 5 };
+  };
+
+  Object.values(revealedLineups || {})
     .filter(row => [row.team1Id, row.team2Id].includes(team1Id) && [row.team1Id, row.team2Id].includes(team2Id))
-    .map(row => {
+    .forEach(row => {
       const item = schedule?.[row.scheduleId] || { id: row.scheduleId, team1Id: row.team1Id, team2Id: row.team2Id };
-      const team1Names = submittedLineupNames({ lineup: row.lineups?.[team1Id] });
-      const team2Names = submittedLineupNames({ lineup: row.lineups?.[team2Id] });
-      const lineupLines = buildLineupValidationLines(team1Names, team2Names);
-      const eligibilityErrors = team1Names.length === 5 && team2Names.length === 5
-        ? validateEligibilityForLines(lineupLines, teams[team1Id], teams[team2Id], matches, teams, eligibilityRules)
-        : [];
-      return { item, revealId: row.revealId, revealCode: row.revealCode || row.revealId?.slice(-8).toUpperCase(), revealed: true, team1Names, team2Names, eligibilityErrors, ready: team1Names.length === 5 && team2Names.length === 5 };
+      const fallbackSubmission = lineupSubmissions?.[row.scheduleId] || {};
+      const team1Names = submittedLineupNames({ lineup: row.lineups?.[team1Id] }).length === 5
+        ? submittedLineupNames({ lineup: row.lineups?.[team1Id] })
+        : submittedLineupNames(fallbackSubmission[team1Id]);
+      const team2Names = submittedLineupNames({ lineup: row.lineups?.[team2Id] }).length === 5
+        ? submittedLineupNames({ lineup: row.lineups?.[team2Id] })
+        : submittedLineupNames(fallbackSubmission[team2Id]);
+      rows.set(row.scheduleId, buildRow(item, row.revealId, row.revealCode || row.revealId?.slice(-8).toUpperCase(), team1Names, team2Names, true));
     });
+
+  Object.entries(lineupSubmissions || {}).forEach(([scheduleId, submissions]) => {
+    if (rows.has(scheduleId)) return;
+    const mine = submissions?.[team1Id];
+    const theirs = submissions?.[team2Id];
+    if (!mine?.lockedAt || !theirs?.lockedAt) return;
+    const item = schedule?.[scheduleId] || { id: scheduleId, team1Id: mine.teamId || team1Id, team2Id: theirs.teamId || team2Id };
+    const revealId = mine.revealId || theirs.revealId || `submitted-${scheduleId}`;
+    rows.set(scheduleId, buildRow(item, revealId, String(revealId).slice(-8).toUpperCase(), submittedLineupNames(mine), submittedLineupNames(theirs), true));
+  });
+
+  return Array.from(rows.values());
 }
 
 function ScoreLineupLoader({ fixtures, teams, selectedId, onSelectedId, onLoad, mode }) {
@@ -868,7 +890,7 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
   const team1 = teams[team1Id];
   const team2 = teams[team2Id];
   const opponentList = groupFilteredOpponents(teamList, team1);
-  const submittedLineupFixtures = useMemo(() => scoreLineupFixtures(schedule, revealedLineups, team1Id, team2Id, teams, matches, eligibilityRules), [schedule, revealedLineups, team1Id, team2Id, teams, matches, eligibilityRules]);
+  const submittedLineupFixtures = useMemo(() => scoreLineupFixtures(schedule, revealedLineups, lineupSubmissions, team1Id, team2Id, teams, matches, eligibilityRules), [schedule, revealedLineups, lineupSubmissions, team1Id, team2Id, teams, matches, eligibilityRules]);
 
   useEffect(() => {
     if (team2 && !teamsShareGroup(team1, team2)) setTeam2Id('');
@@ -1186,7 +1208,7 @@ function QuickEntry({ teams, matches, schedule, lineupSubmissions, revealedLineu
   const selectedTeam1 = teams[team1Id];
   const selectedTeam2 = teams[team2Id];
   const opponentList = groupFilteredOpponents(teamList, selectedTeam1);
-  const submittedLineupFixtures = useMemo(() => scoreLineupFixtures(schedule, revealedLineups, team1Id, team2Id, teams, matches, eligibilityRules), [schedule, revealedLineups, team1Id, team2Id, teams, matches, eligibilityRules]);
+  const submittedLineupFixtures = useMemo(() => scoreLineupFixtures(schedule, revealedLineups, lineupSubmissions, team1Id, team2Id, teams, matches, eligibilityRules), [schedule, revealedLineups, lineupSubmissions, team1Id, team2Id, teams, matches, eligibilityRules]);
 
   useEffect(() => {
     if (myTeam?.id && !team1Id) setTeam1Id(myTeam.id);
