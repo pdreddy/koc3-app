@@ -510,7 +510,7 @@ export default function Home({ teams, schedule, matches = [], eligibilityRules =
       return fixtureDate < today;
     });
   }, [upcomingCaptainFixtures]);
-  const capacityRows = useMemo(() => captainTeam ? buildCaptainCapacityRows(captainTeam, teams, matches, eligibilityRules) : [], [captainTeam, teams, matches, eligibilityRules]);
+  const capacityRows = useMemo(() => captainTeam ? buildCaptainCapacityRows(captainTeam, teams, matches, eligibilityRules, lineupSubmissions) : [], [captainTeam, teams, matches, eligibilityRules, lineupSubmissions]);
 
   useEffect(() => {
     if (!captainTeam) return undefined;
@@ -529,7 +529,7 @@ export default function Home({ teams, schedule, matches = [], eligibilityRules =
         <CaptainScheduleList fixtures={upcomingCaptainFixtures} completedFixtures={completedCaptainFixtures} teams={teams} captainTeam={captainTeam} lineupSubmissions={lineupSubmissions} revealedLineups={revealedLineups} matches={matches} eligibilityRules={eligibilityRules} session={session} lastRefreshed={lastRefreshed} onRefresh={onRefresh} />
         <OwnerGaps overdueFixtures={overdueFixtures} capacityRows={capacityRows} />
         <DangerBells rows={capacityRows} />
-        <CaptainCapacityCard team={captainTeam} teams={teams} matches={matches} eligibilityRules={eligibilityRules} />
+        <CaptainCapacityCard team={captainTeam} teams={teams} matches={matches} eligibilityRules={eligibilityRules} lineupSubmissions={lineupSubmissions} />
         <div style={{ display: 'flex', gap: '.6rem', flexWrap: 'wrap', marginTop: '1rem' }}>
           <Link className="btn" to="/score">Enter score</Link>
           <Link className="btn ghost" to="/schedule">Open schedule</Link>
