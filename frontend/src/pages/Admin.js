@@ -555,7 +555,7 @@ function AdminLineupManager({ teams, schedule, lineupSubmissions, revealedLineup
   const [busyKey, setBusyKey] = useState('');
   const fixtures = Object.values(schedule || {}).filter(item => item?.type !== 'buffer');
   const unlock = async (fixture, teamId, submission) => {
-    const reason = window.prompt('Reason for unlocking this lineup?');
+    const reason = window.prompt('Reason for returning this lineup to the captain for correction?');
     if (!reason?.trim()) return;
     const now = Date.now();
     const unlockId = `${fixture.id}-${teamId}-${now}`;
@@ -571,7 +571,7 @@ function AdminLineupManager({ teams, schedule, lineupSubmissions, revealedLineup
     try {
       setBusyKey(`${fixture.id}-${teamId}`);
       await update(ref(db), updates);
-      await writeAuditLog({ actionType: 'Lineup Unlocked', session, targetType: 'schedule', targetId: fixture.id, newValue: updates[`${PATHS.lineupUnlocks}/${unlockId}`] });
+      await writeAuditLog({ actionType: 'Lineup Returned to Captain', session, targetType: 'schedule', targetId: fixture.id, newValue: updates[`${PATHS.lineupUnlocks}/${unlockId}`] });
     } finally {
       setBusyKey('');
     }
@@ -616,7 +616,7 @@ function AdminLineupManager({ teams, schedule, lineupSubmissions, revealedLineup
             <div key={fixture.id} className="captain-fixture-card">
               <strong>{teams[fixture.team1Id]?.name || 'Team 1'} vs {teams[fixture.team2Id]?.name || 'Team 2'}</strong>
               <div className="hint">Schedule ID: {fixture.id} {reveal?.revealCode ? `· Reveal code ${reveal.revealCode}` : ''}</div>
-              {(Object.keys(submissions).length > 0 || reveal) && <button className="btn small danger" disabled={busyKey === `${fixture.id}-delete`} onClick={() => deleteFixtureLineups(fixture, submissions, reveal)} data-testid={`admin-delete-lineups-${fixture.id}`}>Delete lineup refs</button>}
+              {(Object.keys(submissions).length > 0 || reveal) && <button className="btn small danger" disabled={busyKey === `${fixture.id}-delete`} onClick={() => deleteFixtureLineups(fixture, submissions, reveal)} data-testid={`admin-delete-lineups-${fixture.id}`}>Delete / reset refs</button>}
               {[fixture.team1Id, fixture.team2Id].map(teamId => {
                 const submission = submissions[teamId] || {};
                 const locked = !!submission.lockedAt && !submission.unlockedAt;
@@ -629,7 +629,7 @@ function AdminLineupManager({ teams, schedule, lineupSubmissions, revealedLineup
                       {submission.unlockedAt && <div className="hint">Unlocked: {new Date(submission.unlockedAt).toLocaleString()} · {submission.unlockReason}</div>}
                       {reveal && <div className="hint">Revealed lineup available in score entry with code {reveal.revealCode}.</div>}
                     </div>
-                    {locked && <button className="btn small danger" disabled={busyKey === `${fixture.id}-${teamId}`} onClick={() => unlock(fixture, teamId, submission)}>Unlock</button>}
+                    {locked && <button className="btn small danger" disabled={busyKey === `${fixture.id}-${teamId}`} onClick={() => unlock(fixture, teamId, submission)} data-testid={`admin-return-lineup-${fixture.id}-${teamId}`}>Return to captain</button>}
                   </div>
                 );
               })}
