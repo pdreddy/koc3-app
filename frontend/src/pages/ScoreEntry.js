@@ -826,7 +826,7 @@ function scoreLineupFixtures(schedule, revealedLineups, team1Id, team2Id, teams,
       const eligibilityErrors = team1Names.length === 5 && team2Names.length === 5
         ? validateEligibilityForLines(lineupLines, teams[team1Id], teams[team2Id], matches, teams, eligibilityRules)
         : [];
-      return { item, revealId: row.revealId, revealCode: row.revealCode || row.revealId?.slice(-8).toUpperCase(), revealed: true, team1Names, team2Names, eligibilityErrors, ready: team1Names.length === 5 && team2Names.length === 5 && eligibilityErrors.length === 0 };
+      return { item, revealId: row.revealId, revealCode: row.revealCode || row.revealId?.slice(-8).toUpperCase(), revealed: true, team1Names, team2Names, eligibilityErrors, ready: team1Names.length === 5 && team2Names.length === 5 };
     });
 }
 
@@ -852,8 +852,8 @@ function ScoreLineupLoader({ fixtures, teams, selectedId, onSelectedId, onLoad, 
         </label>
         <button className="btn small success" type="button" disabled={!ready} onClick={() => onLoad(selected)} data-testid={`${mode}-load-submitted-lineup`}>Load submitted lines</button>
       </div>
-      <p className="hint">{team1?.name || 'Team 1'} vs {team2?.name || 'Team 2'} · {revealed ? (ready ? 'Revealed, valid, and ready for score entry.' : 'Revealed, but blocked by lineup completeness or eligibility rules.') : 'Waiting for both captains to submit before line details are available.'}</p>
-      {eligibilityErrors.length > 0 && <div className="error-box" style={{ whiteSpace: 'pre-line', marginTop: '.65rem' }} data-testid={`${mode}-revealed-lineup-eligibility-error`}>{eligibilityErrors.join('\n')}</div>}
+      <p className="hint">{team1?.name || 'Team 1'} vs {team2?.name || 'Team 2'} · {revealed ? (ready ? 'Revealed and ready to load into score entry.' : 'Revealed, but submitted lineup data is incomplete.') : 'Waiting for both captains to submit before line details are available.'}</p>
+      {eligibilityErrors.length > 0 && <div className="error-box" style={{ whiteSpace: 'pre-line', marginTop: '.65rem' }} data-testid={`${mode}-revealed-lineup-eligibility-error`}>Eligibility warning — lines can still be loaded, but save will re-check these rules:\n{eligibilityErrors.join('\n')}</div>}
     </div>
   );
 }
