@@ -409,47 +409,6 @@ function CaptainScheduleList({ fixtures, completedFixtures, teams, captainTeam, 
 }
 
 
-function CaptainDashboardHero({ captainTeam, nextFixture, teams, completedCount }) {
-  const { team1, team2 } = nextFixture ? fixtureTeams(nextFixture, teams) : {};
-  return (
-    <section className="captain-dark-hero" data-testid="captain-dashboard-hero">
-      <div className="captain-mobile-top">
-        <span className="hamburger">☰</span>
-        <div className="koc-mark">👑 KOC <small>Season 3</small></div>
-        <span className="bell">🔔</span>
-      </div>
-      <div className="captain-title-block">
-        <h1>Captain Dashboard</h1>
-        <p>Season 3 · {captainTeam.name}</p>
-      </div>
-      <div className="captain-next-match">
-        <div className="match-icon">📅</div>
-        <div>
-          <div className="blue-kicker">Next Match</div>
-          <h2>{team1?.name || captainTeam.name} vs {team2?.name || 'TBD'}</h2>
-          <div className="match-meta">
-            <span>🗓 {nextFixture ? formatDate(nextFixture.date) : 'TBD'}</span>
-            <span>🕒 {nextFixture?.time || 'TBD'}</span>
-            <span>🏟 KOC Arena {nextFixture?.court || '1'}</span>
-          </div>
-        </div>
-        <span className="scheduled-pill">SCHEDULED</span>
-      </div>
-      <nav className="captain-dashboard-tabs" aria-label="Captain dashboard sections">
-        <span className="active">Scheduled</span>
-        <span>Completed Matches</span>
-        <span>Tournament</span>
-        <span>Standings</span>
-      </nav>
-      <div className="captain-stat-strip">
-        <span>Upcoming: <strong>{nextFixture ? 1 : 0}</strong></span>
-        <span>Completed: <strong>{completedCount}</strong></span>
-        <span>Lineup source: <strong>KOC App</strong></span>
-      </div>
-    </section>
-  );
-}
-
 function TeamSnapshot({ team, upcomingCount, completedCount, capacityRows }) {
   const rosterCount = team?.players?.length || 0;
   const blockedCount = capacityRows.filter(row => row.warnings.some(message => message.includes('reached'))).length;
@@ -559,18 +518,17 @@ export default function Home({ teams, schedule, matches = [], eligibilityRules =
 
   if (captainTeam) {
     return (
-      <main className="container captain-dashboard-shell" data-testid="captain-dashboard-page">
-        <CaptainDashboardHero captainTeam={captainTeam} nextFixture={upcomingCaptainFixtures[0]} teams={teams} completedCount={completedCaptainFixtures.length} />
-        <div className="captain-dashboard-grid-main">
-          <CaptainScheduleList fixtures={upcomingCaptainFixtures} completedFixtures={completedCaptainFixtures} teams={teams} captainTeam={captainTeam} lineupSubmissions={lineupSubmissions} revealedLineups={revealedLineups} matches={matches} eligibilityRules={eligibilityRules} session={session} lastRefreshed={lastRefreshed} onRefresh={onRefresh} />
-          <div className="captain-side-stack">
-            <TeamSnapshot team={captainTeam} upcomingCount={upcomingCaptainFixtures.length} completedCount={completedCaptainFixtures.length} capacityRows={capacityRows} />
-            <OwnerGaps overdueFixtures={overdueFixtures} capacityRows={capacityRows} />
-            <DangerBells rows={capacityRows} />
-            <CaptainCapacityCard team={captainTeam} teams={teams} matches={matches} eligibilityRules={eligibilityRules} />
-          </div>
+      <main className="container" data-testid="captain-dashboard-page">
+        <div className="page-title">
+          <h1>Captain Dashboard</h1>
+          <p>{captainTeam.name} · your schedule, capacity, and lineup danger bells.</p>
         </div>
-        <div className="captain-bottom-actions">
+        <TeamSnapshot team={captainTeam} upcomingCount={upcomingCaptainFixtures.length} completedCount={completedCaptainFixtures.length} capacityRows={capacityRows} />
+        <CaptainScheduleList fixtures={upcomingCaptainFixtures} completedFixtures={completedCaptainFixtures} teams={teams} captainTeam={captainTeam} lineupSubmissions={lineupSubmissions} revealedLineups={revealedLineups} matches={matches} eligibilityRules={eligibilityRules} session={session} lastRefreshed={lastRefreshed} onRefresh={onRefresh} />
+        <OwnerGaps overdueFixtures={overdueFixtures} capacityRows={capacityRows} />
+        <DangerBells rows={capacityRows} />
+        <CaptainCapacityCard team={captainTeam} teams={teams} matches={matches} eligibilityRules={eligibilityRules} />
+        <div style={{ display: 'flex', gap: '.6rem', flexWrap: 'wrap', marginTop: '1rem' }}>
           <Link className="btn" to="/score">Enter score</Link>
           <Link className="btn ghost" to="/schedule">Open schedule</Link>
         </div>
