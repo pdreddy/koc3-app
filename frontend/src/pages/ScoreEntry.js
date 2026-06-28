@@ -872,6 +872,7 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
   const [pendingRecord, setPendingRecord] = useState(null);
   const [saving, setSaving] = useState(false);
   const [selectedScheduleId, setSelectedScheduleId] = useState('');
+  const [autoLoadedRevealId, setAutoLoadedRevealId] = useState('');
 
   useEffect(() => {
     if (myTeam?.id && !team1Id) setTeam1Id(myTeam.id);
@@ -885,6 +886,15 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
   useEffect(() => {
     if (team2 && !teamsShareGroup(team1, team2)) setTeam2Id('');
   }, [team1, team2, setTeam2Id]);
+
+  useEffect(() => {
+    const only = submittedLineupFixtures.length === 1 ? submittedLineupFixtures[0] : null;
+    if (!only?.ready || autoLoadedRevealId === only.revealId) return;
+    setCourts(buildLineupCourts(only.team1Names, only.team2Names));
+    setSuccess(`Loaded submitted dashboard lineup for schedule code ${fixtureCode(only.item)}.`);
+    setError(''); setShareText(''); setPendingRecord(null);
+    setAutoLoadedRevealId(only.revealId);
+  }, [submittedLineupFixtures, autoLoadedRevealId]);
 
   const updateCourt = (idx, patch) => {
     setPendingRecord(null);
@@ -1070,7 +1080,7 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
         </div>
       </div>
 
-      {team1 && team2 && (
+      {team1 && team2 && submittedLineupFixtures.length > 1 && (
         <ScoreLineupLoader
           fixtures={submittedLineupFixtures}
           teams={teams}
@@ -1190,6 +1200,7 @@ function QuickEntry({ teams, matches, schedule, lineupSubmissions, revealedLineu
   const [pendingRecord, setPendingRecord] = useState(null);
   const [saving, setSaving] = useState(false);
   const [selectedScheduleId, setSelectedScheduleId] = useState('');
+  const [autoLoadedRevealId, setAutoLoadedRevealId] = useState('');
   const teamList = Object.values(teams || {});
   const myTeam = session.role === ROLES.CAPTAIN ? teams[session.teamId] : null;
   const isAdmin = isAdminRole(session);
@@ -1205,6 +1216,15 @@ function QuickEntry({ teams, matches, schedule, lineupSubmissions, revealedLineu
   useEffect(() => {
     if (selectedTeam2 && !teamsShareGroup(selectedTeam1, selectedTeam2)) setTeam2Id('');
   }, [selectedTeam1, selectedTeam2, setTeam2Id]);
+
+  useEffect(() => {
+    const only = submittedLineupFixtures.length === 1 ? submittedLineupFixtures[0] : null;
+    if (!only?.ready || !selectedTeam1 || !selectedTeam2 || autoLoadedRevealId === only.revealId) return;
+    setText(buildQuickLineupText(selectedTeam1, selectedTeam2, only.team1Names, only.team2Names));
+    setSuccess(`Loaded submitted dashboard lineup for schedule code ${fixtureCode(only.item)}.`);
+    setError(''); setShareText(''); setPendingRecord(null);
+    setAutoLoadedRevealId(only.revealId);
+  }, [submittedLineupFixtures, selectedTeam1, selectedTeam2, autoLoadedRevealId]);
 
   const parsed = useMemo(() => parseQuickScore(text, teams), [text, teams]);
   const quickTemplate = useMemo(() => getQuickTemplate(teams), [teams]);
@@ -1397,7 +1417,7 @@ Final: KC won 3-2`;
         </div>
       </div>
 
-      {selectedTeam1 && selectedTeam2 && (
+      {selectedTeam1 && selectedTeam2 && submittedLineupFixtures.length > 1 && (
         <ScoreLineupLoader
           fixtures={submittedLineupFixtures}
           teams={teams}

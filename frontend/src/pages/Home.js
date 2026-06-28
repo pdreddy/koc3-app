@@ -247,6 +247,42 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
     return map;
   }, [captainTeam, selected, matches, teams, eligibilityRules]);
 
+  const applySmartFill = () => {
+    const players = captainTeam?.players || [];
+    const base = LINEUP_ROLE_SLOTS.map((_, idx) => selected[idx] || '');
+    const used = new Set(base.filter(Boolean));
+    if (used.size !== base.filter(Boolean).length) {
+      setSelectionWarning('A player can only appear in one lineup role.');
+      return;
+    }
+
+    const search = (idx, draft, usedPlayers) => {
+      if (idx >= LINEUP_ROLE_SLOTS.length) {
+        return validateDashboardLineup(captainTeam, draft, matches, teams, eligibilityRules).length === 0 ? draft : null;
+      }
+      if (draft[idx]) return search(idx + 1, draft, usedPlayers);
+      for (let playerIdx = 0; playerIdx < players.length; playerIdx += 1) {
+        const value = String(playerIdx);
+        if (usedPlayers.has(value)) continue;
+        const nextDraft = [...draft];
+        const nextUsed = new Set(usedPlayers);
+        nextDraft[idx] = value;
+        nextUsed.add(value);
+        const found = search(idx + 1, nextDraft, nextUsed);
+        if (found) return found;
+      }
+      return null;
+    };
+
+    const filled = search(0, base, used);
+    if (filled) {
+      setSelected(filled);
+      setSelectionWarning('');
+      return;
+    }
+    setSelectionWarning('Smart fill could not find a valid lineup with the current roster and KOC eligibility limits. Adjust existing selections or review player capacity.');
+  };
+
   const setSlot = (idx, value) => setSelected(prev => {
     const next = [...prev];
     next[idx] = value;
@@ -335,6 +371,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
           {message && <div className={message.startsWith('✅') ? 'success-box' : 'error-box'}>{message}</div>}
           {!locked ? (
             <>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '.5rem' }}><button type='button' className='btn small ghost' onClick={applySmartFill} disabled={busy} data-testid={`dashboard-lineup-smart-fill-${item.id}`}>Smart fill</button></div>
               <LineupRoleSelect team={captainTeam} selected={selected} onChange={setSlot} readOnly={busy} optionErrors={optionErrors} />
               {selectionWarning && <div className="error-box" style={{ whiteSpace: 'pre-line' }} data-testid={`lineup-selection-warning-${item.id}`}>{selectionWarning}</div>}
               {errors.length > 0 && <div className="error-box" style={{ whiteSpace: 'pre-line' }}>{errors.join('\n')}</div>}
