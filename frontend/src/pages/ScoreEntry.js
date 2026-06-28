@@ -758,7 +758,6 @@ export default function ScoreEntry({ teams, schedule = {}, lineupSubmissions = {
         setTeam1Id={setSharedTeam1Id}
         team2Id={sharedTeam2Id}
         setTeam2Id={setSharedTeam2Id}
-        lineupState={lineupState}
       />
       {QUICK_PASTE_ENABLED && (
         <QuickEntry
@@ -846,7 +845,7 @@ function ScoreLineupLoader({ fixtures, teams, selectedId, onSelectedId, onLoad, 
   );
 }
 
-function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineups, eligibilityRules, onScoreSaved, team1Id, setTeam1Id, team2Id, setTeam2Id, lineupState }) {
+function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineups, eligibilityRules, onScoreSaved, team1Id, setTeam1Id, team2Id, setTeam2Id }) {
   const { session } = useAuth();
   const teamList = Object.values(teams || {});
   const myTeam = session.role === ROLES.CAPTAIN ? teams[session.teamId] : null;
@@ -1080,18 +1079,10 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
       )}
 
       {team1 && team2 && submittedLineupFixtures.length === 0 && (
-        <LineupBuilder
-          team1={team1}
-          team2={team2}
-          teams={teams}
-          matches={matches}
-          eligibilityRules={eligibilityRules}
-          team1Selected={lineupState.team1Lineup}
-          setTeam1Selected={lineupState.setTeam1Lineup}
-          team2Selected={lineupState.team2Lineup}
-          setTeam2Selected={lineupState.setTeam2Lineup}
-          onPopulateForm={(nextCourts) => { setCourts(nextCourts); setError(''); setSuccess(''); setShareText(''); setPendingRecord(null); }}
-        />
+        <div className="card score-lineup-loader" data-testid="form-score-lineup-pending">
+          <h2>Official lineup pending</h2>
+          <p className="hint">Score lines are loaded only after both captains submit and lock their dashboard lineups. Manual lineup selection is no longer available on Score Entry.</p>
+        </div>
       )}
 
       {team1 && team2 && courts.map((c, idx) => {
