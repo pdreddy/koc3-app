@@ -23,6 +23,7 @@
       },
       "lineupSubmissions": {
         "$scheduleId": {
+          ".read": "auth != null && (auth.token.superAdmin === true || (root.child('koc_s3/lineupSubmissionMeta').child($scheduleId).child(root.child('koc_s3/schedule').child($scheduleId).child('team1Id').val()).child('lockedAt').exists() && root.child('koc_s3/lineupSubmissionMeta').child($scheduleId).child(root.child('koc_s3/schedule').child($scheduleId).child('team2Id').val()).child('lockedAt').exists()))",
           "$teamId": {
             ".read": "auth != null && (auth.token.superAdmin === true || auth.token.teamId === $teamId || root.child('koc_s3/revealedLineups').child(data.child('revealId').val()).child('revealedAt').exists())",
             ".write": "auth != null && (auth.token.superAdmin === true || auth.token.teamId === $teamId)"

@@ -60,7 +60,7 @@ function timeLabel(ts) {
 
 function dateTimeLabel(ts) {
   if (!ts) return '—';
-  return new Date(ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  return new Date(ts).toLocaleString(undefined, { month: 'short', day: 'numeric' }).replace(',', '') + ' at ' + new Date(ts).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
 function selectedNames(team, selected = []) {
@@ -182,6 +182,15 @@ function lineupByLabel(submission) {
   return Object.fromEntries((submission?.lineup || []).map(line => [line.label, line.players || []]));
 }
 
+
+function shareTeamName(team, fallback) {
+  return String(team?.name || fallback || '').replace(/[^A-Za-z0-9&.'\- ]+/g, '').replace(/\s+/g, ' ').trim() || fallback || 'Team';
+}
+
+function formatPlayers(players) {
+  return (players || []).filter(Boolean).join(' / ') || 'Not available yet';
+}
+
 function revealedLineupRows(mySubmission, opponentSubmission) {
   const mine = lineupByLabel(mySubmission);
   const theirs = lineupByLabel(opponentSubmission);
@@ -193,22 +202,40 @@ function revealedLineupRows(mySubmission, opponentSubmission) {
 }
 
 function revealedRecordRows(revealedLineup, myTeamId, opponentTeamId, mySubmission, opponentSubmission) {
+  const fallbackMine = lineupByLabel(mySubmission);
+  const fallbackTheirs = lineupByLabel(opponentSubmission);
   if (!revealedLineup?.lineups) return revealedLineupRows(mySubmission, opponentSubmission);
   const mine = lineupByLabel({ lineup: revealedLineup.lineups?.[myTeamId] || [] });
   const theirs = lineupByLabel({ lineup: revealedLineup.lineups?.[opponentTeamId] || [] });
   return ['S1', 'D1', 'D2'].map(label => ({
     label,
-    mine: mine[label] || [],
-    theirs: theirs[label] || []
+    mine: mine[label]?.length ? mine[label] : (fallbackMine[label] || []),
+    theirs: theirs[label]?.length ? theirs[label] : (fallbackTheirs[label] || [])
   }));
 }
 
-function whatsappMessage(team, opponent, captainName, mySubmission, opponentSubmission, revealedLineup) {
-  const rows = revealedRecordRows(revealedLineup, team?.id, opponent?.id, mySubmission, opponentSubmission)
-    .map(row => `${row.label}: ${row.mine.join(' / ')} vs ${row.theirs.join(' / ')}`)
+function whatsappMessage(fixture, team, opponent, captainName, mySubmission, opponentSubmission, revealedLineup) {
+  const leftTeam = fixture?.team1Id === opponent?.id ? opponent : team;
+  const rightTeam = fixture?.team2Id === team?.id ? team : opponent;
+  const leftSubmission = leftTeam?.id === team?.id ? mySubmission : opponentSubmission;
+  const rightSubmission = rightTeam?.id === team?.id ? mySubmission : opponentSubmission;
+  const leftTeamName = shareTeamName(leftTeam, 'Team 1');
+  const rightTeamName = shareTeamName(rightTeam, 'Team 2');
+  const rows = revealedRecordRows(revealedLineup, leftTeam?.id, rightTeam?.id, leftSubmission, rightSubmission)
+    .map(row => `${row.label}: ${formatPlayers(row.mine)} vs ${formatPlayers(row.theirs)}`)
     .join('\n');
-  const revealedAt = revealedLineup?.revealedAt || mySubmission?.revealedAt || opponentSubmission?.revealedAt;
-  return `KOC Match\n\n${team?.name || 'Our Team'} vs ${opponent?.name || 'Opponent'}\n\nCaptain:\n${captainName || 'Captain'}\n\nSubmitted:\n${team?.name || 'Our Team'} — ${dateTimeLabel(mySubmission?.submittedAt || mySubmission?.lockedAt)}\n${opponent?.name || 'Opponent'} — ${dateTimeLabel(opponentSubmission?.submittedAt || opponentSubmission?.lockedAt)}\n\nRevealed:\n${dateTimeLabel(revealedAt)}\n\nOfficial revealed lineups:\n${rows}\n\nThe KOC App remains the official source of truth.`;
+  const revealedAt = revealedLineup?.revealedAt || mySubmission?.revealedAt || opponentSubmission?.revealedAt || (mySubmission?.lockedAt && opponentSubmission?.lockedAt ? Math.max(mySubmission.lockedAt, opponentSubmission.lockedAt) : null);
+  const group = fixture?.group || leftTeam?.group || rightTeam?.group || '—';
+  const highlightedRows = rows.split('\n').map(row => row.replace(/^([^:]+):/, '*$1:*')).join('\n');
+  return `🏆 *KOC Match Lineups*\n*Group ${group} · Round ${fixture?.round || '—'}*\n📅 ${formatDate(fixture?.date)} · ${fixture?.time || 'TBD'}\n\n🔥 *${leftTeamName} vs ${rightTeamName}*\n\n👤 *Captain sharing:*\n${captainName || 'Captain'}\n\n✅ *Official lines revealed*\n${highlightedRows}\n\n⏱️ *Submission timeline*\n• *${leftTeamName} submitted:* ${dateTimeLabel(leftSubmission?.submittedAt || leftSubmission?.lockedAt)}\n• *${rightTeamName} submitted:* ${dateTimeLabel(rightSubmission?.submittedAt || rightSubmission?.lockedAt)}\n• *Final reveal:* ${dateTimeLabel(revealedAt)}\n\n🔑 *Schedule ID:* ${fixture?.id || '—'}\n📌 _The KOC App is the official source of truth for these lineups._`;
+}
+
+function scoreEntryHref(fixture, revealedLineup, lineupSubmission) {
+  const params = new URLSearchParams();
+  if (fixture?.id) params.set('scheduleId', fixture.id);
+  const revealId = revealedLineup?.revealId || lineupSubmission?.revealId;
+  if (revealId) params.set('revealId', revealId);
+  return `/score?${params.toString()}`;
 }
 
 function statusForFixture(isCompleted, mine, theirs) {
@@ -296,7 +323,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
   const errors = validateDashboardLineup(captainTeam, selected, matches, teams, eligibilityRules);
   const names = selectedNames(captainTeam, selected);
   const canSubmit = !completed && !locked && errors.length === 0;
-  const waText = whatsappMessage(captainTeam, opponent, captainTeam?.players?.find(p => p.isCaptain)?.name || captainTeam?.players?.[0]?.name || session.teamName, lineupSubmission, opponentSubmission, revealedLineup);
+  const waText = whatsappMessage(item, captainTeam, opponent, captainTeam?.players?.find(p => p.isCaptain)?.name || captainTeam?.players?.[0]?.name || session.teamName, lineupSubmission, opponentSubmission, revealedLineup);
   const waHref = `https://wa.me/?text=${encodeURIComponent(waText)}`;
 
   useEffect(() => {
@@ -441,7 +468,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
         <div className="captain-fixture-actions">
           {!completed && !locked && <button type="button" className="btn small" onClick={() => setExpanded(v => !v)} data-testid={`submit-lines-${item.id}`}>{expanded ? 'Hide Lines' : 'Submit Lines'}</button>}
           {locked && <button type="button" className="btn small ghost" onClick={() => setExpanded(v => !v)}>{expanded ? 'Hide' : 'View Status'}</button>}
-          {revealed && !completed ? <Link className="btn small success" to="/score" data-testid={`submit-score-${item.id}`}>Submit Score</Link> : <button type="button" className="btn small ghost" disabled data-testid={`submit-score-${item.id}`}>Submit Score</button>}
+          {revealed && !completed ? <Link className="btn small success" to={scoreEntryHref(item, revealedLineup, lineupSubmission)} data-testid={`submit-score-${item.id}`}>Submit Score</Link> : <button type="button" className="btn small ghost" disabled data-testid={`submit-score-${item.id}`}>Submit Score</button>}
           <button type="button" className="btn small ghost" onClick={() => setShowOpponentCapacity(v => !v)} data-testid={`toggle-opponent-capacity-${item.id}`}>{showOpponentCapacity ? 'Hide Opponent Capacity' : 'Show Opponent Capacity'}</button>
         </div>
       </div>
@@ -478,7 +505,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
               )}
               <button className="btn ghost" type="button" onClick={onRefresh}>Refresh</button>
               <p className="hint">Last Updated<br />{timeLabel(lineupSubmission.lastUpdatedAt)}</p>
-              {revealed && <div className="lineup-reveal"><h4>Revealed Lineups {lineupSubmission?.revealId ? `· Code ${lineupSubmission.revealId.slice(-8).toUpperCase()}` : ''}</h4>{revealedRecordRows(revealedLineup, captainTeam.id, opponent?.id, lineupSubmission, opponentSubmission).map(row => <div key={row.label}><strong>{row.label}:</strong> {row.mine.join(' / ')} <strong>vs</strong> {row.theirs.join(' / ')}</div>)}</div>}
+              {revealed && <div className="lineup-reveal"><h4>Revealed Lineups {(revealedLineup?.revealCode || lineupSubmission?.revealId) ? `· Code ${revealedLineup?.revealCode || lineupSubmission?.revealId}` : ''}</h4>{revealedRecordRows(revealedLineup, captainTeam.id, opponent?.id, lineupSubmission, opponentSubmission).map(row => <div key={row.label}><strong>{row.label}:</strong> {formatPlayers(row.mine)} <strong>vs</strong> {formatPlayers(row.theirs)}</div>)}</div>}
               {!revealed && <p className="hint">Lineup details and WhatsApp sharing stay hidden until both captains submit and lock.</p>}
             </div>
           )}

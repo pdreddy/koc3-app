@@ -141,11 +141,11 @@ exports.revealLineupsOnLock = functions.database
     if (existingRevealId) return null;
 
     const now = Date.now();
-    const revealId = `${scheduleId}-${now}`;
+    const revealId = `${scheduleId}-R${now}`;
     const revealRecord = {
       revealId,
       scheduleId,
-      revealCode: revealId.slice(-8).toUpperCase(),
+      revealCode: revealId,
       team1Id: fixture.team1Id,
       team2Id: fixture.team2Id,
       revealedAt: now,
