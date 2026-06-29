@@ -1588,3 +1588,203 @@ table.std tr.q { background: linear-gradient(90deg, #dcfce7, transparent 100%); 
   .app-header .brand strong { font-size: .96rem; }
   .bottom-nav a { font-size: .62rem; }
 }
+
+/* ===== Visibility and alignment hardening ===== */
+main.container {
+  display: block;
+  padding-left: clamp(.75rem, 2vw, 1.15rem);
+  padding-right: clamp(.75rem, 2vw, 1.15rem);
+}
+
+.page-title,
+.card,
+.team-card,
+.match-hist,
+.login-card,
+.match-line,
+.score-target-banner,
+.court-card.classic,
+.format-coach,
+.rl-card,
+.rl-step {
+  position: relative;
+  overflow: visible;
+  margin-bottom: 1rem;
+}
+
+.card,
+.match-hist,
+.login-card,
+.match-line,
+.score-target-banner,
+.court-card.classic,
+.format-coach,
+.rl-card,
+.rl-step {
+  color: var(--ipl-ink);
+}
+
+.card :where(p, li, label, small, span:not(.tag):not(.ico), div:not(.team-header):not(.btn):not(.tag)),
+.match-hist :where(p, small, span:not(.tag), div),
+.login-card :where(p, label, small, span:not(.tag), div),
+.match-line :where(p, label, small, span:not(.tag), div),
+.score-target-banner :where(p, small, span:not(.tag), div),
+.court-card.classic :where(p, label, small, span:not(.tag), div),
+.format-coach :where(p, li, small, span:not(.tag), div),
+.rl-card :where(p, li, small, span:not(.tag), div),
+.rl-step :where(p, li, small, span:not(.tag), div) {
+  color: inherit;
+}
+
+.card :where(h1, h2, h3, h4, strong),
+.match-hist :where(h1, h2, h3, h4, strong),
+.login-card :where(h1, h2, h3, h4, strong),
+.match-line :where(h1, h2, h3, h4, strong),
+.score-target-banner :where(h1, h2, h3, h4, strong),
+.court-card.classic :where(h1, h2, h3, h4, strong),
+.format-coach :where(h1, h2, h3, h4, strong),
+.rl-card :where(h1, h2, h3, h4, strong),
+.rl-step :where(h1, h2, h3, h4, strong) {
+  color: var(--ipl-ink-strong);
+}
+
+.card .muted,
+.card .hint,
+.card .field-label,
+.match-hist .meta small,
+.match-hist .lines,
+.score-target-banner span:not(.tag),
+.court-card.classic .field-label,
+.format-coach .coach-tip,
+.rl-card .rl-val,
+.rl-step small {
+  color: var(--ipl-muted);
+}
+
+.card .btn,
+.match-line .btn,
+.score-target-banner .btn,
+.court-card.classic .btn,
+.login-card .btn,
+.format-coach .btn,
+.rl-card .btn,
+.rl-step .btn,
+.card .tag,
+.match-line .tag,
+.score-target-banner .tag,
+.court-card.classic .tag,
+.login-card .tag,
+.format-coach .tag,
+.rl-card .tag,
+.rl-step .tag {
+  color: #fff;
+}
+
+.card .btn.ghost,
+.match-line .btn.ghost,
+.score-target-banner .btn.ghost,
+.court-card.classic .btn.ghost,
+.login-card .btn.ghost,
+.format-coach .btn.ghost,
+.rl-card .btn.ghost,
+.rl-step .btn.ghost {
+  color: var(--ipl-blue);
+}
+
+.tag.win,
+.tag.status.ready,
+.success-box { color: #166534 !important; }
+.tag.lose,
+.error-box { color: #991b1b !important; }
+.tag.tie,
+.tag.status.warning { color: #92400e !important; }
+.tag.status.empty { color: var(--ipl-muted) !important; }
+
+.team-header,
+.team-header * {
+  color: #fff !important;
+}
+
+.team-body .player-row,
+.team-body .player-row *:not(.player-badge):not(.tag) {
+  color: var(--ipl-ink);
+}
+
+.groups-grid,
+.ptl-summary,
+.quick-layout,
+.lineup-builder-grid,
+.score-entry-grid,
+.lineup-loader-row {
+  align-items: stretch;
+}
+
+.groups-grid > *,
+.ptl-summary > *,
+.quick-layout > *,
+.lineup-builder-grid > *,
+.score-entry-grid > *,
+.lineup-loader-row > * {
+  min-width: 0;
+}
+
+.row {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.row > * {
+  min-width: 0;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+table.std th,
+table.std td {
+  vertical-align: middle;
+}
+
+.input,
+.textarea,
+.select,
+.btn {
+  min-height: 44px;
+}
+
+.bottom-nav {
+  z-index: 60;
+}
+
+.fab {
+  bottom: calc(104px + env(safe-area-inset-bottom));
+}
+
+@media (max-width: 760px) {
+  main.container {
+    padding-left: max(.75rem, env(safe-area-inset-left));
+    padding-right: max(.75rem, env(safe-area-inset-right));
+    padding-bottom: 1rem;
+  }
+  .page-title {
+    padding: 1rem;
+  }
+  .groups-grid,
+  .ptl-summary,
+  .quick-layout,
+  .lineup-builder-grid,
+  .lineup-loader-row {
+    grid-template-columns: 1fr;
+  }
+  .score-entry-grid {
+    grid-template-columns: 1fr;
+  }
+  .row {
+    align-items: stretch;
+  }
+  .bottom-nav a {
+    min-height: 60px;
+  }
+}
