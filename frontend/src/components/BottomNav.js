@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ROLES, hasRole, isAdminRole } from '../utils/roles';
+import { samePath } from '../utils/navigation';
 
 export const BOTTOM_NAV_MAX = 5;
 
@@ -26,10 +27,6 @@ export function getBottomNavTabs(session) {
   return tabs.slice(0, BOTTOM_NAV_MAX);
 }
 
-function samePath(currentPath, targetPath) {
-  const normalize = (path) => (path || '/').replace(/\/+$/, '') || '/';
-  return normalize(currentPath) === normalize(targetPath);
-}
 
 export default function BottomNav() {
   const { session } = useAuth();

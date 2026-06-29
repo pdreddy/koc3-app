@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ROLES, hasRole, canViewAudit } from '../utils/roles';
+import { samePath } from '../utils/navigation';
 import { writeAuditLog } from '../services/AuditService';
 
 const PRIMARY_LINKS = [
@@ -13,10 +14,6 @@ const PRIMARY_LINKS = [
   { to: '/more', label: 'More' }
 ];
 
-function samePath(currentPath, targetPath) {
-  const normalize = (path) => (path || '/').replace(/\/+$/, '') || '/';
-  return normalize(currentPath) === normalize(targetPath);
-}
 
 export default function AppHeader() {
   const { session, logout } = useAuth();

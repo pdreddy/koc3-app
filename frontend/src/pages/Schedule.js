@@ -169,6 +169,28 @@ export default function Schedule({ teams, schedule, matches = [], lineupSubmissi
       return map;
     }, {});
   }, [approvedMatchList, matchList, teams]);
+  const fixtureDetailsById = useMemo(() => {
+    return matchList.reduce((map, fixture) => {
+      const submissions = lineupSubmissions?.[fixture.id] || {};
+      const reveal = revealedByScheduleId[fixture.id];
+      const teamIds = [fixture.team1Id, fixture.team2Id];
+      const bothLocked = teamIds.every(teamId => {
+        const sub = submissions?.[teamId] || {};
+        return (sub.lockedAt || sub.revealedAt || sub.revealId) && !sub.unlockedAt;
+      });
+      const scoreMatch = approvedMatchByFixtureId[fixture.id] || (showPublicDetails ? approvedMatchList.find(match => matchBelongsToFixture(match, fixture, teams)) : null);
+      const bothLineupsAvailable = teamIds.every(teamId => hasLineupForTeam(teamId, submissions, reveal));
+      const hasUnlockedLineup = teamIds.some(teamId => submissions?.[teamId]?.unlockedAt);
+      map[fixture.id] = {
+        submissions,
+        reveal,
+        scoreMatch,
+        lineupReady: (bothLineupsAvailable || !!reveal || bothLocked) && !hasUnlockedLineup,
+        scoreReady: !!scoreMatch
+      };
+      return map;
+    }, {});
+  }, [approvedMatchByFixtureId, approvedMatchList, lineupSubmissions, matchList, revealedByScheduleId, showPublicDetails, teams]);
 
   const teamOptions = useMemo(() =>
     Object.values(teams || {})
@@ -275,31 +297,22 @@ export default function Schedule({ teams, schedule, matches = [], lineupSubmissi
                     {m.status === 'cancelled' && <span className="tag lose" style={{ fontSize: '.65rem' }}>Cancelled</span>}
                   </div>
                   {(() => {
-                    const submissions = lineupSubmissions?.[m.id] || {};
-                    const reveal = revealedByScheduleId[m.id];
-                    const bothLocked = [m.team1Id, m.team2Id].every(teamId => {
-                      const sub = submissions?.[teamId] || {};
-                      return (sub.lockedAt || sub.revealedAt || sub.revealId) && !sub.unlockedAt;
-                    });
-                    const scoreMatch = approvedMatchByFixtureId[m.id] || (showPublicDetails ? approvedMatchList.find(match => matchBelongsToFixture(match, m, teams)) : null);
-                    const bothLineupsAvailable = [m.team1Id, m.team2Id].every(teamId => hasLineupForTeam(teamId, submissions, reveal));
-                    const lineupReady = (bothLineupsAvailable || !!reveal || bothLocked) && ![m.team1Id, m.team2Id].some(teamId => submissions?.[teamId]?.unlockedAt);
-                    const scoreReady = !!scoreMatch;
+                    const details = fixtureDetailsById[m.id] || {};
                     return (
                       <MatchRow
                         m={m}
                         t1={teams[m.team1Id]}
                         t2={teams[m.team2Id]}
-                        isCompleted={m.status === 'completed' || scoreReady}
-                        lineupReady={lineupReady}
-                        scoreReady={scoreReady}
+                        isCompleted={m.status === 'completed' || details.scoreReady}
+                        lineupReady={!!details.lineupReady}
+                        scoreReady={!!details.scoreReady}
                         lineupOpen={!!openLineups[m.id]}
                         scoreOpen={!!openScores[m.id]}
                         onToggleLineup={() => setOpenLineups(prev => ({ ...prev, [m.id]: !prev[m.id] }))}
                         onToggleScore={() => setOpenScores(prev => ({ ...prev, [m.id]: !prev[m.id] }))}
-                        submissions={submissions}
-                        reveal={reveal}
-                        match={scoreMatch}
+                        submissions={details.submissions || {}}
+                        reveal={details.reveal}
+                        match={details.scoreMatch}
                         teams={teams}
                         showPublicDetails={showPublicDetails}
                       />
