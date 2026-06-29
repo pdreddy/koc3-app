@@ -524,7 +524,7 @@ function AdminLineupManager({ teams, schedule, lineupSubmissions, revealedLineup
   );
 }
 
-export default function Admin({ teams, adminConfig, matches, previousMatches = [], schedule, lineupSubmissions = {}, revealedLineups = {}, playerRatings = {}, settings = {} }) {
+export default function Admin({ teams, adminConfig, matches, schedule, lineupSubmissions = {}, revealedLineups = {}, settings = {} }) {
   const [tab, setTab] = useState('teams');
   const [newAdminPwd, setNewAdminPwd] = useState('');
   const [adminMsg, setAdminMsg] = useState('');
