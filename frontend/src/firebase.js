@@ -224,14 +224,26 @@ async function applyEntries(entries) {
     ops.push(replaceCollection(entry, keyCol, value));
   }
 
+  // Whole-record writes to the same table are batched into ONE upsert (a single
+  // request, instead of one per record). Field-merge groups need a prior read,
+  // so they're handled individually.
+  const replaceByTable = new Map();
   for (const g of groups.values()) {
-    ops.push((async () => {
-      let data;
-      if (g.replace !== undefined) data = clone(g.replace) ?? {};
-      else data = (await fetchRecord(g.entry, null, g.idObj)) || {};
-      for (const [inner, value] of g.sets) data = deepSet(data, inner, value);
-      await upsertRecord(g.entry, rowFromId(g.entry, g.idObj, data));
-    })());
+    if (g.sets.length === 0 && g.replace !== undefined) {
+      let b = replaceByTable.get(g.entry.table);
+      if (!b) { b = { entry: g.entry, rows: [] }; replaceByTable.set(g.entry.table, b); }
+      b.rows.push(rowFromId(g.entry, g.idObj, clone(g.replace) ?? {}));
+    } else {
+      ops.push((async () => {
+        const data = g.replace !== undefined ? (clone(g.replace) ?? {}) : ((await fetchRecord(g.entry, null, g.idObj)) || {});
+        for (const [inner, value] of g.sets) deepSet(data, inner, value);
+        await upsertRecord(g.entry, rowFromId(g.entry, g.idObj, data));
+      })());
+    }
+  }
+  for (const { entry, rows } of replaceByTable.values()) {
+    const onConflict = entry.kind === 'nested2' ? 'schedule_id,team_id' : (entry.keyCol || 'id');
+    ops.push((async () => { const { error } = await supabase.from(entry.table).upsert(rows, { onConflict }); fail(error); })());
   }
 
   await Promise.all(ops);
@@ -316,15 +328,24 @@ export function onValue(reference, callback, errorCallback) {
     }
   };
 
+  // Debounce realtime-driven refetches so a burst of row changes (e.g. seeding
+  // ~100 rows in one go) collapses into a single re-read instead of one per row.
+  let timer = null;
+  const scheduleFire = () => {
+    if (timer) return;
+    timer = setTimeout(() => { timer = null; fire(); }, 150);
+  };
+
   fire();
 
   const channel = supabase
     .channel(`rtdb:${resolved.entry.table}:${Math.random().toString(36).slice(2)}`)
-    .on('postgres_changes', { event: '*', schema: 'public', table: resolved.entry.table }, () => fire())
+    .on('postgres_changes', { event: '*', schema: 'public', table: resolved.entry.table }, () => scheduleFire())
     .subscribe();
 
   return () => {
     active = false;
+    if (timer) clearTimeout(timer);
     supabase.removeChannel(channel);
   };
 }
