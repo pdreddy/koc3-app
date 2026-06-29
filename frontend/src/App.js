@@ -65,7 +65,7 @@ function Shell() {
   const [loaded, setLoaded] = useState(false);
 
   const visibleLineupSubmissions = useMemo(() => {
-    const merged = JSON.parse(JSON.stringify(lineupSubmissionMeta || {}));
+    const merged = Object.fromEntries(Object.entries(lineupSubmissionMeta || {}).map(([scheduleId, submissions]) => [scheduleId, { ...(submissions || {}) }]));
     Object.entries(revealedScheduleSubmissions || {}).forEach(([scheduleId, submissions]) => {
       if (!submissions) return;
       merged[scheduleId] = { ...(merged[scheduleId] || {}), ...submissions };

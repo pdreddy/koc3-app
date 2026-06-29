@@ -952,6 +952,7 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
   const team1 = teams[team1Id];
   const team2 = teams[team2Id];
   const opponentList = groupFilteredOpponents(teamList, team1);
+  const targetFixture = targetScheduleId ? schedule?.[targetScheduleId] : null;
   const submittedLineupFixtures = useMemo(() => scoreLineupFixtures(schedule, revealedLineups, lineupSubmissions, team1Id, team2Id, teams, matches, eligibilityRules), [schedule, revealedLineups, lineupSubmissions, team1Id, team2Id, teams, matches, eligibilityRules]);
 
   useEffect(() => {
@@ -1129,6 +1130,16 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
         />
       )}
 
+      {targetFixture && (
+        <div className="score-target-banner" data-testid="score-target-banner">
+          <div>
+            <strong>Scoring scheduled match</strong>
+            <span>Round {targetFixture.round || '—'} · {targetFixture.date || 'TBD'} · {targetFixture.time || 'TBD'}</span>
+          </div>
+          <span className="tag">{targetRevealId || targetScheduleId}</span>
+        </div>
+      )}
+
       <div className="card score-teams-card">
         <h2>Match teams</h2>
         <div className="row score-teams-row">
@@ -1165,7 +1176,7 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
         <ScoreLineupLoader
           fixtures={submittedLineupFixtures}
           teams={teams}
-          selectedId={selectedScheduleId}
+          selectedId={selectedScheduleId || targetRevealId || targetScheduleId}
           onSelectedId={setSelectedScheduleId}
           mode="form"
           onLoad={(row) => { setCourts(buildLineupCourts(row.team1Names, row.team2Names)); setLoadedLineupFixture(row); recordLineupAudit({ actionType: 'Lineup Loaded For Score Entry', session, scheduleId: row.item.id, teamId: session.teamId || team1Id, metadata: { revealId: row.revealId, revealCode: row.revealCode, viewedAt: Date.now() } }).catch(() => {}); setError(''); setSuccess(`Loaded submitted dashboard lineup for schedule code ${fixtureCode(row.item)}.`); setShareText(''); setPendingRecord(null); }}

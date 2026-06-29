@@ -285,6 +285,22 @@ table.std .pts { font-weight: 900; }
 }
 .score-lineup-loader { padding: 1rem 1.15rem; }
 .score-lineup-loader .hint { margin-top: .35rem; }
+.score-target-banner {
+  align-items: center;
+  background: linear-gradient(135deg, rgba(37,99,235,.10), rgba(16,185,129,.10));
+  border: 1px solid var(--ring);
+  border-radius: 14px;
+  box-shadow: 0 1px 8px rgba(15,23,42,.05);
+  display: flex;
+  gap: .75rem;
+  justify-content: space-between;
+  margin-bottom: .75rem;
+  padding: .8rem .95rem;
+}
+.score-target-banner div { display: grid; gap: .15rem; min-width: 0; }
+.score-target-banner strong { color: var(--ink); }
+.score-target-banner span:not(.tag) { color: var(--muted); font-size: .84rem; }
+.score-target-banner .tag { max-width: 42%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lineup-loader-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, .85fr); align-items: end; gap: .75rem; margin-top: .35rem; }
 .lineup-loader-select { margin: 0; min-width: 0; }
 .lineup-loader-row .btn { width: 100%; min-height: 46px; align-self: end; }
@@ -366,6 +382,8 @@ table.std .pts { font-weight: 900; }
 .tag.status { font-size: 0.64rem; padding: 0.16rem 0.45rem; }
 
 @media (max-width: 640px) {
+  .score-target-banner { align-items: flex-start; flex-direction: column; }
+  .score-target-banner .tag { max-width: 100%; }
   .score-entry-grid {
     grid-template-columns: 1fr 1fr;
   }
