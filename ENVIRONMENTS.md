@@ -73,6 +73,34 @@ merging to your production branch deploys against `koc3-prod`.
 
 ---
 
+## Recommended flow: build dev with real data, promote schema to prod
+
+1. **Dev gets the real data** (so you can test against true rosters/matches):
+   ```bash
+   node setup-supabase.mjs --env dev ~/Downloads/koc-export.json
+   ```
+2. **Promote the schema to prod** — same tables/security/trigger, but *no data*
+   (prod starts clean and fills up from live use):
+   ```bash
+   node setup-supabase.mjs --env prod --schema-only
+   ```
+3. **Later, change the schema and re-promote** without wiping prod's live data:
+   ```bash
+   # edit supabase/migrations/*.sql, validate on dev, then:
+   node setup-supabase.mjs --env prod --schema-only --no-reset
+   ```
+   (`--no-reset` applies the migrations idempotently and keeps existing rows.)
+
+If you'd rather prod start **with** the same data as dev, just run the full
+command instead of `--schema-only`:
+```bash
+node setup-supabase.mjs --env prod ~/Downloads/koc-export.json
+```
+
+> Flags: `--schema-only` = structure only (no data/accounts). `--no-reset` =
+> don't wipe first (safe on a project that already holds live data). Default
+> (neither flag) = wipe + rebuild + import, for provisioning an env from scratch.
+
 ## Day-to-day
 - Build/try features against **dev** locally.
 - Push to `staging` → auto-deploys to **test** (real URL, isolated data) for QA.

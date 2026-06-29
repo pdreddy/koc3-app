@@ -33,13 +33,17 @@ const REPO = resolve(__dirname, '..');
 
 const ACCESS_TOKEN = process.env.SUPABASE_ACCESS_TOKEN;
 
-// --- parse args: [--env dev|test|prod] <firebase-export.json> ---
+// --- parse args: [--env dev|test|prod] [--schema-only] [--no-reset] [export.json] ---
 const argv = process.argv.slice(2);
 let ENV = process.env.ENV || '';
+let schemaOnly = false;   // promote structure only, skip data + accounts import
+let noReset = false;      // don't wipe the project first (idempotent schema apply)
 const positional = [];
 for (let i = 0; i < argv.length; i++) {
   if (argv[i] === '--env') ENV = argv[++i] || '';
   else if (argv[i].startsWith('--env=')) ENV = argv[i].slice(6);
+  else if (argv[i] === '--schema-only') schemaOnly = true;
+  else if (argv[i] === '--no-reset') noReset = true;
   else positional.push(argv[i]);
 }
 ENV = (ENV || 'prod').toLowerCase();
@@ -61,13 +65,15 @@ let REF = projectRefForEnv(ENV);
 
 if (!ACCESS_TOKEN) { console.error('Set SUPABASE_ACCESS_TOKEN (Supabase -> Account -> Access Tokens).'); process.exit(1); }
 if (!ENV_FILE[ENV]) { console.error(`--env must be one of: dev, test, prod (got "${ENV}")`); process.exit(1); }
-if (!exportPath) { console.error('Usage: node scripts/setup-supabase.mjs --env <dev|test|prod> <firebase-export.json>'); process.exit(1); }
-if (!existsSync(resolve(exportPath))) {
-  console.error(`\n❌ Export file not found: ${resolve(exportPath)}`);
-  console.error('   Pass the real path to your Firebase JSON export, e.g.');
-  console.error('   node setup-supabase.mjs ~/Downloads/koc2-20fb8-export.json');
-  console.error('   (Tip: drag the file into the terminal to paste its path.)\n');
-  process.exit(1);
+if (!schemaOnly) {
+  if (!exportPath) { console.error('Usage: node scripts/setup-supabase.mjs --env <dev|test|prod> <firebase-export.json>\n   (or add --schema-only to promote just the structure, no data)'); process.exit(1); }
+  if (!existsSync(resolve(exportPath))) {
+    console.error(`\n❌ Export file not found: ${resolve(exportPath)}`);
+    console.error('   Pass the real path to your Firebase JSON export, e.g.');
+    console.error('   node setup-supabase.mjs --env dev ~/Downloads/koc2-20fb8-export.json');
+    console.error('   (Tip: drag the file into the terminal to paste its path.)\n');
+    process.exit(1);
+  }
 }
 
 const API = 'https://api.supabase.com';
@@ -141,8 +147,12 @@ async function main() {
   console.log(`\nSetting up [${ENV}] -> ${url}\n`);
 
   const dir = join(REPO, 'supabase', 'migrations');
-  console.log('Resetting schema to a clean slate (data is re-imported below)...');
-  await runSql('0000_reset.sql', readFileSync(join(dir, '0000_reset.sql'), 'utf8'));
+  if (noReset) {
+    console.log('Applying schema idempotently (no reset; existing data preserved)...');
+  } else {
+    console.log('Resetting schema to a clean slate' + (schemaOnly ? '' : ' (data is re-imported below)') + '...');
+    await runSql('0000_reset.sql', readFileSync(join(dir, '0000_reset.sql'), 'utf8'));
+  }
   await runSql('0001_schema.sql', readFileSync(join(dir, '0001_schema.sql'), 'utf8'));
   await runSql('0002_rls.sql', readFileSync(join(dir, '0002_rls.sql'), 'utf8'));
   await runSql('0003_reveal_trigger.sql', readFileSync(join(dir, '0003_reveal_trigger.sql'), 'utf8'));
@@ -152,8 +162,12 @@ async function main() {
   const { anonKey, serviceKey } = await fetchKeys();
   writeEnv(url, anonKey);
 
-  console.log('\nImporting your data + accounts...\n');
-  await runDataMigration(url, serviceKey);
+  if (schemaOnly) {
+    console.log('\nSchema-only: skipped data + accounts import.');
+  } else {
+    console.log('\nImporting your data + accounts...\n');
+    await runDataMigration(url, serviceKey);
+  }
 
   console.log(`\n✅ [${ENV}] done. Project: ${url}`);
   if (ENV === 'dev') {
