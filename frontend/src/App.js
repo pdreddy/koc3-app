@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { onValue, ref, set, get, update } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
@@ -28,28 +28,6 @@ import More from './pages/More';
 import AuditLogs from './pages/AuditLogs';
 import { writeAuditLog } from './services/AuditService';
 
-function sanitizeLineupSubmissionsForSession(data, session) {
-  const teamId = session?.teamId;
-  return Object.fromEntries(Object.entries(data || {}).map(([scheduleId, submissions]) => {
-    const bothSubmitted = Object.values(submissions || {}).filter(row => row?.submittedAt && row?.lockedAt).length >= 2;
-    const safeSubmissions = Object.fromEntries(Object.entries(submissions || {}).map(([submissionTeamId, row]) => {
-      if (bothSubmitted || submissionTeamId === teamId) return [submissionTeamId, row];
-      return [submissionTeamId, {
-        scheduleId: row?.scheduleId,
-        teamId: submissionTeamId,
-        submissionStatus: row?.submissionStatus,
-        submittedAt: row?.submittedAt,
-        lockedAt: row?.lockedAt,
-        whatsappShared: !!row?.whatsappShared,
-        whatsappSharedAt: row?.whatsappSharedAt,
-        lastUpdatedAt: row?.lastUpdatedAt,
-        revealedAt: row?.revealedAt || null
-      }];
-    }));
-    return [scheduleId, safeSubmissions];
-  }));
-}
-
 function firebaseObjectToList(data, source) {
   if (!data) return [];
   const node = data.matches || data.matchResults || data.results || data;
@@ -78,11 +56,21 @@ function Shell() {
   const [playerRatings, setPlayerRatings] = useState({});
   const [adminConfig, setAdminConfig] = useState({ password: '', users: {} });
   const [schedule, setSchedule] = useState({});
-  const [lineupSubmissions, setLineupSubmissions] = useState({});
+  const [lineupSubmissionMeta, setLineupSubmissionMeta] = useState({});
+  const [ownLineupSubmissions, setOwnLineupSubmissions] = useState({});
   const [revealedLineups, setRevealedLineups] = useState({});
   const [lastRefreshed, setLastRefreshed] = useState(Date.now());
   const [settings, setSettings] = useState({ eligibilityRules: DEFAULT_ELIGIBILITY_RULES });
   const [loaded, setLoaded] = useState(false);
+
+  const visibleLineupSubmissions = useMemo(() => {
+    const merged = JSON.parse(JSON.stringify(lineupSubmissionMeta || {}));
+    Object.entries(ownLineupSubmissions || {}).forEach(([scheduleId, submission]) => {
+      if (!submission || !session?.teamId) return;
+      merged[scheduleId] = { ...(merged[scheduleId] || {}), [session.teamId]: submission };
+    });
+    return merged;
+  }, [lineupSubmissionMeta, ownLineupSubmissions, session?.teamId]);
 
 
   const syncSavedMatch = useCallback((record) => {
@@ -225,8 +213,8 @@ function Shell() {
     const unsubS = onValue(ref(db, PATHS.schedule), (snap) => {
       setSchedule(snap.val() || {});
     });
-    const unsubLineups = onValue(ref(db, PATHS.lineupSubmissions), (snap) => {
-      setLineupSubmissions(sanitizeLineupSubmissionsForSession(snap.val() || {}, session));
+    const unsubLineups = onValue(ref(db, PATHS.lineupSubmissionMeta), (snap) => {
+      setLineupSubmissionMeta(snap.val() || {});
       setLastRefreshed(Date.now());
     });
     const unsubRevealedLineups = onValue(ref(db, PATHS.revealedLineups), (snap) => {
@@ -239,6 +227,24 @@ function Shell() {
     });
     return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubAU(); unsubR(); unsubS(); unsubLineups(); unsubRevealedLineups(); unsubSettings(); };
   }, [session]);
+
+
+  useEffect(() => {
+    if (!session?.teamId) {
+      setOwnLineupSubmissions({});
+      return undefined;
+    }
+    const scheduleIds = Object.values(schedule || {}).filter(item => item?.id && item?.type !== 'buffer').map(item => item.id);
+    if (scheduleIds.length === 0) {
+      setOwnLineupSubmissions({});
+      return undefined;
+    }
+    const unsubs = scheduleIds.map(scheduleId => onValue(ref(db, `${PATHS.lineupSubmissions}/${scheduleId}/${session.teamId}`), (snap) => {
+      setOwnLineupSubmissions(prev => ({ ...prev, [scheduleId]: snap.val() || null }));
+      setLastRefreshed(Date.now());
+    }));
+    return () => unsubs.forEach(unsub => unsub());
+  }, [schedule, session?.teamId]);
 
   useEffect(() => {
     if (session?.role !== ROLES.CAPTAIN || !session.teamId) return;
@@ -253,7 +259,7 @@ function Shell() {
       <ActivityAudit />
       {!hideChrome && <AppHeader />}
       <Routes>
-        <Route path="/" element={<Home teams={teams} schedule={schedule} matches={matches} eligibilityRules={settings.eligibilityRules} lineupSubmissions={lineupSubmissions} revealedLineups={revealedLineups} lastRefreshed={lastRefreshed} onRefresh={() => setLastRefreshed(Date.now())} />} />
+        <Route path="/" element={<Home teams={teams} schedule={schedule} matches={matches} eligibilityRules={settings.eligibilityRules} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} lastRefreshed={lastRefreshed} onRefresh={() => setLastRefreshed(Date.now())} />} />
         <Route path="/teams" element={<Teams teams={teams} loaded={loaded} />} />
         <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} />} />
         <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />
@@ -265,7 +271,7 @@ function Shell() {
         <Route path="/login" element={<Login teams={teams} adminConfig={adminConfig} />} />
         <Route path="/score" element={
           <ProtectedTeam>
-            <ScoreEntry teams={teams} schedule={schedule} lineupSubmissions={lineupSubmissions} revealedLineups={revealedLineups} matches={matches} eligibilityRules={settings.eligibilityRules} onScoreSaved={syncSavedMatch} />
+            <ScoreEntry teams={teams} schedule={schedule} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} matches={matches} eligibilityRules={settings.eligibilityRules} onScoreSaved={syncSavedMatch} />
           </ProtectedTeam>
         } />
         <Route path="/audit" element={
@@ -275,7 +281,7 @@ function Shell() {
         } />
         <Route path="/admin" element={
           <ProtectedAdmin>
-            <Admin teams={teams} adminConfig={adminConfig} matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} schedule={schedule} lineupSubmissions={lineupSubmissions} revealedLineups={revealedLineups} playerRatings={playerRatings} settings={settings} />
+            <Admin teams={teams} adminConfig={adminConfig} matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} schedule={schedule} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} playerRatings={playerRatings} settings={settings} />
           </ProtectedAdmin>
         } />
         <Route path="*" element={<Navigate to="/teams" replace />} />

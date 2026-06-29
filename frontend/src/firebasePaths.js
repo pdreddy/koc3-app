@@ -21,6 +21,7 @@ export const PATHS = {
   cachedSummaries: seasonPath('cachedSummaries'),
   auditLogs: seasonPath('auditLogs'),
   lineupSubmissions: seasonPath('lineupSubmissions'),
+  lineupSubmissionMeta: seasonPath('lineupSubmissionMeta'),
   revealedLineups: seasonPath('revealedLineups'),
   lineupUnlocks: seasonPath('lineupUnlocks'),
   lineupDeletes: seasonPath('lineupDeletes'),

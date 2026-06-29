@@ -176,8 +176,19 @@ function revealedLineupRows(mySubmission, opponentSubmission) {
   }));
 }
 
-function whatsappMessage(team, opponent, captainName, mySubmission, opponentSubmission) {
-  const rows = revealedLineupRows(mySubmission, opponentSubmission)
+function revealedRecordRows(revealedLineup, myTeamId, opponentTeamId, mySubmission, opponentSubmission) {
+  if (!revealedLineup?.lineups) return revealedLineupRows(mySubmission, opponentSubmission);
+  const mine = lineupByLabel({ lineup: revealedLineup.lineups?.[myTeamId] || [] });
+  const theirs = lineupByLabel({ lineup: revealedLineup.lineups?.[opponentTeamId] || [] });
+  return ['S1', 'D1', 'D2'].map(label => ({
+    label,
+    mine: mine[label] || [],
+    theirs: theirs[label] || []
+  }));
+}
+
+function whatsappMessage(team, opponent, captainName, mySubmission, opponentSubmission, revealedLineup) {
+  const rows = revealedRecordRows(revealedLineup, team?.id, opponent?.id, mySubmission, opponentSubmission)
     .map(row => `${row.label}: ${row.mine.join(' / ')} vs ${row.theirs.join(' / ')}`)
     .join('\n');
   return `KOC Match\n\n${team?.name || 'Our Team'} vs ${opponent?.name || 'Opponent'}\n\nCaptain:\n${captainName || 'Captain'}\n\nOfficial revealed lineups:\n${rows}\n\nThe KOC App remains the official source of truth.`;
@@ -268,7 +279,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
   const errors = validateDashboardLineup(captainTeam, selected, matches, teams, eligibilityRules);
   const names = selectedNames(captainTeam, selected);
   const canSubmit = !completed && !locked && errors.length === 0;
-  const waText = whatsappMessage(captainTeam, opponent, captainTeam?.players?.find(p => p.isCaptain)?.name || captainTeam?.players?.[0]?.name || session.teamName, lineupSubmission, opponentSubmission);
+  const waText = whatsappMessage(captainTeam, opponent, captainTeam?.players?.find(p => p.isCaptain)?.name || captainTeam?.players?.[0]?.name || session.teamName, lineupSubmission, opponentSubmission, revealedLineup);
   const waHref = `https://wa.me/?text=${encodeURIComponent(waText)}`;
 
   useEffect(() => {
@@ -338,40 +349,41 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
     const validationErrors = validateDashboardLineup(captainTeam, selected, matches, teams, eligibilityRules);
     if (validationErrors.length) return;
     const now = Date.now();
-    const opponentSubmitted = !!opponentSubmission?.submittedAt && !!opponentSubmission?.lockedAt;
-    const revealId = opponentSubmitted ? (opponentSubmission?.revealId || lineupSubmission?.revealId || `${item.id}-${now}`) : null;
+    const revealId = null;
     const payload = {
       scheduleId: item.id,
       teamId: captainTeam.id,
       opponentTeamId: opponent?.id || '',
       selected,
       lineup: buildDashboardLineupLines(names),
-      submissionStatus: opponentSubmitted ? 'revealed' : 'submitted_locked',
+      submissionStatus: 'submitted_locked',
       submittedAt: now,
       lockedAt: now,
       whatsappShared: lineupSubmission?.whatsappShared || false,
       validationErrors: [],
       lastUpdatedAt: now,
       version: (lineupSubmission?.version || 0) + 1,
-      revealedAt: opponentSubmitted ? now : (lineupSubmission?.revealedAt || null),
+      revealedAt: lineupSubmission?.revealedAt || null,
       revealId
     };
-    const updates = { [`${PATHS.lineupSubmissions}/${item.id}/${captainTeam.id}`]: payload };
-    if (opponentSubmitted && opponent?.id) {
-      const team1Submission = item.team1Id === captainTeam.id ? payload : opponentSubmission;
-      const team2Submission = item.team2Id === captainTeam.id ? payload : opponentSubmission;
-      updates[`${PATHS.lineupSubmissions}/${item.id}/${opponent.id}/revealedAt`] = opponentSubmission.revealedAt || now;
-      updates[`${PATHS.lineupSubmissions}/${item.id}/${opponent.id}/revealId`] = revealId;
-      updates[`${PATHS.revealedLineups}/${revealId}`] = {
-        revealId,
-        scheduleId: item.id,
-        revealCode: revealId.slice(-8).toUpperCase(),
-        team1Id: item.team1Id,
-        team2Id: item.team2Id,
-        revealedAt: now,
-        lineups: { [item.team1Id]: team1Submission.lineup || [], [item.team2Id]: team2Submission.lineup || [] }
-      };
-    }
+    const metaPayload = {
+      scheduleId: item.id,
+      teamId: captainTeam.id,
+      opponentTeamId: opponent?.id || '',
+      submissionStatus: payload.submissionStatus,
+      submittedAt: now,
+      lockedAt: now,
+      whatsappShared: payload.whatsappShared,
+      whatsappSharedAt: lineupSubmission?.whatsappSharedAt || null,
+      lastUpdatedAt: now,
+      version: payload.version,
+      revealedAt: payload.revealedAt,
+      revealId: payload.revealId
+    };
+    const updates = {
+      [`${PATHS.lineupSubmissions}/${item.id}/${captainTeam.id}`]: payload,
+      [`${PATHS.lineupSubmissionMeta}/${item.id}/${captainTeam.id}`]: metaPayload
+    };
     try {
       setBusy(true);
       await ensureAuth();
@@ -389,7 +401,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
     const now = Date.now();
     try {
       await ensureAuth();
-      await update(ref(db, `${PATHS.lineupSubmissions}/${item.id}/${captainTeam.id}`), { whatsappShared: true, whatsappSharedAt: now, lastUpdatedAt: now });
+      await update(ref(db), { [`${PATHS.lineupSubmissions}/${item.id}/${captainTeam.id}/whatsappShared`]: true, [`${PATHS.lineupSubmissions}/${item.id}/${captainTeam.id}/whatsappSharedAt`]: now, [`${PATHS.lineupSubmissions}/${item.id}/${captainTeam.id}/lastUpdatedAt`]: now, [`${PATHS.lineupSubmissionMeta}/${item.id}/${captainTeam.id}/whatsappShared`]: true, [`${PATHS.lineupSubmissionMeta}/${item.id}/${captainTeam.id}/whatsappSharedAt`]: now, [`${PATHS.lineupSubmissionMeta}/${item.id}/${captainTeam.id}/lastUpdatedAt`]: now });
       await writeAuditLog({ actionType: 'Lineup WhatsApp Shared', session, targetType: 'schedule', targetId: item.id, newValue: { scheduleId: item.id, teamId: captainTeam.id, whatsappSharedAt: now } });
     } catch (e) {
       setMessage(`WhatsApp status failed: ${e.message}`);
@@ -432,7 +444,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
               {revealed && <a className="btn success" href={waHref} target="_blank" rel="noreferrer" onClick={markWhatsappShared} data-testid={`share-lineup-whatsapp-${item.id}`}>Share via WhatsApp</a>}
               <button className="btn ghost" type="button" onClick={onRefresh}>Refresh</button>
               <p className="hint">Last Updated<br />{timeLabel(lineupSubmission.lastUpdatedAt)}</p>
-              {revealed && <div className="lineup-reveal"><h4>Revealed Lineups {lineupSubmission?.revealId ? `· Code ${lineupSubmission.revealId.slice(-8).toUpperCase()}` : ''}</h4>{revealedLineupRows(lineupSubmission, opponentSubmission).map(row => <div key={row.label}><strong>{row.label}:</strong> {row.mine.join(' / ')} <strong>vs</strong> {row.theirs.join(' / ')}</div>)}</div>}
+              {revealed && <div className="lineup-reveal"><h4>Revealed Lineups {lineupSubmission?.revealId ? `· Code ${lineupSubmission.revealId.slice(-8).toUpperCase()}` : ''}</h4>{revealedRecordRows(revealedLineup, captainTeam.id, opponent?.id, lineupSubmission, opponentSubmission).map(row => <div key={row.label}><strong>{row.label}:</strong> {row.mine.join(' / ')} <strong>vs</strong> {row.theirs.join(' / ')}</div>)}</div>}
               {!revealed && <p className="hint">Lineup details and WhatsApp sharing stay hidden until both captains submit and lock.</p>}
             </div>
           )}
