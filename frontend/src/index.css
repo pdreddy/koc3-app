@@ -2052,3 +2052,52 @@ button,
     transition-duration: .06s;
   }
 }
+
+/* Current-route nav items render as non-links to avoid no-op pointer INP work. */
+.top-nav .nav-current,
+.bottom-nav .nav-current {
+  pointer-events: none;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.bottom-nav .nav-current {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-width: 0;
+  padding: 0.55rem 0.25rem;
+  gap: 0.18rem;
+  color: var(--primary-blue);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-decoration: none;
+  background: linear-gradient(180deg, #eef6ff, #e0e7ff);
+}
+
+.bottom-nav .nav-current .ico {
+  font-size: 1.16rem;
+  line-height: 1;
+  display: inline-flex;
+  min-height: 1.2rem;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-1px);
+}
+
+.bottom-nav .nav-current span:last-child {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top-nav .nav-current {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ipl-blue);
+  font-weight: 950;
+}

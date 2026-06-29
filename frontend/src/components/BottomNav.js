@@ -36,17 +36,27 @@ export default function BottomNav() {
     <nav className="bottom-nav" data-testid="bottom-nav" style={{ '--bottom-nav-count': tabs.length }}>
       {tabs.map(t => {
         const current = samePath(location.pathname, t.to);
+        const content = (
+          <>
+            <span className="ico">{t.icon}</span>
+            <span>{t.label}</span>
+          </>
+        );
+        if (current) {
+          return (
+            <span key={t.to} className="active nav-current" data-testid={t.testid} aria-current="page" aria-disabled="true">
+              {content}
+            </span>
+          );
+        }
         return (
           <NavLink
             key={t.to}
             to={t.to}
             className={({ isActive }) => isActive ? 'active' : ''}
             data-testid={t.testid}
-            onClick={event => { if (current) event.preventDefault(); }}
-            aria-disabled={current ? 'true' : undefined}
           >
-            <span className="ico">{t.icon}</span>
-            <span>{t.label}</span>
+            {content}
           </NavLink>
         );
       })}

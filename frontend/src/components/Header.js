@@ -29,24 +29,32 @@ export default function AppHeader() {
   };
   return (
     <header className="app-header" data-testid="app-header">
-      <Link to="/" className="brand" data-testid="header-home" aria-label="KOC3 home" onClick={event => preventCurrentPageNavigation(event, '/')} aria-disabled={isHome ? 'true' : undefined}>
+      {isHome ? <span className="brand nav-current" data-testid="header-home" aria-label="KOC3 home" aria-current="page" aria-disabled="true">
         <span className="logo" aria-hidden="true">🏆</span>
         <span className="brand-copy">
           <strong>KOC3</strong>
           <small>Tennis League</small>
         </span>
-      </Link>
+      </span> : <Link to="/" className="brand" data-testid="header-home" aria-label="KOC3 home">
+        <span className="logo" aria-hidden="true">🏆</span>
+        <span className="brand-copy">
+          <strong>KOC3</strong>
+          <small>Tennis League</small>
+        </span>
+      </Link>}
 
       <nav className="top-nav" aria-label="Primary navigation">
         {[...PRIMARY_LINKS, ...(canViewAudit(session) ? [{ to: '/audit', label: 'Audit' }] : [])].map(link => {
           const current = samePath(location.pathname, link.to);
+          if (current) {
+            return <span key={link.to} className="active nav-current" aria-current="page" aria-disabled="true">{link.label}</span>;
+          }
           return (
             <NavLink
               key={link.to}
               to={link.to}
               className={({ isActive }) => isActive ? 'active' : ''}
               onClick={event => preventCurrentPageNavigation(event, link.to)}
-              aria-disabled={current ? 'true' : undefined}
             >
               {link.label}
             </NavLink>
