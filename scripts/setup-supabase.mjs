@@ -102,6 +102,8 @@ async function main() {
   console.log(`\nSetting up ${url}\n`);
 
   const dir = join(REPO, 'supabase', 'migrations');
+  console.log('Resetting schema to a clean slate (data is re-imported below)...');
+  await runSql('0000_reset.sql', readFileSync(join(dir, '0000_reset.sql'), 'utf8'));
   await runSql('0001_schema.sql', readFileSync(join(dir, '0001_schema.sql'), 'utf8'));
   await runSql('0002_rls.sql', readFileSync(join(dir, '0002_rls.sql'), 'utf8'));
   await runSql('0003_reveal_trigger.sql', readFileSync(join(dir, '0003_reveal_trigger.sql'), 'utf8'));

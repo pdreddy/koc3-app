@@ -76,6 +76,9 @@ Open **Project Settings** (gear icon) → **API**. Copy these:
 ## Step 2 — Create the database tables
 
 1. In Supabase, open **SQL Editor** (left sidebar) → **New query**.
+   - *Only if a previous attempt half-created tables:* run
+     `supabase/migrations/0000_reset.sql` first to clear them (DESTRUCTIVE —
+     deletes all rows; safe before your first data import).
 2. Open the file `supabase/migrations/0001_schema.sql` from this repo, copy ALL
    of it, paste into the editor, and click **Run**.
 3. Repeat for `supabase/migrations/0002_rls.sql`.
