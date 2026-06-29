@@ -15,18 +15,45 @@ import BottomNav from './components/BottomNav';
 import AppHeader from './components/Header';
 import { writeAuditLog } from './services/AuditService';
 
-const Home = lazy(() => import('./pages/Home'));
-const Teams = lazy(() => import('./pages/Teams'));
-const Standings = lazy(() => import('./pages/Standings'));
-const History = lazy(() => import('./pages/History'));
-const Login = lazy(() => import('./pages/Login'));
-const Admin = lazy(() => import('./pages/Admin'));
-const ScoreEntry = lazy(() => import('./pages/ScoreEntry'));
-const Rules = lazy(() => import('./pages/Rules'));
-const Schedule = lazy(() => import('./pages/Schedule'));
-const Matchups = lazy(() => import('./pages/Matchups'));
-const More = lazy(() => import('./pages/More'));
-const AuditLogs = lazy(() => import('./pages/AuditLogs'));
+const pageImports = {
+  Home:      () => import('./pages/Home'),
+  Teams:     () => import('./pages/Teams'),
+  Standings: () => import('./pages/Standings'),
+  History:   () => import('./pages/History'),
+  Login:     () => import('./pages/Login'),
+  Admin:     () => import('./pages/Admin'),
+  ScoreEntry:() => import('./pages/ScoreEntry'),
+  Rules:     () => import('./pages/Rules'),
+  Schedule:  () => import('./pages/Schedule'),
+  Matchups:  () => import('./pages/Matchups'),
+  More:      () => import('./pages/More'),
+  AuditLogs: () => import('./pages/AuditLogs'),
+};
+
+const Home       = lazy(pageImports.Home);
+const Teams      = lazy(pageImports.Teams);
+const Standings  = lazy(pageImports.Standings);
+const History    = lazy(pageImports.History);
+const Login      = lazy(pageImports.Login);
+const Admin      = lazy(pageImports.Admin);
+const ScoreEntry = lazy(pageImports.ScoreEntry);
+const Rules      = lazy(pageImports.Rules);
+const Schedule   = lazy(pageImports.Schedule);
+const Matchups   = lazy(pageImports.Matchups);
+const More       = lazy(pageImports.More);
+const AuditLogs  = lazy(pageImports.AuditLogs);
+
+// Prefetch all route chunks during browser idle time after first paint
+// so subsequent navigations are instant (chunk already in cache)
+if (typeof requestIdleCallback !== 'undefined') {
+  requestIdleCallback(() => {
+    Object.values(pageImports).forEach((imp) => imp().catch(() => {}));
+  }, { timeout: 4000 });
+} else {
+  setTimeout(() => {
+    Object.values(pageImports).forEach((imp) => imp().catch(() => {}));
+  }, 2000);
+}
 
 function firebaseObjectToList(data, source) {
   if (!data) return [];

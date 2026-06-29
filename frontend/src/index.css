@@ -56,7 +56,7 @@ input, button, textarea, select { font-family: inherit; font-size: 1rem; max-wid
 
 button { cursor: pointer; touch-action: manipulation; }
 
-a { color: inherit; text-decoration: none; }
+a { color: inherit; text-decoration: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 
 /* ===== App Layout ===== */
 .app-shell {
@@ -185,14 +185,21 @@ main.container {
   border-top: 1px solid var(--ring);
   padding-bottom: env(safe-area-inset-bottom);
   box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
+  /* GPU-composite the nav bar so repaints don't touch the page */
+  will-change: transform;
+  contain: layout style;
 }
 .bottom-nav a {
   display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-width: 0;
   padding: 0.55rem 0.25rem; gap: 0.18rem;
   color: var(--muted);
   font-size: 0.7rem; font-weight: 700;
-  transition: color 0.12s ease;
+  /* only animate opacity+color — avoids layout recalc on tap */
+  transition: color 0.1s ease, opacity 0.1s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
+.bottom-nav a:active { opacity: 0.65; }
 .bottom-nav a .ico { font-size: 1.15rem; line-height: 1; display: inline-flex; min-height: 1.2rem; align-items: center; justify-content: center; }
 .bottom-nav a span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bottom-nav a.active { color: var(--bg1); }
