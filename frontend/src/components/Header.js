@@ -24,10 +24,10 @@ export default function AppHeader() {
   return (
     <header className="app-header" data-testid="app-header">
       <Link to="/" className="brand" data-testid="header-home" aria-label="KOC3 home">
-        <span className="logo" aria-hidden="true">K3</span>
+        <span className="menu-mark" aria-hidden="true">☰</span>
         <span className="brand-copy">
-          <strong>KOC3</strong>
-          <small><span aria-hidden="true">●</span> Live Tennis League</small>
+          <strong>KOC</strong>
+          <small>Season 3</small>
         </span>
       </Link>
 
@@ -46,7 +46,7 @@ export default function AppHeader() {
 
       <div className="header-actions">
         {canScore && (
-          <Link to="/score" className="score-cta" data-testid="header-score-link">Score Match</Link>
+          <Link to="/score" className="score-cta" data-testid="header-score-link">Submit Score</Link>
         )}
         {hasRole(session, [ROLES.ADMIN, ROLES.SUPER_ADMIN]) && (
           <span className="user-pill" data-testid="user-pill">ADMIN</span>
