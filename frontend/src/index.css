@@ -1608,3 +1608,389 @@ table.std tbody tr:hover td {
     box-shadow: 0 10px 28px rgba(15,23,42,.12);
   }
 }
+
+/* ===== Premium Champions League Theme (presentation-only override) ===== */
+:root {
+  --champ-navy-950: #020817;
+  --champ-navy-900: #07111f;
+  --champ-navy-850: #0b1830;
+  --champ-navy-800: #10213d;
+  --champ-blue-700: #173b75;
+  --champ-gold-500: #d6a84f;
+  --champ-gold-400: #f2cf7a;
+  --champ-gold-300: #ffe7a3;
+  --champ-cream: #fff7df;
+  --champ-line: rgba(242, 207, 122, .22);
+  --champ-glass: rgba(10, 24, 48, .78);
+  --champ-card: rgba(9, 22, 43, .92);
+  --champ-text: #f8fafc;
+  --champ-muted: #b7c2d6;
+  --primary-blue: var(--champ-gold-500);
+  --primary-blue-dark: #a87622;
+  --light-blue-bg: var(--champ-navy-900);
+  --white: #ffffff;
+  --text-dark: var(--champ-text);
+  --border-light: var(--champ-line);
+  --bg1: var(--champ-gold-500);
+  --bg2: #a87622;
+  --bg3: var(--champ-gold-400);
+  --ink: var(--champ-text);
+  --muted: var(--champ-muted);
+  --card: var(--champ-card);
+  --ring: var(--champ-line);
+  --accent: var(--champ-gold-400);
+}
+
+html { background: var(--champ-navy-950); }
+
+body {
+  color: var(--champ-text);
+  background:
+    radial-gradient(circle at 18% -8%, rgba(242, 207, 122, .20), transparent 28rem),
+    radial-gradient(circle at 84% 4%, rgba(59, 130, 246, .14), transparent 30rem),
+    radial-gradient(circle at 52% 112%, rgba(214, 168, 79, .16), transparent 34rem),
+    linear-gradient(135deg, var(--champ-navy-950) 0%, var(--champ-navy-900) 48%, #030712 100%);
+}
+
+body::before {
+  background:
+    linear-gradient(rgba(242, 207, 122, .055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(242, 207, 122, .055) 1px, transparent 1px);
+  background-size: 54px 54px;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,.72), transparent 74%);
+}
+
+body::after {
+  background:
+    linear-gradient(90deg, transparent 49.5%, rgba(242,207,122,.25) 49.5% 50.5%, transparent 50.5%),
+    linear-gradient(0deg, transparent 49%, rgba(242,207,122,.18) 49% 51%, transparent 51%),
+    radial-gradient(ellipse at center, rgba(214,168,79,.10), transparent 66%);
+  opacity: .52;
+}
+
+.app-header {
+  color: var(--champ-text);
+  border-color: rgba(242,207,122,.24);
+  background: linear-gradient(135deg, rgba(7,17,31,.96), rgba(16,33,61,.90));
+  box-shadow: 0 22px 60px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+.app-header .brand strong,
+.login-card h1 {
+  background: linear-gradient(135deg, var(--champ-gold-300), var(--champ-gold-500));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.app-header .brand span.logo {
+  color: var(--champ-navy-950);
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255,255,255,.72), transparent 25%),
+    linear-gradient(135deg, var(--champ-gold-300), var(--champ-gold-500) 58%, #9f6d1d);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 14px 28px rgba(214,168,79,.24);
+}
+
+.brand-copy small,
+.hint,
+.muted,
+.page-title p,
+.match-hist .meta small,
+.match-hist .lines,
+.player-utr,
+.field-label,
+.rl-val,
+.coach-tip {
+  color: var(--champ-muted);
+}
+
+.top-nav {
+  background: rgba(2, 8, 23, .48);
+  border-color: rgba(242,207,122,.18);
+}
+
+.top-nav a {
+  color: #dbe6f8;
+}
+
+.top-nav a > span:first-child {
+  color: var(--champ-gold-300);
+  background: rgba(242,207,122,.10);
+}
+
+.top-nav a.active,
+.btn,
+.app-header .user-pill,
+.score-cta {
+  color: #08111f;
+  background: linear-gradient(135deg, var(--champ-gold-300), var(--champ-gold-500) 62%, #b47d24);
+  box-shadow: 0 14px 30px rgba(214,168,79,.24);
+}
+
+.score-cta {
+  color: var(--champ-navy-950);
+}
+
+.btn.success { background: linear-gradient(135deg, #6ee7b7, #10b981); color: #042014; }
+.btn.danger { background: linear-gradient(135deg, #fca5a5, #ef4444); color: #310808; }
+.btn.warn { background: linear-gradient(135deg, var(--champ-gold-300), #f59e0b); color: #2a1600; }
+.btn.secondary { background: linear-gradient(135deg, #52627a, #334155); color: #fff; }
+.btn.ghost {
+  color: var(--champ-gold-300);
+  background: rgba(255,255,255,.04);
+  border-color: rgba(242,207,122,.24);
+}
+
+main.container {
+  padding-top: clamp(1rem, 2vw, 1.4rem);
+}
+
+.page-title,
+.card,
+.team-card,
+.match-hist,
+.login-card,
+.format-coach,
+.rl-card,
+.rl-step,
+.match-line,
+.court-card.classic,
+.score-target-banner {
+  color: var(--champ-text);
+  border-color: rgba(242,207,122,.18);
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.018)),
+    var(--champ-card);
+  box-shadow: 0 22px 56px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.055);
+}
+
+.page-title {
+  border-left: 0;
+}
+
+.page-title::before {
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, var(--champ-gold-400), transparent);
+}
+
+.page-title::after {
+  background: radial-gradient(circle, rgba(242,207,122,.18), transparent 68%);
+}
+
+.page-title h1,
+.card h2,
+.match-hist .teams,
+.match-hist .lines .ln strong,
+.court-card-head h3,
+.score-target-banner strong,
+.rl-card h3,
+.rl-lbl {
+  color: var(--champ-text);
+}
+
+.card h2::first-letter,
+.page-title h1::first-letter {
+  color: var(--champ-gold-400);
+}
+
+.input,
+.textarea,
+.select,
+.login-tabs,
+.suggest,
+.quick-textarea,
+.format-coach code {
+  color: var(--champ-text);
+  background: rgba(2, 8, 23, .56);
+  border-color: rgba(242,207,122,.20);
+}
+
+.input::placeholder,
+.textarea::placeholder { color: rgba(183,194,214,.7); }
+
+.input:focus,
+.textarea:focus,
+.select:focus {
+  border-color: var(--champ-gold-400);
+  box-shadow: 0 0 0 4px rgba(242,207,122,.14);
+}
+
+.select option {
+  color: #0f172a;
+  background: #fff;
+}
+
+.table-wrap {
+  border-color: rgba(242,207,122,.18);
+  background: rgba(2,8,23,.34);
+}
+
+table.std {
+  color: var(--champ-text);
+  background: transparent;
+}
+
+table.std thead th {
+  color: var(--champ-cream);
+  background: linear-gradient(135deg, #07111f, #15294c 58%, #5d4219);
+  border-bottom: 1px solid rgba(242,207,122,.24);
+}
+
+table.std tbody td {
+  border-bottom-color: rgba(242,207,122,.12);
+}
+
+table.std tbody tr:nth-child(even) td {
+  background: rgba(255,255,255,.025);
+}
+
+table.std tbody tr:hover td,
+.player-row:hover {
+  background: rgba(242,207,122,.075);
+}
+
+table.std tr.q {
+  background: linear-gradient(90deg, rgba(242,207,122,.16), transparent 100%);
+}
+
+.team-header {
+  color: #fff;
+  border-bottom: 1px solid rgba(255,255,255,.10);
+}
+
+.team-body,
+.player-row {
+  background: transparent;
+}
+
+.player-row {
+  border-bottom-color: rgba(242,207,122,.12);
+}
+
+.player-row.captain {
+  color: var(--champ-cream);
+  background: linear-gradient(90deg, rgba(214,168,79,.20), rgba(214,168,79,.055));
+}
+
+.player-badge,
+.rl-chip {
+  color: var(--champ-navy-950);
+  background: linear-gradient(135deg, var(--champ-gold-300), var(--champ-gold-500));
+}
+
+.tag,
+.cap-badge,
+.lineup-check span {
+  color: var(--champ-gold-300);
+  background: rgba(242,207,122,.12);
+  border: 1px solid rgba(242,207,122,.18);
+}
+
+.tag.win,
+.tag.status.ready,
+.success-box {
+  color: #bbf7d0;
+  background: rgba(22,163,74,.14);
+  border-color: rgba(134,239,172,.28);
+}
+
+.tag.lose,
+.error-box {
+  color: #fecaca;
+  background: rgba(239,68,68,.14);
+  border-color: rgba(252,165,165,.28);
+}
+
+.tag.tie,
+.tag.status.warning,
+.rl-flag.warn {
+  color: var(--champ-gold-300);
+  background: rgba(245,158,11,.14);
+  border-color: rgba(242,207,122,.28);
+}
+
+.bottom-nav {
+  border-color: rgba(242,207,122,.25);
+  background: rgba(7,17,31,.94);
+  box-shadow: 0 22px 58px rgba(0,0,0,.44), inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+.bottom-nav a {
+  color: var(--champ-muted);
+}
+
+.bottom-nav a .ico {
+  color: var(--champ-gold-300);
+  background: rgba(242,207,122,.10);
+}
+
+.bottom-nav a.active {
+  color: var(--champ-cream);
+  background: rgba(242,207,122,.10);
+}
+
+.bottom-nav a.active .ico {
+  color: var(--champ-navy-950);
+  background: linear-gradient(135deg, var(--champ-gold-300), var(--champ-gold-500));
+}
+
+.tabs .tab,
+.login-tabs button {
+  color: var(--champ-muted);
+  background: rgba(2,8,23,.42);
+  border-color: rgba(242,207,122,.10);
+}
+
+.tabs .tab.active,
+.login-tabs button.active,
+.lineup-check.active {
+  color: var(--champ-navy-950);
+  background: linear-gradient(135deg, var(--champ-gold-300), var(--champ-gold-500));
+  border-color: transparent;
+}
+
+.divider,
+.rl-sec-head .ln,
+.rl-sub::after {
+  background: linear-gradient(90deg, transparent, rgba(242,207,122,.28), transparent);
+}
+
+.rl-sec-head h2,
+.rl-num,
+.rl-sub,
+.ptl-kicker,
+.ptl-rating-value {
+  color: var(--champ-gold-300);
+}
+
+.ptl-hero-stat,
+.ptl-metric {
+  color: var(--champ-navy-950);
+  background: linear-gradient(135deg, var(--champ-gold-300), var(--champ-gold-500));
+}
+
+.ptl-metric span,
+.ptl-metric small,
+.ptl-metric strong {
+  color: var(--champ-navy-950);
+}
+
+.fab {
+  color: var(--champ-navy-950);
+  background: linear-gradient(135deg, var(--champ-gold-300), var(--champ-gold-500));
+}
+
+@media (max-width: 760px) {
+  body {
+    background:
+      radial-gradient(circle at 50% -12%, rgba(242,207,122,.18), transparent 22rem),
+      linear-gradient(180deg, var(--champ-navy-950), var(--champ-navy-900));
+  }
+  .app-header {
+    border-bottom: 1px solid rgba(242,207,122,.18);
+  }
+  .bottom-nav {
+    bottom: max(.45rem, env(safe-area-inset-bottom));
+  }
+}

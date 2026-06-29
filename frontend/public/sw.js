@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'koc3-pprc-shell-v2';
+const CACHE_VERSION = 'koc3-pprc-shell-v1';
 const APP_SHELL = [
   './',
   './index.html',

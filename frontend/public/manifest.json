@@ -8,10 +8,7 @@
   "orientation": "portrait",
   "theme_color": "#2563eb",
   "background_color": "#ffffff",
-  "categories": [
-    "sports",
-    "productivity"
-  ],
+  "categories": ["sports", "productivity"],
   "icons": [
     {
       "src": "logo.svg",
@@ -19,17 +16,5 @@
       "sizes": "any",
       "purpose": "any maskable"
     }
-  ],
-  "id": "/",
-  "display_override": [
-    "window-controls-overlay",
-    "standalone",
-    "minimal-ui"
-  ],
-  "edge_side_panel": {
-    "preferred_width": 420
-  },
-  "launch_handler": {
-    "client_mode": "navigate-existing"
-  }
+  ]
 }
