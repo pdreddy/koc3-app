@@ -2109,17 +2109,67 @@ button,
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 220px;
+  min-height: 260px;
 }
-.page-spinner-ball {
-  font-size: 2.4rem;
-  animation: ball-bounce 0.55s ease-in-out infinite alternate, nav-ball-spin 1.1s linear infinite;
-  display: inline-block;
-  filter: drop-shadow(0 4px 8px rgba(37,99,235,0.25));
+
+/* Tennis ball + racket SVG spinner */
+.tbs-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
 }
-@keyframes ball-bounce {
-  from { transform: translateY(0) rotate(0deg); }
-  to   { transform: translateY(-18px) rotate(180deg); }
+.tbs-svg {
+  width: 120px;
+  height: 160px;
+  overflow: visible;
+}
+.tbs-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted, #6b7280);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+/* Shadow: squishes when ball is near bottom, stretches when high */
+.tbs-shadow {
+  fill: rgba(0,0,0,0.15);
+  animation: tbs-shadow 0.72s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+@keyframes tbs-shadow {
+  0%   { rx: 18; ry: 5; opacity: 0.18; }
+  40%  { rx: 10; ry: 3; opacity: 0.08; }
+  50%  { rx: 10; ry: 3; opacity: 0.06; }
+  100% { rx: 18; ry: 5; opacity: 0.18; }
+}
+
+/* Ball: bounces up with realistic physics (fast down, slow up) */
+.tbs-ball {
+  animation: tbs-ball-bounce 0.72s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+@keyframes tbs-ball-bounce {
+  0%   { transform: translateY(80px) scaleY(0.82) scaleX(1.18); } /* squish on impact */
+  8%   { transform: translateY(80px) scaleY(0.82) scaleX(1.18); }
+  18%  { transform: translateY(0px)  scaleY(1)    scaleX(1);    } /* leaving ground */
+  50%  { transform: translateY(-52px) scaleY(1.06) scaleX(0.95); } /* peak */
+  82%  { transform: translateY(0px)  scaleY(1)    scaleX(1);    } /* returning */
+  92%  { transform: translateY(80px) scaleY(0.82) scaleX(1.18); } /* squish */
+  100% { transform: translateY(80px) scaleY(0.82) scaleX(1.18); }
+}
+
+/* Racket: swings back slightly then meets the ball at the bottom, then back */
+.tbs-racket {
+  animation: tbs-racket-swing 0.72s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+@keyframes tbs-racket-swing {
+  0%   { transform: rotate(0deg);   }
+  6%   { transform: rotate(18deg);  } /* wind-up on contact */
+  15%  { transform: rotate(-28deg); } /* follow-through swing */
+  40%  { transform: rotate(-12deg); } /* settle back */
+  80%  { transform: rotate(0deg);   } /* ready position */
+  100% { transform: rotate(0deg);   }
 }
 
 /* =================================================================

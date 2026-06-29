@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, startTransition } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { onValue, ref, set, get, update } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
@@ -190,35 +190,41 @@ function Shell() {
   useEffect(() => {
     ensureAuth();
     const unsubT = onValue(ref(db, PATHS.teams), (snap) => {
-      setTeams(canonicalizeTeamsData(snap.val() || {}));
-      setLoaded(true);
+      startTransition(() => {
+        setTeams(canonicalizeTeamsData(snap.val() || {}));
+        setLoaded(true);
+      });
     });
     const unsubM = onValue(ref(db, PATHS.matches), (snap) => {
       const data = snap.val() || {};
       const list = Object.entries(data).map(([id, m]) => ({ id, ...m }));
       list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
-      setMatches(list);
+      startTransition(() => setMatches(list));
     });
     const unsubA = onValue(ref(db, PATHS.admin), (snap) => {
-      setAdminConfig(prev => ({ ...prev, ...(snap.val() || { password: '' }) }));
+      startTransition(() => setAdminConfig(prev => ({ ...prev, ...(snap.val() || { password: '' }) })));
     });
     const unsubAU = onValue(ref(db, PATHS.adminUsers), (snap) => {
-      setAdminConfig(prev => ({ ...prev, users: snap.val() || {} }));
+      startTransition(() => setAdminConfig(prev => ({ ...prev, users: snap.val() || {} })));
     });
     const unsubS = onValue(ref(db, PATHS.schedule), (snap) => {
-      setSchedule(snap.val() || {});
+      startTransition(() => setSchedule(snap.val() || {}));
     });
     const unsubLineups = onValue(ref(db, PATHS.lineupSubmissionMeta), (snap) => {
-      setLineupSubmissionMeta(snap.val() || {});
-      setLastRefreshed(Date.now());
+      startTransition(() => {
+        setLineupSubmissionMeta(snap.val() || {});
+        setLastRefreshed(Date.now());
+      });
     });
     const unsubRevealedLineups = onValue(ref(db, PATHS.revealedLineups), (snap) => {
-      setRevealedLineups(snap.val() || {});
-      setLastRefreshed(Date.now());
+      startTransition(() => {
+        setRevealedLineups(snap.val() || {});
+        setLastRefreshed(Date.now());
+      });
     });
     const unsubSettings = onValue(ref(db, PATHS.settings), (snap) => {
       const value = snap.val() || {};
-      setSettings({ ...value, eligibilityRules: normalizeEligibilityRules(value.eligibilityRules) });
+      startTransition(() => setSettings({ ...value, eligibilityRules: normalizeEligibilityRules(value.eligibilityRules) }));
     });
     return () => { unsubT(); unsubM(); unsubA(); unsubAU(); unsubS(); unsubLineups(); unsubRevealedLineups(); unsubSettings(); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -337,12 +343,48 @@ function RouteProgress() {
   return <NavProgressBar />;
 }
 
+function TennisBallSpinner() {
+  return (
+    <div className="tbs-wrap" aria-label="Loading" role="status">
+      <svg className="tbs-svg" viewBox="0 0 120 160" xmlns="http://www.w3.org/2000/svg">
+        {/* Shadow under ball that squishes on bounce */}
+        <ellipse className="tbs-shadow" cx="60" cy="148" rx="18" ry="5" />
+        {/* Racket group — swings from pivot at handle bottom */}
+        <g className="tbs-racket" style={{ transformOrigin: '85px 148px' }}>
+          {/* Handle */}
+          <rect x="81" y="118" width="8" height="32" rx="4" fill="#8B6914" />
+          {/* Grip tape */}
+          <rect x="81" y="128" width="8" height="4" rx="2" fill="#5a4010" opacity="0.6" />
+          <rect x="81" y="136" width="8" height="4" rx="2" fill="#5a4010" opacity="0.6" />
+          {/* Racket head frame */}
+          <ellipse cx="85" cy="96" rx="22" ry="26" fill="none" stroke="#C8960C" strokeWidth="5" />
+          {/* Strings horizontal */}
+          {[-18,-10,-2,6,14].map(y => (
+            <line key={y} x1="64" y1={96+y} x2="106" y2={96+y} stroke="#f0d060" strokeWidth="1" opacity="0.7" />
+          ))}
+          {/* Strings vertical */}
+          {[-14,-7,0,7,14].map(x => (
+            <line key={x} x1={85+x} y1="72" x2={85+x} y2="120" stroke="#f0d060" strokeWidth="1" opacity="0.7" />
+          ))}
+        </g>
+        {/* Tennis ball — bounces up/down */}
+        <g className="tbs-ball">
+          <circle cx="40" cy="60" r="18" fill="#c8e63c" />
+          <path d="M24 54 Q40 44 56 54" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+          <path d="M24 66 Q40 76 56 66" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+        </g>
+      </svg>
+      <p className="tbs-label">Loading…</p>
+    </div>
+  );
+}
+
 function PageSpinner() {
   return (
     <>
       <NavProgressBar />
       <div className="page-spinner" aria-label="Loading page">
-        <span className="page-spinner-ball">🎾</span>
+        <TennisBallSpinner />
       </div>
     </>
   );
