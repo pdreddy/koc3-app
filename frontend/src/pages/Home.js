@@ -565,7 +565,7 @@ function PublicNavigationGrid() {
           <Link
             key={link.to}
             to={link.to}
-            className="rl-item"
+            className="rl-item home-nav-card"
             style={{ textDecoration: 'none', color: 'inherit', alignItems: 'flex-start' }}
             data-testid={`public-home-link-${link.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
           >

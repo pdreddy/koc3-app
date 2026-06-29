@@ -1960,3 +1960,44 @@ table.std tbody tr:hover td {
   .rules-page-shell { padding-top: .5rem; }
   .rl-grid, .rl-flow, .rl-flow-four, .rl-cross { grid-template-columns: 1fr; }
 }
+
+/* ===== Fast tap feedback for navigation and action controls ===== */
+button,
+.btn,
+.top-nav a,
+.bottom-nav a,
+.app-header .brand,
+.home-nav-card {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn,
+.top-nav a,
+.bottom-nav a,
+.app-header .brand,
+.home-nav-card {
+  will-change: transform, filter;
+  transform: translateZ(0);
+}
+
+.btn:active,
+.top-nav a:active,
+.bottom-nav a:active,
+.home-nav-card:active {
+  transform: translateZ(0) scale(0.98);
+  filter: brightness(0.98);
+}
+
+.home-nav-card {
+  border-radius: 14px;
+  border: 1px solid var(--ring);
+  padding: .7rem;
+  transition: transform .08s ease, box-shadow .08s ease, filter .08s ease, border-color .08s ease;
+}
+
+.home-nav-card:hover,
+.home-nav-card:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 10px 24px rgba(37, 99, 235, .12);
+}
