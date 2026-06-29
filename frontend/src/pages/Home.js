@@ -226,7 +226,8 @@ function whatsappMessage(fixture, team, opponent, captainName, mySubmission, opp
     .join('\n');
   const revealedAt = revealedLineup?.revealedAt || mySubmission?.revealedAt || opponentSubmission?.revealedAt || (mySubmission?.lockedAt && opponentSubmission?.lockedAt ? Math.max(mySubmission.lockedAt, opponentSubmission.lockedAt) : null);
   const group = fixture?.group || leftTeam?.group || rightTeam?.group || '—';
-  return `KOC Match Lineups\nGroup ${group} · Round ${fixture?.round || '—'}\n${formatDate(fixture?.date)} · ${fixture?.time || 'TBD'}\n\n${leftTeamName} vs ${rightTeamName}\n\nCaptain sharing:\n${captainName || 'Captain'}\n\nFollowing official lines are now revealed:\n${rows}\n\nSubmission timeline:\n${leftTeamName} submitted: ${dateTimeLabel(leftSubmission?.submittedAt || leftSubmission?.lockedAt)}\n${rightTeamName} submitted: ${dateTimeLabel(rightSubmission?.submittedAt || rightSubmission?.lockedAt)}\nFinal reveal: ${dateTimeLabel(revealedAt)}\n\nSchedule ID: ${fixture?.id || '—'}\nThe KOC App is the official source of truth for these lineups.`;
+  const highlightedRows = rows.split('\n').map(row => row.replace(/^([^:]+):/, '*$1:*')).join('\n');
+  return `🏆 *KOC Match Lineups*\n*Group ${group} · Round ${fixture?.round || '—'}*\n📅 ${formatDate(fixture?.date)} · ${fixture?.time || 'TBD'}\n\n🔥 *${leftTeamName} vs ${rightTeamName}*\n\n👤 *Captain sharing:*\n${captainName || 'Captain'}\n\n✅ *Official lines revealed*\n${highlightedRows}\n\n⏱️ *Submission timeline*\n• *${leftTeamName} submitted:* ${dateTimeLabel(leftSubmission?.submittedAt || leftSubmission?.lockedAt)}\n• *${rightTeamName} submitted:* ${dateTimeLabel(rightSubmission?.submittedAt || rightSubmission?.lockedAt)}\n• *Final reveal:* ${dateTimeLabel(revealedAt)}\n\n🔑 *Schedule ID:* ${fixture?.id || '—'}\n📌 _The KOC App is the official source of truth for these lineups._`;
 }
 
 function statusForFixture(isCompleted, mine, theirs) {
