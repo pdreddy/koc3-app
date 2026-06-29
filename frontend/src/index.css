@@ -1570,17 +1570,15 @@ table.std tr.q { background: linear-gradient(90deg, #dcfce7, transparent 100%); 
 @media (min-width: 900px) { .app-shell { padding-bottom: 104px; } }
 
 @media (max-width: 760px) {
-  .app-header,
-  main.container,
-  .bottom-nav { width: calc(100% - 1rem); }
-  .app-header { margin-top: .5rem; padding-inline: .75rem; }
+  main.container { width: calc(100% - 1rem); }
+  .app-header { padding-inline: .75rem; width: 100%; }
+  .bottom-nav { left: 0; right: 0; width: 100%; bottom: env(safe-area-inset-bottom, 0); }
   main.container { padding-top: .7rem; }
   .top-nav { display: none; }
   .app-header .brand strong { font-size: 1.05rem; }
   .brand-copy small { font-size: .62rem; }
   .header-actions .user-pill { max-width: 42vw; }
   .card, .team-card, .match-hist, .login-card { border-radius: 20px; }
-  .bottom-nav { bottom: max(.45rem, env(safe-area-inset-bottom)); }
 }
 
 @media (max-width: 380px) {

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { onValue, ref, set, get, update } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
@@ -13,20 +13,20 @@ import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from './utils/el
 
 import BottomNav from './components/BottomNav';
 import AppHeader from './components/Header';
-
-import Home from './pages/Home';
-import Teams from './pages/Teams';
-import Standings from './pages/Standings';
-import History from './pages/History';
-import Login from './pages/Login';
-import Admin from './pages/Admin';
-import ScoreEntry from './pages/ScoreEntry';
-import Rules from './pages/Rules';
-import Schedule from './pages/Schedule';
-import Matchups from './pages/Matchups';
-import More from './pages/More';
-import AuditLogs from './pages/AuditLogs';
 import { writeAuditLog } from './services/AuditService';
+
+const Home = lazy(() => import('./pages/Home'));
+const Teams = lazy(() => import('./pages/Teams'));
+const Standings = lazy(() => import('./pages/Standings'));
+const History = lazy(() => import('./pages/History'));
+const Login = lazy(() => import('./pages/Login'));
+const Admin = lazy(() => import('./pages/Admin'));
+const ScoreEntry = lazy(() => import('./pages/ScoreEntry'));
+const Rules = lazy(() => import('./pages/Rules'));
+const Schedule = lazy(() => import('./pages/Schedule'));
+const Matchups = lazy(() => import('./pages/Matchups'));
+const More = lazy(() => import('./pages/More'));
+const AuditLogs = lazy(() => import('./pages/AuditLogs'));
 
 function firebaseObjectToList(data, source) {
   if (!data) return [];
@@ -92,9 +92,8 @@ function Shell() {
     setMatches(prev => prev.filter(match => match.id !== matchId));
   }, []);
 
+  // One-time seeding on mount — does not need to re-run when session changes
   useEffect(() => {
-    ensureAuth();
-
     (async () => {
       try {
         await ensureAuth();
@@ -179,7 +178,11 @@ function Shell() {
         console.error('Seed failed', e);
       }
     })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Public data subscriptions — stable for the lifetime of the app; session changes must not tear these down
+  useEffect(() => {
+    ensureAuth();
     const unsubT = onValue(ref(db, PATHS.teams), (snap) => {
       setTeams(canonicalizeTeamsData(snap.val() || {}));
       setLoaded(true);
@@ -231,7 +234,7 @@ function Shell() {
       setSettings({ ...value, eligibilityRules: normalizeEligibilityRules(value.eligibilityRules) });
     });
     return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubAU(); unsubR(); unsubS(); unsubLineups(); unsubRevealedLineups(); unsubSettings(); };
-  }, [session]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 
 
@@ -285,6 +288,7 @@ function Shell() {
     <div className="app-shell">
       <ActivityAudit />
       {!hideChrome && <AppHeader />}
+      <Suspense fallback={<div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', color: 'var(--muted)' }}>Loading…</div>}>
       <Routes>
         <Route path="/" element={<Home teams={teams} schedule={schedule} matches={matches} eligibilityRules={settings.eligibilityRules} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} lastRefreshed={lastRefreshed} onRefresh={() => setLastRefreshed(Date.now())} />} />
         <Route path="/teams" element={<Teams teams={teams} loaded={loaded} />} />
@@ -313,6 +317,7 @@ function Shell() {
         } />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
       {!hideChrome && <BottomNav />}
     </div>
   );
