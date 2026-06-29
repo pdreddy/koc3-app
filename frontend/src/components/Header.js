@@ -32,7 +32,7 @@ export default function AppHeader() {
   };
   return (
     <header className="app-header" data-testid="app-header">
-      <Link to="/" className="brand" data-testid="header-home" aria-label="KOC3 home" onClick={event => preventCurrentPageNavigation(event, '/')} style={{ pointerEvents: isHome ? 'none' : undefined }}>
+      <Link to="/" className="brand" data-testid="header-home" aria-label="KOC3 home" onClick={event => preventCurrentPageNavigation(event, '/')} aria-disabled={isHome ? 'true' : undefined}>
         <span className="logo" aria-hidden="true">🏆</span>
         <span className="brand-copy">
           <strong>KOC3</strong>
@@ -49,7 +49,7 @@ export default function AppHeader() {
               to={link.to}
               className={({ isActive }) => isActive ? 'active' : ''}
               onClick={event => preventCurrentPageNavigation(event, link.to)}
-              style={{ pointerEvents: current ? 'none' : undefined }}
+              aria-disabled={current ? 'true' : undefined}
             >
               {link.label}
             </NavLink>

@@ -46,7 +46,7 @@ export default function BottomNav() {
             className={({ isActive }) => isActive ? 'active' : ''}
             data-testid={t.testid}
             onClick={event => { if (current) event.preventDefault(); }}
-            style={{ pointerEvents: current ? 'none' : undefined }}
+            aria-disabled={current ? 'true' : undefined}
           >
             <span className="ico">{t.icon}</span>
             <span>{t.label}</span>
