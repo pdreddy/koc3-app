@@ -44,12 +44,23 @@ const LINEUP_STATUS = {
 
 
 function WhatsAppIcon() {
-  return <span className="whatsapp-icon" aria-hidden="true">☎</span>;
+  return (
+    <span className="whatsapp-icon" aria-hidden="true">
+      <svg viewBox="0 0 32 32" focusable="false" role="img">
+        <path d="M16 3.2A12.5 12.5 0 0 0 5.4 22.3L4 28.8l6.7-1.4A12.5 12.5 0 1 0 16 3.2Zm0 22.5c-1.8 0-3.6-.5-5.1-1.4l-.4-.2-3.4.7.7-3.3-.3-.5A9.8 9.8 0 1 1 16 25.7Zm5.5-7.3c-.3-.2-1.8-.9-2.1-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-.3-.2-1.2-.4-2.3-1.4-.9-.8-1.4-1.7-1.6-2-.2-.3 0-.5.1-.6l.5-.6c.2-.2.2-.3.3-.5.1-.2 0-.4 0-.6-.1-.2-.7-1.7-1-2.3-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.6.1-.9.4-.3.3-1.1 1.1-1.1 2.7s1.2 3.1 1.3 3.3c.2.2 2.3 3.5 5.6 4.9.8.3 1.4.5 1.9.7.8.2 1.5.2 2.1.1.6-.1 1.8-.7 2.1-1.5.3-.7.3-1.4.2-1.5-.1-.1-.3-.2-.6-.4Z" />
+      </svg>
+    </span>
+  );
 }
 
 function timeLabel(ts) {
   if (!ts) return '—';
   return new Date(ts).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
+function dateTimeLabel(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
 function selectedNames(team, selected = []) {
@@ -196,7 +207,8 @@ function whatsappMessage(team, opponent, captainName, mySubmission, opponentSubm
   const rows = revealedRecordRows(revealedLineup, team?.id, opponent?.id, mySubmission, opponentSubmission)
     .map(row => `${row.label}: ${row.mine.join(' / ')} vs ${row.theirs.join(' / ')}`)
     .join('\n');
-  return `KOC Match\n\n${team?.name || 'Our Team'} vs ${opponent?.name || 'Opponent'}\n\nCaptain:\n${captainName || 'Captain'}\n\nOfficial revealed lineups:\n${rows}\n\nThe KOC App remains the official source of truth.`;
+  const revealedAt = revealedLineup?.revealedAt || mySubmission?.revealedAt || opponentSubmission?.revealedAt;
+  return `KOC Match\n\n${team?.name || 'Our Team'} vs ${opponent?.name || 'Opponent'}\n\nCaptain:\n${captainName || 'Captain'}\n\nSubmitted:\n${team?.name || 'Our Team'} — ${dateTimeLabel(mySubmission?.submittedAt || mySubmission?.lockedAt)}\n${opponent?.name || 'Opponent'} — ${dateTimeLabel(opponentSubmission?.submittedAt || opponentSubmission?.lockedAt)}\n\nRevealed:\n${dateTimeLabel(revealedAt)}\n\nOfficial revealed lineups:\n${rows}\n\nThe KOC App remains the official source of truth.`;
 }
 
 function statusForFixture(isCompleted, mine, theirs) {
@@ -459,9 +471,9 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
                   onClick={markWhatsappShared}
                   aria-label={`Share ${captainTeam?.name || 'lineup'} via WhatsApp`}
                   data-testid={`share-lineup-whatsapp-${item.id}`}
+                  title="Share via WhatsApp"
                 >
                   <WhatsAppIcon />
-                  <span>Share via WhatsApp</span>
                 </a>
               )}
               <button className="btn ghost" type="button" onClick={onRefresh}>Refresh</button>
