@@ -13,7 +13,10 @@ export function buildCaptainCapacityRows(team, teams, matches, eligibilityRules 
     name: player.name, singlesDays: 0, doublesDays: 0, totalMatchDays: 0, partnerCounts: {}
   }]));
 
+  const scoredScheduleIds = new Set();
   approvedMatches(matches).forEach(match => {
+    const scheduleId = match.scheduleId || match.matchScheduleId || match.fixtureId;
+    if (scheduleId) scoredScheduleIds.add(String(scheduleId));
     const { team1, team2 } = resolveMatchTeams(match, teams);
     const side = team1?.id === team?.id ? 'team1' : (team2?.id === team?.id ? 'team2' : null);
     if (!side) return;
@@ -45,8 +48,10 @@ export function buildCaptainCapacityRows(team, teams, matches, eligibilityRules 
     });
   });
 
-  Object.values(lineupSubmissions || {}).forEach(scheduleSubmissions => {
+  Object.entries(lineupSubmissions || {}).forEach(([scheduleId, scheduleSubmissions]) => {
     const submission = scheduleSubmissions?.[team?.id];
+    const submissionScheduleId = submission?.scheduleId || scheduleId;
+    if (submissionScheduleId && scoredScheduleIds.has(String(submissionScheduleId))) return;
     if (!submission?.lockedAt || submission?.unlockedAt || !Array.isArray(submission.lineup)) return;
     const dayPlayers = new Map();
     const dayPairs = new Set();

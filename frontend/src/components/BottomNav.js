@@ -3,6 +3,8 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ROLES, hasRole, isAdminRole } from '../utils/roles';
 
+export const BOTTOM_NAV_MAX = 5;
+
 const PUBLIC_TABS = [
   { to: '/', label: 'Home', icon: '🏠', testid: 'nav-home' },
   { to: '/schedule', label: 'Schedule', icon: '📅', testid: 'nav-schedule' },
@@ -19,9 +21,14 @@ const CAPTAIN_TABS = [
   { to: '/more', label: 'More', icon: '⋯', testid: 'nav-more' }
 ];
 
+export function getBottomNavTabs(session) {
+  const tabs = hasRole(session, [ROLES.CAPTAIN]) || isAdminRole(session) ? CAPTAIN_TABS : PUBLIC_TABS;
+  return tabs.slice(0, BOTTOM_NAV_MAX);
+}
+
 export default function BottomNav() {
   const { session } = useAuth();
-  const tabs = hasRole(session, [ROLES.CAPTAIN]) || isAdminRole(session) ? CAPTAIN_TABS : PUBLIC_TABS;
+  const tabs = getBottomNavTabs(session);
   return (
     <nav className="bottom-nav" data-testid="bottom-nav" style={{ '--bottom-nav-count': tabs.length }}>
       {tabs.map(t => (
