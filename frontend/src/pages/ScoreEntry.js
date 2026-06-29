@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ensureAuth } from '../firebase';
+import { ref, update } from 'firebase/database';
+import { db, ensureAuth, PATHS } from '../firebase';
 import { ScoreProcessingService } from '../services/ScoreProcessingService';
-import { writeAuditLog } from '../services/AuditService';
+import { writeAuditLog, recordLineupAudit } from '../services/AuditService';
 import { ROLES, isAdminRole } from '../utils/roles';
 import { useAuth } from '../contexts/AuthContext';
 import { matchName } from '../utils/nameMatch';
@@ -10,6 +11,7 @@ import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from '../utils/e
 import { parseQuickScore } from '../utils/quickScoreParser';
 import { regularSetWinner, validateLineScore } from '../utils/tennisScoreRules';
 
+// Quick Paste is kept as a legacy/migration parser path only; Score Entry mounts the form workflow by default.
 const QUICK_PASTE_ENABLED = false;
 
 const COURT_TEMPLATES = [
@@ -831,17 +833,25 @@ function scoreLineupFixtures(schedule, revealedLineups, lineupSubmissions, team1
       rows.set(row.scheduleId, buildRow(item, row.revealId, row.revealCode || row.revealId?.slice(-8).toUpperCase(), team1Names, team2Names, true));
     });
 
-  Object.entries(lineupSubmissions || {}).forEach(([scheduleId, submissions]) => {
-    if (rows.has(scheduleId)) return;
-    const mine = submissions?.[team1Id];
-    const theirs = submissions?.[team2Id];
-    if (!mine?.lockedAt || !theirs?.lockedAt) return;
-    const item = schedule?.[scheduleId] || { id: scheduleId, team1Id: mine.teamId || team1Id, team2Id: theirs.teamId || team2Id };
-    const revealId = mine.revealId || theirs.revealId || `submitted-${scheduleId}`;
-    rows.set(scheduleId, buildRow(item, revealId, String(revealId).slice(-8).toUpperCase(), submittedLineupNames(mine, teams[team1Id]), submittedLineupNames(theirs, teams[team2Id]), true));
-  });
-
   return Array.from(rows.values());
+}
+
+
+async function markLineupConvertedToScore(record, session) {
+  if (!record?.scheduleId) return;
+  const now = Date.now();
+  const updates = {};
+  [record.t1Id, record.t2Id].filter(Boolean).forEach(teamId => {
+    updates[`${PATHS.lineupSubmissions}/${record.scheduleId}/${teamId}/convertedToScoreAt`] = now;
+    updates[`${PATHS.lineupSubmissions}/${record.scheduleId}/${teamId}/scoreSavedAt`] = now;
+    updates[`${PATHS.lineupSubmissions}/${record.scheduleId}/${teamId}/scoreSavedBy`] = session?.teamId || session?.userId || session?.role || 'unknown';
+    updates[`${PATHS.lineupSubmissions}/${record.scheduleId}/${teamId}/lastUpdatedAt`] = now;
+    updates[`${PATHS.lineupSubmissionMeta}/${record.scheduleId}/${teamId}/convertedToScoreAt`] = now;
+    updates[`${PATHS.lineupSubmissionMeta}/${record.scheduleId}/${teamId}/scoreSavedAt`] = now;
+    updates[`${PATHS.lineupSubmissionMeta}/${record.scheduleId}/${teamId}/scoreSavedBy`] = session?.teamId || session?.userId || session?.role || 'unknown';
+    updates[`${PATHS.lineupSubmissionMeta}/${record.scheduleId}/${teamId}/lastUpdatedAt`] = now;
+  });
+  if (Object.keys(updates).length) await update(ref(db), updates);
 }
 
 function ScoreLineupLoader({ fixtures, teams, selectedId, onSelectedId, onLoad, mode }) {
@@ -887,6 +897,7 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
   const [saving, setSaving] = useState(false);
   const [selectedScheduleId, setSelectedScheduleId] = useState('');
   const [autoLoadedRevealId, setAutoLoadedRevealId] = useState('');
+  const [loadedLineupFixture, setLoadedLineupFixture] = useState(null);
 
   useEffect(() => {
     if (myTeam?.id && !team1Id) setTeam1Id(myTeam.id);
@@ -905,10 +916,12 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
     const only = submittedLineupFixtures.length === 1 ? submittedLineupFixtures[0] : null;
     if (!only?.ready || autoLoadedRevealId === only.revealId) return;
     setCourts(buildLineupCourts(only.team1Names, only.team2Names));
+    setLoadedLineupFixture(only);
+    recordLineupAudit({ actionType: 'Lineup Loaded For Score Entry', session, scheduleId: only.item.id, teamId: session.teamId || team1Id, metadata: { revealId: only.revealId, revealCode: only.revealCode, viewedAt: Date.now() } }).catch(() => {});
     setSuccess(`Loaded submitted dashboard lineup for schedule code ${fixtureCode(only.item)}.`);
     setError(''); setShareText(''); setPendingRecord(null);
     setAutoLoadedRevealId(only.revealId);
-  }, [submittedLineupFixtures, autoLoadedRevealId]);
+  }, [submittedLineupFixtures, autoLoadedRevealId, session, team1Id]);
 
   const updateCourt = (idx, patch) => {
     setPendingRecord(null);
@@ -1016,6 +1029,11 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
       updatedAt: Date.now(),
       updatedBy: session.teamId || session.role,
       approvedBy: session.role,
+      scheduleId: loadedLineupFixture?.item?.id || null,
+      matchScheduleId: loadedLineupFixture?.item?.id || null,
+      revealId: loadedLineupFixture?.revealId || null,
+      revealCode: loadedLineupFixture?.revealCode || null,
+      lineupSource: loadedLineupFixture ? 'revealedLineups' : 'manual',
       lines
     };
 
@@ -1030,7 +1048,8 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
       setSaving(true);
       await ensureAuth();
       const saved = await ScoreProcessingService.updateAfterScoreEntry(pendingRecord, { session });
-      const savedRecord = saved.matchRecord;
+      await markLineupConvertedToScore(pendingRecord, session);
+      const savedRecord = { ...saved.matchRecord, scheduleId: pendingRecord.scheduleId, matchScheduleId: pendingRecord.matchScheduleId, revealId: pendingRecord.revealId, revealCode: pendingRecord.revealCode, lineupSource: pendingRecord.lineupSource };
       onScoreSaved?.(savedRecord);
       await writeAuditLog({ actionType: 'Score Entry', session, targetType: 'match', targetId: saved.key, newValue: savedRecord });
       setSuccess(`✅ Saved and synchronized ratings, standings, histories, and dashboard:  ${pendingRecord.t1} vs ${pendingRecord.t2} — Winner: ${pendingRecord.win}`);
@@ -1101,7 +1120,7 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
           selectedId={selectedScheduleId}
           onSelectedId={setSelectedScheduleId}
           mode="form"
-          onLoad={(row) => { setCourts(buildLineupCourts(row.team1Names, row.team2Names)); setError(''); setSuccess(`Loaded submitted dashboard lineup for schedule code ${fixtureCode(row.item)}.`); setShareText(''); setPendingRecord(null); }}
+          onLoad={(row) => { setCourts(buildLineupCourts(row.team1Names, row.team2Names)); setLoadedLineupFixture(row); recordLineupAudit({ actionType: 'Lineup Loaded For Score Entry', session, scheduleId: row.item.id, teamId: session.teamId || team1Id, metadata: { revealId: row.revealId, revealCode: row.revealCode, viewedAt: Date.now() } }).catch(() => {}); setError(''); setSuccess(`Loaded submitted dashboard lineup for schedule code ${fixtureCode(row.item)}.`); setShareText(''); setPendingRecord(null); }}
         />
       )}
 
@@ -1207,6 +1226,7 @@ function QuickEntry({ teams, matches, schedule, lineupSubmissions, revealedLineu
   const [saving, setSaving] = useState(false);
   const [selectedScheduleId, setSelectedScheduleId] = useState('');
   const [autoLoadedRevealId, setAutoLoadedRevealId] = useState('');
+  const [loadedLineupFixture, setLoadedLineupFixture] = useState(null);
   const teamList = Object.values(teams || {});
   const myTeam = session.role === ROLES.CAPTAIN ? teams[session.teamId] : null;
   const isAdmin = isAdminRole(session);
@@ -1227,10 +1247,12 @@ function QuickEntry({ teams, matches, schedule, lineupSubmissions, revealedLineu
     const only = submittedLineupFixtures.length === 1 ? submittedLineupFixtures[0] : null;
     if (!only?.ready || !selectedTeam1 || !selectedTeam2 || autoLoadedRevealId === only.revealId) return;
     setText(buildQuickLineupText(selectedTeam1, selectedTeam2, only.team1Names, only.team2Names));
+    setLoadedLineupFixture(only);
+    recordLineupAudit({ actionType: 'Lineup Loaded For Score Entry', session, scheduleId: only.item.id, teamId: session.teamId || team1Id, metadata: { revealId: only.revealId, revealCode: only.revealCode, viewedAt: Date.now() } }).catch(() => {});
     setSuccess(`Loaded submitted dashboard lineup for schedule code ${fixtureCode(only.item)}.`);
     setError(''); setShareText(''); setPendingRecord(null);
     setAutoLoadedRevealId(only.revealId);
-  }, [submittedLineupFixtures, selectedTeam1, selectedTeam2, autoLoadedRevealId]);
+  }, [submittedLineupFixtures, selectedTeam1, selectedTeam2, autoLoadedRevealId, session, team1Id]);
 
   const parsed = useMemo(() => parseQuickScore(text, teams), [text, teams]);
   const quickTemplate = useMemo(() => getQuickTemplate(teams), [teams]);
@@ -1333,6 +1355,11 @@ function QuickEntry({ teams, matches, schedule, lineupSubmissions, revealedLineu
       updatedAt: Date.now(),
       updatedBy: session.teamId || session.role,
       approvedBy: session.role,
+      scheduleId: loadedLineupFixture?.item?.id || null,
+      matchScheduleId: loadedLineupFixture?.item?.id || null,
+      revealId: loadedLineupFixture?.revealId || null,
+      revealCode: loadedLineupFixture?.revealCode || null,
+      lineupSource: loadedLineupFixture ? 'revealedLineups' : 'manual',
       lines
     };
 
@@ -1347,7 +1374,8 @@ function QuickEntry({ teams, matches, schedule, lineupSubmissions, revealedLineu
       setSaving(true);
       await ensureAuth();
       const saved = await ScoreProcessingService.updateAfterScoreEntry(pendingRecord, { session });
-      const savedRecord = saved.matchRecord;
+      await markLineupConvertedToScore(pendingRecord, session);
+      const savedRecord = { ...saved.matchRecord, scheduleId: pendingRecord.scheduleId, matchScheduleId: pendingRecord.matchScheduleId, revealId: pendingRecord.revealId, revealCode: pendingRecord.revealCode, lineupSource: pendingRecord.lineupSource };
       onScoreSaved?.(savedRecord);
       await writeAuditLog({ actionType: 'Score Entry', session, targetType: 'match', targetId: saved.key, newValue: savedRecord });
       setSuccess(`✅ Saved and synchronized ratings, standings, histories, and dashboard:  ${pendingRecord.t1} vs ${pendingRecord.t2} — Winner: ${pendingRecord.win}`);
@@ -1430,7 +1458,7 @@ Final: KC won 3-2`;
           selectedId={selectedScheduleId}
           onSelectedId={setSelectedScheduleId}
           mode="quick"
-          onLoad={(row) => { setText(buildQuickLineupText(selectedTeam1, selectedTeam2, row.team1Names, row.team2Names)); setError(''); setSuccess(`Loaded submitted dashboard lineup for schedule code ${fixtureCode(row.item)}.`); setShareText(''); setPendingRecord(null); }}
+          onLoad={(row) => { setText(buildQuickLineupText(selectedTeam1, selectedTeam2, row.team1Names, row.team2Names)); setLoadedLineupFixture(row); recordLineupAudit({ actionType: 'Lineup Loaded For Score Entry', session, scheduleId: row.item.id, teamId: session.teamId || team1Id, metadata: { revealId: row.revealId, revealCode: row.revealCode, viewedAt: Date.now() } }).catch(() => {}); setError(''); setSuccess(`Loaded submitted dashboard lineup for schedule code ${fixtureCode(row.item)}.`); setShareText(''); setPendingRecord(null); }}
         />
       )}
 

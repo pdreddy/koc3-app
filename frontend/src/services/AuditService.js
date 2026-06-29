@@ -24,3 +24,22 @@ export async function writeAuditLog({ actionType, session, targetType, targetId,
   await push(ref(db, PATHS.auditLogs), record);
   return record;
 }
+
+
+export async function recordLineupAudit({ actionType, scheduleId, teamId, session, metadata = {}, oldValue = null }) {
+  const now = Date.now();
+  return writeAuditLog({
+    actionType,
+    session,
+    targetType: 'lineup',
+    targetId: `${scheduleId || 'unknown'}:${teamId || 'unknown'}`,
+    oldValue,
+    newValue: {
+      scheduleId,
+      teamId,
+      actionTimestamp: now,
+      lastUpdatedAt: metadata.lastUpdatedAt || now,
+      ...metadata
+    }
+  });
+}

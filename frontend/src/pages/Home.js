@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ref, update } from 'firebase/database';
 import { db, ensureAuth, PATHS } from '../firebase';
-import { writeAuditLog } from '../services/AuditService';
+import { recordLineupAudit } from '../services/AuditService';
 import { useAuth } from '../contexts/AuthContext';
 import { ROLES, hasRole } from '../utils/roles';
 import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from '../utils/eligibilityRules';
@@ -352,7 +352,11 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
 
   const submitLineup = async () => {
     const validationErrors = validateDashboardLineup(captainTeam, selected, matches, teams, eligibilityRules);
-    if (validationErrors.length) return;
+    if (validationErrors.length) {
+      const now = Date.now();
+      recordLineupAudit({ actionType: 'Lineup Validation Failed', session, scheduleId: item.id, teamId: captainTeam.id, metadata: { validationErrors, lastUpdatedAt: now } }).catch(() => {});
+      return;
+    }
     const now = Date.now();
     const revealId = null;
     const payload = {
@@ -393,7 +397,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
       setBusy(true);
       await ensureAuth();
       await update(ref(db), updates);
-      await writeAuditLog({ actionType: 'Lineup Submitted & Locked', session, targetType: 'schedule', targetId: item.id, newValue: { scheduleId: item.id, teamId: captainTeam.id, submittedAt: now, lockedAt: now, revealedAt: payload.revealedAt } });
+      await recordLineupAudit({ actionType: 'Lineup Submitted & Locked', session, scheduleId: item.id, teamId: captainTeam.id, metadata: { submittedAt: now, lockedAt: now, revealedAt: payload.revealedAt, validationErrors: payload.validationErrors, lastUpdatedAt: now } });
       setMessage('✅ Submitted & Locked');
     } catch (e) {
       setMessage(`Save failed: ${e.message}`);
@@ -407,7 +411,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
     try {
       await ensureAuth();
       await update(ref(db), { [`${PATHS.lineupSubmissions}/${item.id}/${captainTeam.id}/whatsappShared`]: true, [`${PATHS.lineupSubmissions}/${item.id}/${captainTeam.id}/whatsappSharedAt`]: now, [`${PATHS.lineupSubmissions}/${item.id}/${captainTeam.id}/lastUpdatedAt`]: now, [`${PATHS.lineupSubmissionMeta}/${item.id}/${captainTeam.id}/whatsappShared`]: true, [`${PATHS.lineupSubmissionMeta}/${item.id}/${captainTeam.id}/whatsappSharedAt`]: now, [`${PATHS.lineupSubmissionMeta}/${item.id}/${captainTeam.id}/lastUpdatedAt`]: now });
-      await writeAuditLog({ actionType: 'Lineup WhatsApp Shared', session, targetType: 'schedule', targetId: item.id, newValue: { scheduleId: item.id, teamId: captainTeam.id, whatsappSharedAt: now } });
+      await recordLineupAudit({ actionType: 'Lineup WhatsApp Shared', session, scheduleId: item.id, teamId: captainTeam.id, metadata: { whatsappSharedAt: now, lastUpdatedAt: now } });
     } catch (e) {
       setMessage(`WhatsApp status failed: ${e.message}`);
     }

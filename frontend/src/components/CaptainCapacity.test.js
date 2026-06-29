@@ -57,3 +57,21 @@ test('approved score does not double-count the same schedule lineup', () => {
   expect(rows.find(row => row.name === 'B').doublesDays).toBe(1);
   expect(rows.find(row => row.name === 'B').totalMatchDays).toBe(1);
 });
+
+test('converted locked lineup does not count after score conversion marker', () => {
+  const rows = buildCaptainCapacityRows(team, teams, [], rules, {
+    sched2: {
+      bb: {
+        scheduleId: 'sched2',
+        lockedAt: 1,
+        convertedToScoreAt: 2,
+        lineup: [
+          { label: 'S1', players: ['A'] },
+          { label: 'D1', players: ['B', 'C'] }
+        ]
+      }
+    }
+  });
+  expect(rows.find(row => row.name === 'A').singlesDays).toBe(0);
+  expect(rows.find(row => row.name === 'B').doublesDays).toBe(0);
+});

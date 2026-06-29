@@ -7,7 +7,7 @@ import { buildScheduleFor8x2 } from '../utils/roundRobin';
 import { UTR_RATINGS, matchUtrRating, normalizeNameKey, suggestUtrMatches } from '../data/utrRatings';
 import { groupInfoForTeamId, normalizeAuctionTeam, sortByGroupOrder } from '../data/auctionTeams';
 import { normalizeEligibilityRules } from '../utils/eligibilityRules';
-import { writeAuditLog } from '../services/AuditService';
+import { recordLineupAudit } from '../services/AuditService';
 
 
 function ratingRowId(row) {
@@ -576,7 +576,7 @@ function AdminLineupManager({ teams, schedule, lineupSubmissions, revealedLineup
     try {
       setBusyKey(`${fixture.id}-${teamId}`);
       await update(ref(db), updates);
-      await writeAuditLog({ actionType: 'Lineup Returned to Captain', session, targetType: 'schedule', targetId: fixture.id, newValue: updates[`${PATHS.lineupUnlocks}/${unlockId}`] });
+      await recordLineupAudit({ actionType: 'Lineup Returned to Captain', session, scheduleId: fixture.id, teamId, oldValue: submission, metadata: { ...updates[`${PATHS.lineupUnlocks}/${unlockId}`], lastUpdatedAt: now } });
     } finally {
       setBusyKey('');
     }
@@ -605,7 +605,7 @@ function AdminLineupManager({ teams, schedule, lineupSubmissions, revealedLineup
     try {
       setBusyKey(`${fixture.id}-delete`);
       await update(ref(db), updates);
-      await writeAuditLog({ actionType: 'Lineup References Deleted', session, targetType: 'schedule', targetId: fixture.id, oldValue: { submissions, reveal }, newValue: deleteRecord });
+      await recordLineupAudit({ actionType: 'Lineup References Deleted', session, scheduleId: fixture.id, teamId: 'all', oldValue: { submissions, reveal }, metadata: { ...deleteRecord, lastUpdatedAt: now } });
     } finally {
       setBusyKey('');
     }
