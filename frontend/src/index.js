@@ -36,8 +36,24 @@ root.render(
   </BrowserRouter>
 );
 
-// Register service worker for PWA
-if ('serviceWorker' in navigator) {
+function clearLocalServiceWorkerState() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations()
+      .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+      .catch(() => {});
+  }
+  if ('caches' in window) {
+    caches.keys()
+      .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+      .catch(() => {});
+  }
+}
+
+// Register service worker for PWA in production only. In local dev, unregister it so
+// stale cache-first bundles/chunks cannot make the app appear blank after code changes.
+if (process.env.NODE_ENV === 'development') {
+  clearLocalServiceWorkerState();
+} else if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     const publicUrl = process.env.PUBLIC_URL || '';
     navigator.serviceWorker.register(`${publicUrl}/sw.js`).catch(() => {});
