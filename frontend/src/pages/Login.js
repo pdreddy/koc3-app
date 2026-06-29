@@ -12,6 +12,7 @@ export default function Login({ teams }) {
   const [adminUsername, setAdminUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
   const { loginAdmin, loginTeam } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -22,42 +23,50 @@ export default function Login({ teams }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (mode === 'admin') {
-      const username = normalizeAdminUsername(adminUsername);
-      if (!username) { setError('Enter your admin username.'); return; }
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: adminAuthEmail(username),
-        password: password.trim(),
-      });
-      if (authError || !data?.user) {
-        setError('Incorrect admin username or password.');
-        return;
+    setBusy(true);
+    try {
+      if (mode === 'admin') {
+        const username = normalizeAdminUsername(adminUsername);
+        if (!username) { setError('Enter your admin username.'); return; }
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email: adminAuthEmail(username),
+          password: password.trim(),
+        });
+        if (authError || !data?.user) {
+          setError(authError?.message ? `Login failed: ${authError.message}` : 'Incorrect admin username or password.');
+          return;
+        }
+        // Role comes from the profile (which also drives the JWT claims + RLS).
+        const { data: profile } = await supabase
+          .from('profiles').select('role,name').eq('id', data.user.id).maybeSingle();
+        const adminRole = normalizeRole(profile?.role) || ROLES.SUPER_ADMIN;
+        const name = profile?.name || username;
+        const nextSession = { role: adminRole, userId: username, name, loginAt: Date.now() };
+        loginAdmin(adminRole, { username, name });
+        // Audit is best-effort — never let it block or fail the login.
+        writeAuditLog({ actionType: 'Login', session: nextSession, targetType: 'user', targetId: username }).catch(() => {});
+        navigate(next, { replace: true });
+      } else {
+        if (!teamId) { setError('Please choose your team.'); return; }
+        const team = teams[teamId];
+        if (!team) { setError('Team not found.'); return; }
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email: teamAuthEmail(team.id),
+          password: password.trim(),
+        });
+        if (authError || !data?.user) {
+          setError(authError?.message ? `Login failed: ${authError.message}` : 'Incorrect team password.');
+          return;
+        }
+        const nextSession = { role: ROLES.CAPTAIN, teamId: team.id, teamName: team.name, loginAt: Date.now() };
+        loginTeam(team.id, team.name);
+        writeAuditLog({ actionType: 'Login', session: nextSession, targetType: 'team', targetId: team.id }).catch(() => {});
+        navigate('/', { replace: true });
       }
-      // Role comes from the profile (which also drives the JWT claims + RLS).
-      const { data: profile } = await supabase
-        .from('profiles').select('role,name').eq('id', data.user.id).maybeSingle();
-      const adminRole = normalizeRole(profile?.role) || ROLES.SUPER_ADMIN;
-      const name = profile?.name || username;
-      const nextSession = { role: adminRole, userId: username, name, loginAt: Date.now() };
-      loginAdmin(adminRole, { username, name });
-      await writeAuditLog({ actionType: 'Login', session: nextSession, targetType: 'user', targetId: username });
-      navigate(next, { replace: true });
-    } else {
-      if (!teamId) { setError('Please choose your team.'); return; }
-      const team = teams[teamId];
-      if (!team) { setError('Team not found.'); return; }
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: teamAuthEmail(team.id),
-        password: password.trim(),
-      });
-      if (authError || !data?.user) {
-        setError('Incorrect team password.');
-        return;
-      }
-      const nextSession = { role: ROLES.CAPTAIN, teamId: team.id, teamName: team.name, loginAt: Date.now() };
-      loginTeam(team.id, team.name);
-      await writeAuditLog({ actionType: 'Login', session: nextSession, targetType: 'team', targetId: team.id });
-      navigate('/', { replace: true });
+    } catch (err) {
+      setError(`Unexpected error: ${err?.message || err}`);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -127,8 +136,8 @@ export default function Login({ teams }) {
             />
           </div>
 
-          <button type="submit" className="btn full" data-testid="login-submit-btn">
-            Sign In
+          <button type="submit" className="btn full" data-testid="login-submit-btn" disabled={busy}>
+            {busy ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
 
