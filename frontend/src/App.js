@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { onValue, ref, set, get, update } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
@@ -10,23 +10,23 @@ import { sortByGroupOrder } from './data/auctionTeams';
 import { auctionPlayerRatingUpdates, buildAuctionPlayerRatingsTable } from './data/auctionPlayers';
 import { buildScheduleFor8x2, KOC3_SCHEDULE_VERSION } from './utils/roundRobin';
 import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from './utils/eligibilityRules';
+import { writeAuditLog } from './services/AuditService';
 
 import BottomNav from './components/BottomNav';
 import AppHeader from './components/Header';
 
-import Home from './pages/Home';
-import Teams from './pages/Teams';
-import Standings from './pages/Standings';
-import History from './pages/History';
-import Login from './pages/Login';
-import Admin from './pages/Admin';
-import ScoreEntry from './pages/ScoreEntry';
-import Rules from './pages/Rules';
-import Schedule from './pages/Schedule';
-import Matchups from './pages/Matchups';
-import More from './pages/More';
-import AuditLogs from './pages/AuditLogs';
-import { writeAuditLog } from './services/AuditService';
+const Home = React.lazy(() => import('./pages/Home'));
+const Teams = React.lazy(() => import('./pages/Teams'));
+const Standings = React.lazy(() => import('./pages/Standings'));
+const History = React.lazy(() => import('./pages/History'));
+const Login = React.lazy(() => import('./pages/Login'));
+const Admin = React.lazy(() => import('./pages/Admin'));
+const ScoreEntry = React.lazy(() => import('./pages/ScoreEntry'));
+const Rules = React.lazy(() => import('./pages/Rules'));
+const Schedule = React.lazy(() => import('./pages/Schedule'));
+const Matchups = React.lazy(() => import('./pages/Matchups'));
+const More = React.lazy(() => import('./pages/More'));
+const AuditLogs = React.lazy(() => import('./pages/AuditLogs'));
 
 function firebaseObjectToList(data, source) {
   if (!data) return [];
@@ -285,34 +285,36 @@ function Shell() {
     <div className="app-shell">
       <ActivityAudit />
       {!hideChrome && <AppHeader />}
-      <Routes>
-        <Route path="/" element={<Home teams={teams} schedule={schedule} matches={matches} eligibilityRules={settings.eligibilityRules} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} lastRefreshed={lastRefreshed} onRefresh={() => setLastRefreshed(Date.now())} />} />
-        <Route path="/teams" element={<Teams teams={teams} loaded={loaded} />} />
-        <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} matches={matches} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} />} />
-        <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />
-        <Route path="/matchups" element={<Matchups matches={matches} teams={teams} />} />
-        <Route path="/ptl" element={<Navigate to="/more" replace />} />
-        <Route path="/history" element={<History matches={matches} teams={teams} onMatchDeleted={syncDeletedMatch} />} />
-        <Route path="/rules" element={<Rules />} />
-        <Route path="/more" element={<More />} />
-        <Route path="/login" element={<Login teams={teams} adminConfig={adminConfig} />} />
-        <Route path="/score" element={
-          <ProtectedTeam>
-            <ScoreEntry teams={teams} schedule={schedule} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} matches={matches} eligibilityRules={settings.eligibilityRules} onScoreSaved={syncSavedMatch} />
-          </ProtectedTeam>
-        } />
-        <Route path="/audit" element={
-          <ProtectedRoles allowed={[ROLES.SUPER_ADMIN]} next="/audit">
-            <AuditLogs />
-          </ProtectedRoles>
-        } />
-        <Route path="/admin" element={
-          <ProtectedAdmin>
-            <Admin teams={teams} adminConfig={adminConfig} matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} schedule={schedule} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} playerRatings={playerRatings} settings={settings} />
-          </ProtectedAdmin>
-        } />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense fallback={<main className="container"><div className="card center muted">Loading page…</div></main>}>
+        <Routes>
+          <Route path="/" element={<Home teams={teams} schedule={schedule} matches={matches} eligibilityRules={settings.eligibilityRules} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} lastRefreshed={lastRefreshed} onRefresh={() => setLastRefreshed(Date.now())} />} />
+          <Route path="/teams" element={<Teams teams={teams} loaded={loaded} />} />
+          <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} matches={matches} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} />} />
+          <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />
+          <Route path="/matchups" element={<Matchups matches={matches} teams={teams} />} />
+          <Route path="/ptl" element={<Navigate to="/more" replace />} />
+          <Route path="/history" element={<History matches={matches} teams={teams} onMatchDeleted={syncDeletedMatch} />} />
+          <Route path="/rules" element={<Rules />} />
+          <Route path="/more" element={<More />} />
+          <Route path="/login" element={<Login teams={teams} adminConfig={adminConfig} />} />
+          <Route path="/score" element={
+            <ProtectedTeam>
+              <ScoreEntry teams={teams} schedule={schedule} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} matches={matches} eligibilityRules={settings.eligibilityRules} onScoreSaved={syncSavedMatch} />
+            </ProtectedTeam>
+          } />
+          <Route path="/audit" element={
+            <ProtectedRoles allowed={[ROLES.SUPER_ADMIN]} next="/audit">
+              <AuditLogs />
+            </ProtectedRoles>
+          } />
+          <Route path="/admin" element={
+            <ProtectedAdmin>
+              <Admin teams={teams} adminConfig={adminConfig} matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} schedule={schedule} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} playerRatings={playerRatings} settings={settings} />
+            </ProtectedAdmin>
+          } />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
       {!hideChrome && <BottomNav />}
     </div>
   );
