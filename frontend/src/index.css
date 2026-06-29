@@ -2101,3 +2101,93 @@ button,
   color: var(--ipl-blue);
   font-weight: 950;
 }
+
+/* ===== Route loading progress ===== */
+.route-loading-shell {
+  display: grid;
+  min-height: min(52vh, 520px);
+  place-items: center;
+}
+
+.route-loading-card {
+  width: min(100%, 520px);
+  overflow: hidden;
+  border: 1px solid rgba(219, 234, 254, .95);
+  background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(239,246,255,.94));
+}
+
+.route-loading-head {
+  display: flex;
+  align-items: center;
+  gap: .85rem;
+}
+
+.route-loading-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
+  color: #fff;
+  font-size: 1.35rem;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, .18);
+}
+
+.route-loading-card h1 {
+  margin: 0;
+  color: var(--text-dark);
+  font-size: 1.15rem;
+  line-height: 1.1;
+}
+
+.route-loading-card p {
+  margin: .2rem 0 0;
+  color: var(--muted);
+  font-size: .88rem;
+}
+
+.route-progress {
+  position: relative;
+  height: 8px;
+  margin: 1rem 0 .9rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dbeafe;
+}
+
+.route-progress span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 42%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary-blue), var(--accent), var(--primary-blue));
+  animation: route-progress-slide 1.05s ease-in-out infinite;
+}
+
+.route-loading-skeleton {
+  display: grid;
+  gap: .45rem;
+}
+
+.route-loading-skeleton i {
+  display: block;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e2e8f0, #f8fafc, #e2e8f0);
+}
+
+.route-loading-skeleton i:nth-child(1) { width: 86%; }
+.route-loading-skeleton i:nth-child(2) { width: 68%; }
+.route-loading-skeleton i:nth-child(3) { width: 78%; }
+
+@keyframes route-progress-slide {
+  0% { transform: translateX(-110%); }
+  55% { transform: translateX(80%); }
+  100% { transform: translateX(245%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-progress span { animation: none; width: 100%; }
+}

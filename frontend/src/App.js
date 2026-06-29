@@ -28,6 +28,30 @@ const Matchups = React.lazy(() => import('./pages/Matchups'));
 const More = React.lazy(() => import('./pages/More'));
 const AuditLogs = React.lazy(() => import('./pages/AuditLogs'));
 
+function PageLoadingFallback() {
+  return (
+    <main className="container route-loading-shell" aria-live="polite" aria-busy="true">
+      <section className="card route-loading-card">
+        <div className="route-loading-head">
+          <span className="route-loading-mark" aria-hidden="true">🎾</span>
+          <div>
+            <h1>Loading page</h1>
+            <p>Getting the latest league view ready…</p>
+          </div>
+        </div>
+        <div className="route-progress" role="progressbar" aria-label="Loading page">
+          <span />
+        </div>
+        <div className="route-loading-skeleton" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </div>
+      </section>
+    </main>
+  );
+}
+
 function Shell() {
   const location = useLocation();
   const { session, refreshTeamSession } = useAuth();
@@ -246,7 +270,7 @@ function Shell() {
     <div className="app-shell">
       <ActivityAudit />
       {!hideChrome && <AppHeader />}
-      <Suspense fallback={<main className="container"><div className="card center muted">Loading page…</div></main>}>
+      <Suspense fallback={<PageLoadingFallback />}>
         <Routes>
           <Route path="/" element={<Home teams={teams} schedule={schedule} matches={matches} eligibilityRules={settings.eligibilityRules} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} lastRefreshed={lastRefreshed} onRefresh={() => setLastRefreshed(Date.now())} />} />
           <Route path="/teams" element={<Teams teams={teams} loaded={loaded} />} />
