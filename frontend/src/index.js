@@ -31,7 +31,7 @@ installExternalErrorFilter();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
-  <BrowserRouter>
+  <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
     <App />
   </BrowserRouter>
 );

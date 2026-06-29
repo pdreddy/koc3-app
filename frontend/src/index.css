@@ -2051,20 +2051,57 @@ button,
   }
 }
 
-/* ===== Page loading spinner ===== */
+/* ===== Tennis ball navigation progress bar ===== */
+.nav-progress {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  z-index: 999;
+  background: rgba(37, 99, 235, 0.12);
+  pointer-events: none;
+  overflow: visible;
+}
+.nav-progress-bar {
+  position: relative;
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-blue), #38bdf8);
+  animation: nav-bar-slide 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  transform-origin: left center;
+}
+.nav-progress-ball {
+  position: absolute;
+  right: -10px;
+  top: -10px;
+  font-size: 1.1rem;
+  line-height: 1;
+  animation: nav-ball-spin 0.7s linear infinite;
+  display: inline-block;
+}
+@keyframes nav-bar-slide {
+  0%   { margin-left: 0%;   width: 0%;   }
+  25%  { margin-left: 0%;   width: 55%;  }
+  75%  { margin-left: 45%;  width: 55%;  }
+  100% { margin-left: 100%; width: 0%;   }
+}
+@keyframes nav-ball-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== Page loading spinner (Suspense fallback) ===== */
 .page-spinner {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 200px;
+  min-height: 220px;
 }
-.page-spinner-dot {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 3px solid var(--border-light);
-  border-top-color: var(--primary-blue);
-  animation: spin .7s linear infinite;
+.page-spinner-ball {
+  font-size: 2.4rem;
+  animation: ball-bounce 0.55s ease-in-out infinite alternate, nav-ball-spin 1.1s linear infinite;
+  display: inline-block;
+  filter: drop-shadow(0 4px 8px rgba(37,99,235,0.25));
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes ball-bounce {
+  from { transform: translateY(0) rotate(0deg); }
+  to   { transform: translateY(-18px) rotate(180deg); }
+}

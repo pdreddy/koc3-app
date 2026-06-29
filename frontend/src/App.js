@@ -293,13 +293,17 @@ function Shell() {
     }
   }, [teams, session?.role, session?.teamId, session?.teamName, refreshTeamSession]);
 
+  const handleRefresh = useCallback(() => setLastRefreshed(Date.now()), []);
+  const previousMatches = useMemo(() => [...legacyMatches, ...legacyFallbackMatches], [legacyMatches, legacyFallbackMatches]);
+
   return (
     <div className="app-shell">
+      <RouteProgress />
       <ActivityAudit />
       {!hideChrome && <AppHeader />}
       <Suspense fallback={<PageSpinner />}>
       <Routes>
-        <Route path="/" element={<Home teams={teams} schedule={schedule} matches={matches} eligibilityRules={settings.eligibilityRules} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} lastRefreshed={lastRefreshed} onRefresh={() => setLastRefreshed(Date.now())} />} />
+        <Route path="/" element={<Home teams={teams} schedule={schedule} matches={matches} eligibilityRules={settings.eligibilityRules} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} lastRefreshed={lastRefreshed} onRefresh={handleRefresh} />} />
         <Route path="/teams" element={<Teams teams={teams} loaded={loaded} />} />
         <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} matches={matches} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} />} />
         <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />
@@ -321,7 +325,7 @@ function Shell() {
         } />
         <Route path="/admin" element={
           <ProtectedAdmin>
-            <Admin teams={teams} adminConfig={adminConfig} matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} schedule={schedule} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} playerRatings={playerRatings} settings={settings} />
+            <Admin teams={teams} adminConfig={adminConfig} matches={matches} previousMatches={previousMatches} schedule={schedule} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} playerRatings={playerRatings} settings={settings} />
           </ProtectedAdmin>
         } />
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -332,11 +336,38 @@ function Shell() {
   );
 }
 
+function NavProgressBar() {
+  return (
+    <div className="nav-progress" aria-hidden="true">
+      <div className="nav-progress-bar">
+        <span className="nav-progress-ball">🎾</span>
+      </div>
+    </div>
+  );
+}
+
+function RouteProgress() {
+  const location = useLocation();
+  const [active, setActive] = useState(false);
+  const timerRef = useRef(null);
+  useEffect(() => {
+    setActive(true);
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setActive(false), 500);
+    return () => clearTimeout(timerRef.current);
+  }, [location.pathname]);
+  if (!active) return null;
+  return <NavProgressBar />;
+}
+
 function PageSpinner() {
   return (
-    <div className="page-spinner">
-      <div className="page-spinner-dot" />
-    </div>
+    <>
+      <NavProgressBar />
+      <div className="page-spinner" aria-label="Loading page">
+        <span className="page-spinner-ball">🎾</span>
+      </div>
+    </>
   );
 }
 
