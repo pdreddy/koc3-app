@@ -141,7 +141,7 @@ exports.revealLineupsOnLock = functions.database
     if (existingRevealId) return null;
 
     const now = Date.now();
-    const revealId = `${scheduleId}-${now}`;
+    const revealId = `${scheduleId}-R${now}`;
     const revealRecord = {
       revealId,
       scheduleId,

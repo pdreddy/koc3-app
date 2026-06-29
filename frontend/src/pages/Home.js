@@ -230,6 +230,14 @@ function whatsappMessage(fixture, team, opponent, captainName, mySubmission, opp
   return `🏆 *KOC Match Lineups*\n*Group ${group} · Round ${fixture?.round || '—'}*\n📅 ${formatDate(fixture?.date)} · ${fixture?.time || 'TBD'}\n\n🔥 *${leftTeamName} vs ${rightTeamName}*\n\n👤 *Captain sharing:*\n${captainName || 'Captain'}\n\n✅ *Official lines revealed*\n${highlightedRows}\n\n⏱️ *Submission timeline*\n• *${leftTeamName} submitted:* ${dateTimeLabel(leftSubmission?.submittedAt || leftSubmission?.lockedAt)}\n• *${rightTeamName} submitted:* ${dateTimeLabel(rightSubmission?.submittedAt || rightSubmission?.lockedAt)}\n• *Final reveal:* ${dateTimeLabel(revealedAt)}\n\n🔑 *Schedule ID:* ${fixture?.id || '—'}\n📌 _The KOC App is the official source of truth for these lineups._`;
 }
 
+function scoreEntryHref(fixture, revealedLineup, lineupSubmission) {
+  const params = new URLSearchParams();
+  if (fixture?.id) params.set('scheduleId', fixture.id);
+  const revealId = revealedLineup?.revealId || lineupSubmission?.revealId;
+  if (revealId) params.set('revealId', revealId);
+  return `/score?${params.toString()}`;
+}
+
 function statusForFixture(isCompleted, mine, theirs) {
   if (isCompleted) return LINEUP_STATUS.completed;
   if (mine?.revealedAt || (mine?.lockedAt && theirs?.lockedAt)) return LINEUP_STATUS.revealed;
@@ -460,7 +468,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
         <div className="captain-fixture-actions">
           {!completed && !locked && <button type="button" className="btn small" onClick={() => setExpanded(v => !v)} data-testid={`submit-lines-${item.id}`}>{expanded ? 'Hide Lines' : 'Submit Lines'}</button>}
           {locked && <button type="button" className="btn small ghost" onClick={() => setExpanded(v => !v)}>{expanded ? 'Hide' : 'View Status'}</button>}
-          {revealed && !completed ? <Link className="btn small success" to="/score" data-testid={`submit-score-${item.id}`}>Submit Score</Link> : <button type="button" className="btn small ghost" disabled data-testid={`submit-score-${item.id}`}>Submit Score</button>}
+          {revealed && !completed ? <Link className="btn small success" to={scoreEntryHref(item, revealedLineup, lineupSubmission)} data-testid={`submit-score-${item.id}`}>Submit Score</Link> : <button type="button" className="btn small ghost" disabled data-testid={`submit-score-${item.id}`}>Submit Score</button>}
           <button type="button" className="btn small ghost" onClick={() => setShowOpponentCapacity(v => !v)} data-testid={`toggle-opponent-capacity-${item.id}`}>{showOpponentCapacity ? 'Hide Opponent Capacity' : 'Show Opponent Capacity'}</button>
         </div>
       </div>
