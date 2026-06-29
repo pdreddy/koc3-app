@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { approvedMatches } from '../utils/matchStatus';
 import { matchTeamNames, matchWinnerId } from '../utils/matchTeams';
+import { useAuth } from '../contexts/AuthContext';
+import { ROLES, hasRole } from '../utils/roles';
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -83,7 +85,7 @@ function matchBelongsToFixture(match, fixture, teams) {
   return !!matchTeamIds && matchTeamIds === fixtureTeamIds;
 }
 
-function MatchRow({ m, t1, t2, isCompleted, lineupReady, scoreReady, lineupOpen, scoreOpen, onToggleLineup, onToggleScore, submissions, match, teams }) {
+function MatchRow({ m, t1, t2, isCompleted, lineupReady, scoreReady, lineupOpen, scoreOpen, onToggleLineup, onToggleScore, submissions, match, teams, showPublicDetails }) {
   return (
     <div data-testid={`schedule-match-${m.id}`} style={{ background: isCompleted ? '#ecfdf5' : '#f8fafc', borderLeft: `3px solid ${isCompleted ? '#10b981' : (m.group === 'A' ? '#2563eb' : '#d97706')}`, borderRadius: 8, padding: '.55rem .65rem' }}>
       <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
@@ -103,18 +105,24 @@ function MatchRow({ m, t1, t2, isCompleted, lineupReady, scoreReady, lineupOpen,
         </div>
         {isCompleted && <span className="tag win" style={{ fontSize: '.65rem' }}>✓</span>}
       </div>
-      <div style={{ display: 'flex', gap: '.35rem', flexWrap: 'wrap', marginTop: '.5rem' }}>
-        <button type="button" className="btn small ghost" disabled={!lineupReady} onClick={onToggleLineup} data-testid={`schedule-reveal-lineups-${m.id}`}>{lineupOpen ? 'Hide lineups' : 'Reveal lineups'}</button>
-        <button type="button" className="btn small ghost" disabled={!scoreReady} onClick={onToggleScore} data-testid={`schedule-view-score-${m.id}`}>{scoreOpen ? 'Hide score' : 'View score'}</button>
-      </div>
-      {!lineupReady && <div className="hint" style={{ marginTop: '.3rem' }}>Lineups and score unlock here after both captains reveal/lock lineups and the score is submitted.</div>}
-      {lineupOpen && <LineupPanel fixture={m} teams={teams} submissions={submissions} />}
-      {scoreOpen && <ScorePanel match={match} teams={teams} />}
+      {showPublicDetails && (
+        <>
+          <div style={{ display: 'flex', gap: '.35rem', flexWrap: 'wrap', marginTop: '.5rem' }}>
+            <button type="button" className="btn small ghost" disabled={!lineupReady} onClick={onToggleLineup} data-testid={`schedule-reveal-lineups-${m.id}`}>{lineupOpen ? 'Hide lineups' : 'Reveal lineups'}</button>
+            <button type="button" className="btn small ghost" disabled={!scoreReady} onClick={onToggleScore} data-testid={`schedule-view-score-${m.id}`}>{scoreOpen ? 'Hide score' : 'View score'}</button>
+          </div>
+          {!lineupReady && <div className="hint" style={{ marginTop: '.3rem' }}>Lineups and score unlock here after both captains reveal/lock lineups and the score is submitted.</div>}
+          {lineupOpen && <LineupPanel fixture={m} teams={teams} submissions={submissions} />}
+          {scoreOpen && <ScorePanel match={match} teams={teams} />}
+        </>
+      )}
     </div>
   );
 }
 
 export default function Schedule({ teams, schedule, matches = [], lineupSubmissions = {}, revealedLineups = {} }) {
+  const { session } = useAuth();
+  const showPublicDetails = hasRole(session, [ROLES.GUEST]);
   const [filterTeam, setFilterTeam] = useState('all');
   const [filterGroup, setFilterGroup] = useState('all');
   const [openLineups, setOpenLineups] = useState({});
@@ -255,6 +263,7 @@ export default function Schedule({ teams, schedule, matches = [], lineupSubmissi
                         submissions={submissions}
                         match={scoreMatch}
                         teams={teams}
+                        showPublicDetails={showPublicDetails}
                       />
                     );
                   })()}
