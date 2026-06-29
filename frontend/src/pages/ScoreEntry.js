@@ -833,6 +833,19 @@ function scoreLineupFixtures(schedule, revealedLineups, lineupSubmissions, team1
       rows.set(row.scheduleId, buildRow(item, row.revealId, row.revealCode || row.revealId?.slice(-8).toUpperCase(), team1Names, team2Names, true));
     });
 
+  Object.entries(lineupSubmissions || {}).forEach(([scheduleId, submissions]) => {
+    if (rows.has(scheduleId)) return;
+    const mine = submissions?.[team1Id];
+    const theirs = submissions?.[team2Id];
+    if (!mine?.lockedAt || !theirs?.lockedAt || mine?.unlockedAt || theirs?.unlockedAt) return;
+    const team1Names = submittedLineupNames(mine, teams[team1Id]);
+    const team2Names = submittedLineupNames(theirs, teams[team2Id]);
+    if (team1Names.length !== 5 || team2Names.length !== 5) return;
+    const item = schedule?.[scheduleId] || { id: scheduleId, team1Id: mine.teamId || team1Id, team2Id: theirs.teamId || team2Id };
+    const revealId = mine.revealId || theirs.revealId || `locked-${scheduleId}`;
+    rows.set(scheduleId, buildRow(item, revealId, String(revealId).slice(-8).toUpperCase(), team1Names, team2Names, true));
+  });
+
   return Array.from(rows.values());
 }
 
