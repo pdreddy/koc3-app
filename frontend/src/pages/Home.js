@@ -497,7 +497,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
               )}
               <button className="btn ghost" type="button" onClick={onRefresh}>Refresh</button>
               <p className="hint">Last Updated<br />{timeLabel(lineupSubmission.lastUpdatedAt)}</p>
-              {revealed && <div className="lineup-reveal"><h4>Revealed Lineups {lineupSubmission?.revealId ? `· Code ${lineupSubmission.revealId.slice(-8).toUpperCase()}` : ''}</h4>{revealedRecordRows(revealedLineup, captainTeam.id, opponent?.id, lineupSubmission, opponentSubmission).map(row => <div key={row.label}><strong>{row.label}:</strong> {formatPlayers(row.mine)} <strong>vs</strong> {formatPlayers(row.theirs)}</div>)}</div>}
+              {revealed && <div className="lineup-reveal"><h4>Revealed Lineups {(revealedLineup?.revealCode || lineupSubmission?.revealId) ? `· Code ${revealedLineup?.revealCode || lineupSubmission?.revealId}` : ''}</h4>{revealedRecordRows(revealedLineup, captainTeam.id, opponent?.id, lineupSubmission, opponentSubmission).map(row => <div key={row.label}><strong>{row.label}:</strong> {formatPlayers(row.mine)} <strong>vs</strong> {formatPlayers(row.theirs)}</div>)}</div>}
               {!revealed && <p className="hint">Lineup details and WhatsApp sharing stay hidden until both captains submit and lock.</p>}
             </div>
           )}

@@ -145,7 +145,7 @@ exports.revealLineupsOnLock = functions.database
     const revealRecord = {
       revealId,
       scheduleId,
-      revealCode: revealId.slice(-8).toUpperCase(),
+      revealCode: revealId,
       team1Id: fixture.team1Id,
       team2Id: fixture.team2Id,
       revealedAt: now,
