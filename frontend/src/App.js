@@ -51,9 +51,6 @@ function Shell() {
   const hideChrome = location.pathname === '/login';
   const [teams, setTeams] = useState({});
   const [matches, setMatches] = useState([]);
-  const [legacyMatches, setLegacyMatches] = useState([]);
-  const [legacyFallbackMatches, setLegacyFallbackMatches] = useState([]);
-  const [playerRatings, setPlayerRatings] = useState({});
   const [adminConfig, setAdminConfig] = useState({ password: '', users: {} });
   const [schedule, setSchedule] = useState({});
   const [lineupSubmissionMeta, setLineupSubmissionMeta] = useState({});
@@ -202,30 +199,11 @@ function Shell() {
       list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
       setMatches(list);
     });
-    const unsubLegacy = onValue(ref(db, PATHS.koc2db), (snap) => {
-      const list = firebaseObjectToList(snap.val(), 'KOC2DB');
-      list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
-      setLegacyMatches(list);
-    }, (error) => {
-      console.error('Legacy KOC2DB load failed', error);
-      setLegacyMatches([]);
-    });
-    const unsubLegacyFallback = onValue(ref(db, PATHS.season1), (snap) => {
-      const list = firebaseObjectToList(snap.val(), 'KOC2DBPONEW');
-      list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
-      setLegacyFallbackMatches(list);
-    }, (error) => {
-      console.error('Legacy KOC2DBPONEW fallback load failed', error);
-      setLegacyFallbackMatches([]);
-    });
     const unsubA = onValue(ref(db, PATHS.admin), (snap) => {
       setAdminConfig(prev => ({ ...prev, ...(snap.val() || { password: '' }) }));
     });
     const unsubAU = onValue(ref(db, PATHS.adminUsers), (snap) => {
       setAdminConfig(prev => ({ ...prev, users: snap.val() || {} }));
-    });
-    const unsubR = onValue(ref(db, PATHS.playerRatings), (snap) => {
-      setPlayerRatings(snap.val() || buildUtrRatingsTable());
     });
     const unsubS = onValue(ref(db, PATHS.schedule), (snap) => {
       setSchedule(snap.val() || {});
@@ -242,7 +220,7 @@ function Shell() {
       const value = snap.val() || {};
       setSettings({ ...value, eligibilityRules: normalizeEligibilityRules(value.eligibilityRules) });
     });
-    return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubAU(); unsubR(); unsubS(); unsubLineups(); unsubRevealedLineups(); unsubSettings(); };
+    return () => { unsubT(); unsubM(); unsubA(); unsubAU(); unsubS(); unsubLineups(); unsubRevealedLineups(); unsubSettings(); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 
@@ -294,7 +272,6 @@ function Shell() {
   }, [teams, session?.role, session?.teamId, session?.teamName, refreshTeamSession]);
 
   const handleRefresh = useCallback(() => setLastRefreshed(Date.now()), []);
-  const previousMatches = useMemo(() => [...legacyMatches, ...legacyFallbackMatches], [legacyMatches, legacyFallbackMatches]);
 
   return (
     <div className="app-shell">
@@ -325,7 +302,7 @@ function Shell() {
         } />
         <Route path="/admin" element={
           <ProtectedAdmin>
-            <Admin teams={teams} adminConfig={adminConfig} matches={matches} previousMatches={previousMatches} schedule={schedule} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} playerRatings={playerRatings} settings={settings} />
+            <Admin teams={teams} adminConfig={adminConfig} matches={matches} schedule={schedule} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} settings={settings} />
           </ProtectedAdmin>
         } />
         <Route path="*" element={<Navigate to="/" replace />} />
