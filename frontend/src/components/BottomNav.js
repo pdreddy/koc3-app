@@ -6,19 +6,19 @@ import { ROLES, hasRole, isAdminRole } from '../utils/roles';
 export const BOTTOM_NAV_MAX = 5;
 
 const PUBLIC_TABS = [
-  { to: '/', label: 'Home', icon: '⌂', testid: 'nav-home' },
-  { to: '/schedule', label: 'Schedule', icon: '◷', testid: 'nav-schedule' },
-  { to: '/standings', label: 'Standings', icon: '↗', testid: 'nav-standings' },
-  { to: '/rules', label: 'Rules', icon: '✓', testid: 'nav-rules' },
-  { to: '/more', label: 'More', icon: '•••', testid: 'nav-more' }
+  { to: '/', label: 'Home', icon: '🏠', testid: 'nav-home' },
+  { to: '/schedule', label: 'Schedule', icon: '📅', testid: 'nav-schedule' },
+  { to: '/standings', label: 'Standings', icon: '📊', testid: 'nav-standings' },
+  { to: '/rules', label: 'Rules', icon: '📋', testid: 'nav-rules' },
+  { to: '/more', label: 'More', icon: '⋯', testid: 'nav-more' }
 ];
 
 const CAPTAIN_TABS = [
-  { to: '/', label: 'Home', icon: '⌂', testid: 'nav-home' },
-  { to: '/score', label: 'Score', icon: '＋', testid: 'nav-score' },
-  { to: '/schedule', label: 'Schedule', icon: '◷', testid: 'nav-schedule' },
-  { to: '/standings', label: 'Standings', icon: '↗', testid: 'nav-standings' },
-  { to: '/more', label: 'More', icon: '•••', testid: 'nav-more' }
+  { to: '/', label: 'Home', icon: '🏠', testid: 'nav-home' },
+  { to: '/score', label: 'Score', icon: '✍️', testid: 'nav-score' },
+  { to: '/schedule', label: 'Schedule', icon: '📅', testid: 'nav-schedule' },
+  { to: '/standings', label: 'Standings', icon: '📊', testid: 'nav-standings' },
+  { to: '/more', label: 'More', icon: '⋯', testid: 'nav-more' }
 ];
 
 export function getBottomNavTabs(session) {
