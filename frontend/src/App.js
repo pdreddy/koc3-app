@@ -311,7 +311,7 @@ function Shell() {
             <Admin teams={teams} adminConfig={adminConfig} matches={matches} previousMatches={[...legacyMatches, ...legacyFallbackMatches]} schedule={schedule} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} playerRatings={playerRatings} settings={settings} />
           </ProtectedAdmin>
         } />
-        <Route path="*" element={<Navigate to="/teams" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {!hideChrome && <BottomNav />}
     </div>

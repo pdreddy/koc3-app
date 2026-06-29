@@ -545,6 +545,42 @@ function ScheduleMiniList({ title, description, fixtures, teams, emptyText, test
   );
 }
 
+const PUBLIC_HOME_LINKS = [
+  { to: '/teams', icon: '👥', title: 'Teams', desc: 'Rosters, captains, and team groups.' },
+  { to: '/schedule', icon: '📅', title: 'Schedule', desc: 'Round fixtures, lineups, and scores when public.' },
+  { to: '/standings', icon: '📊', title: 'Standings', desc: 'Group tables and qualification positions.' },
+  { to: '/matchups', icon: '🎾', title: 'Matchups', desc: 'Player, singles, and doubles matchup stats.' },
+  { to: '/history', icon: '🏁', title: 'Match History', desc: 'Approved submitted match results.' },
+  { to: '/rules', icon: '📋', title: 'Rules', desc: 'League format, eligibility, and scoring rules.' },
+  { to: '/more', icon: '⋯', title: 'More', desc: 'Additional pages and captain/admin login.' }
+];
+
+function PublicNavigationGrid() {
+  return (
+    <section className="card" data-testid="public-home-navigation">
+      <h2 style={{ marginTop: 0 }}>League Navigation</h2>
+      <p className="hint">Use the home page as the public hub for every league section.</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: '.65rem', marginTop: '.75rem' }}>
+        {PUBLIC_HOME_LINKS.map(link => (
+          <Link
+            key={link.to}
+            to={link.to}
+            className="rl-item"
+            style={{ textDecoration: 'none', color: 'inherit', alignItems: 'flex-start' }}
+            data-testid={`public-home-link-${link.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+          >
+            <span className="rl-ic" aria-hidden="true">{link.icon}</span>
+            <span>
+              <strong>{link.title}</strong>
+              <span className="hint" style={{ display: 'block', marginTop: '.15rem' }}>{link.desc}</span>
+            </span>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function CaptainScheduleList({ fixtures, completedFixtures, teams, captainTeam, lineupSubmissions, revealedLineups, matches, eligibilityRules, session, lastRefreshed, onRefresh }) {
   return (
     <section className="card" data-testid="captain-scheduled-matches-card">
@@ -699,8 +735,9 @@ export default function Home({ teams, schedule, matches = [], eligibilityRules =
     <main className="container" data-testid="public-home-page">
       <div className="page-title">
         <h1>KOC3 / PPRC Tennis</h1>
-        <p>Public landing page: all league schedules are visible without login.</p>
+        <p>Public landing page: navigate the full league without login.</p>
       </div>
+      <PublicNavigationGrid />
       <ScheduleMiniList
         title="All Schedules"
         description="Sign in as a captain to see only your fixtures, capacity, and danger bells."

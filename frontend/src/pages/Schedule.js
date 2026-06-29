@@ -73,6 +73,16 @@ function ScorePanel({ match, teams }) {
   );
 }
 
+function matchBelongsToFixture(match, fixture, teams) {
+  if (!match || !fixture) return false;
+  const savedScheduleId = match.scheduleId || match.matchScheduleId;
+  if (savedScheduleId && String(savedScheduleId) === String(fixture.id)) return true;
+  const names = matchTeamNames(match, teams);
+  const matchTeamIds = [names.team1Id, names.team2Id].filter(Boolean).sort().join('|');
+  const fixtureTeamIds = [fixture.team1Id, fixture.team2Id].filter(Boolean).sort().join('|');
+  return !!matchTeamIds && matchTeamIds === fixtureTeamIds;
+}
+
 function MatchRow({ m, t1, t2, isCompleted, lineupReady, scoreReady, lineupOpen, scoreOpen, onToggleLineup, onToggleScore, submissions, match, teams }) {
   return (
     <div data-testid={`schedule-match-${m.id}`} style={{ background: isCompleted ? '#ecfdf5' : '#f8fafc', borderLeft: `3px solid ${isCompleted ? '#10b981' : (m.group === 'A' ? '#2563eb' : '#d97706')}`, borderRadius: 8, padding: '.55rem .65rem' }}>
@@ -226,7 +236,7 @@ export default function Schedule({ teams, schedule, matches = [], lineupSubmissi
                       const sub = submissions?.[teamId] || {};
                       return (sub.lockedAt || sub.revealedAt || sub.revealId) && !sub.unlockedAt;
                     });
-                    const scoreMatch = approvedMatchList.find(match => String(match.scheduleId || match.matchScheduleId || '') === String(m.id));
+                    const scoreMatch = approvedMatchList.find(match => matchBelongsToFixture(match, m, teams));
                     const bothLineupsRevealed = !!reveal || bothSubmitted;
                     const lineupReady = bothLineupsRevealed && !!scoreMatch;
                     const scoreReady = lineupReady;
