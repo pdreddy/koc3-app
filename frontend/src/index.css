@@ -1187,3 +1187,17 @@ main.container,
 
 .input:focus, .textarea:focus, .select:focus { scroll-margin-bottom: calc(120px + env(safe-area-inset-bottom)); }
 .dashboard-sticky-actions { bottom: calc(74px + env(safe-area-inset-bottom)); }
+
+.captain-fixture-actions { display: flex; flex-wrap: wrap; gap: .45rem; justify-content: flex-end; align-items: center; }
+.captain-fixture-actions .btn[disabled] { opacity: .55; cursor: not-allowed; box-shadow: none; transform: none; }
+.opponent-capacity-panel { margin-top: .75rem; border: 1px solid var(--ring); border-radius: 14px; padding: .8rem; background: linear-gradient(180deg, #f8fafc, #eff6ff); display: grid; gap: .65rem; }
+.opponent-capacity-panel h4 { margin: 0; color: var(--text-dark); }
+.opponent-capacity-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .5rem; }
+.opponent-capacity-row { border: 1px solid var(--border-light); border-radius: 12px; padding: .55rem .65rem; background: #fff; display: grid; gap: .15rem; }
+.opponent-capacity-row span, .opponent-capacity-row small { color: var(--muted); font-size: .78rem; }
+.opponent-capacity-row.warn { border-color: #fde68a; background: #fffbeb; }
+.opponent-capacity-row.warn small { color: #92400e; font-weight: 800; }
+@media (max-width: 760px) {
+  .captain-fixture-actions { justify-content: stretch; }
+  .captain-fixture-actions .btn { flex: 1 1 150px; }
+}

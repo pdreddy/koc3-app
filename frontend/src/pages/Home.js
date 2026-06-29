@@ -227,12 +227,39 @@ function LineupRoleSelect({ team, selected, onChange, readOnly, optionErrors = {
   );
 }
 
+
+function OpponentCapacityPreview({ opponent, teams, matches, eligibilityRules, lineupSubmissions }) {
+  const rows = useMemo(() => opponent ? buildCaptainCapacityRows(opponent, teams, matches, eligibilityRules, lineupSubmissions) : [], [opponent, teams, matches, eligibilityRules, lineupSubmissions]);
+  if (!opponent) return null;
+  const highlighted = [...rows]
+    .sort((a, b) => (b.warnings.length - a.warnings.length) || (b.totalMatchDays - a.totalMatchDays) || a.name.localeCompare(b.name))
+    .slice(0, 6);
+  return (
+    <div className="opponent-capacity-panel" data-testid={`opponent-capacity-${opponent.id}`}>
+      <div>
+        <h4>{opponent.name} capacity</h4>
+        <p className="hint">Preview is hidden by default and shown only for this scheduled match.</p>
+      </div>
+      <div className="opponent-capacity-grid">
+        {highlighted.map(row => (
+          <div key={row.name} className={row.warnings.length ? 'opponent-capacity-row warn' : 'opponent-capacity-row'}>
+            <strong>{row.name}</strong>
+            <span>S {row.singlesDays} · Total {row.totalMatchDays} · Partner {row.maxPartner}</span>
+            <small>{row.warnings.length ? row.warnings.join(', ') : 'Available'}</small>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmission, opponentSubmission, revealedLineup, matches, eligibilityRules, session, onRefresh }) {
   const [expanded, setExpanded] = useState(false);
   const [selected, setSelected] = useState([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [selectionWarning, setSelectionWarning] = useState('');
+  const [showOpponentCapacity, setShowOpponentCapacity] = useState(false);
   const { team1, team2 } = fixtureTeams(item, teams);
   const opponent = item.team1Id === captainTeam.id ? team2 : team1;
   const locked = !!lineupSubmission?.lockedAt && !lineupSubmission?.unlockedAt;
@@ -378,9 +405,14 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
           <div className="rl-val">{team1?.name || 'TBD'} <strong>vs</strong> {team2?.name || 'TBD'} · Group {item.group || team1?.group || team2?.group || '—'}</div>
           <div className="dashboard-status-row"><span className={status.className}>{status.label}</span><span>Opponent Submission Status: {opponentSubmission?.submittedAt ? 'Submitted' : 'Waiting...'}</span>{opponentSubmission?.submittedAt && <span>Submitted At {timeLabel(opponentSubmission.submittedAt)}</span>}</div>
         </div>
-        {!completed && !locked && <button type="button" className="btn small" onClick={() => setExpanded(v => !v)} data-testid={`submit-lines-${item.id}`}>{expanded ? 'Hide Lines' : 'Submit Lines'}</button>}
-        {locked && <button type="button" className="btn small ghost" onClick={() => setExpanded(v => !v)}>{expanded ? 'Hide' : 'View Status'}</button>}
+        <div className="captain-fixture-actions">
+          {!completed && !locked && <button type="button" className="btn small" onClick={() => setExpanded(v => !v)} data-testid={`submit-lines-${item.id}`}>{expanded ? 'Hide Lines' : 'Submit Lines'}</button>}
+          {locked && <button type="button" className="btn small ghost" onClick={() => setExpanded(v => !v)}>{expanded ? 'Hide' : 'View Status'}</button>}
+          {revealed && !completed ? <Link className="btn small success" to="/score" data-testid={`submit-score-${item.id}`}>Submit Score</Link> : <button type="button" className="btn small ghost" disabled data-testid={`submit-score-${item.id}`}>Submit Score</button>}
+          <button type="button" className="btn small ghost" onClick={() => setShowOpponentCapacity(v => !v)} data-testid={`toggle-opponent-capacity-${item.id}`}>{showOpponentCapacity ? 'Hide Opponent Capacity' : 'Show Opponent Capacity'}</button>
+        </div>
       </div>
+      {showOpponentCapacity && <OpponentCapacityPreview opponent={opponent} teams={teams} matches={matches} eligibilityRules={eligibilityRules} lineupSubmissions={{ [item.id]: { [opponent?.id]: opponentSubmission } }} />}
       {expanded && (
         <div className="dashboard-lineup-drawer">
           {message && <div className={message.startsWith('✅') ? 'success-box' : 'error-box'}>{message}</div>}
