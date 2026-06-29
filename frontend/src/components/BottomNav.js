@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ROLES, hasRole, isAdminRole } from '../utils/roles';
 
@@ -26,22 +26,33 @@ export function getBottomNavTabs(session) {
   return tabs.slice(0, BOTTOM_NAV_MAX);
 }
 
+function samePath(currentPath, targetPath) {
+  const normalize = (path) => (path || '/').replace(/\/+$/, '') || '/';
+  return normalize(currentPath) === normalize(targetPath);
+}
+
 export default function BottomNav() {
   const { session } = useAuth();
+  const location = useLocation();
   const tabs = getBottomNavTabs(session);
   return (
     <nav className="bottom-nav" data-testid="bottom-nav" style={{ '--bottom-nav-count': tabs.length }}>
-      {tabs.map(t => (
-        <NavLink
-          key={t.to}
-          to={t.to}
-          className={({ isActive }) => isActive ? 'active' : ''}
-          data-testid={t.testid}
-        >
-          <span className="ico">{t.icon}</span>
-          <span>{t.label}</span>
-        </NavLink>
-      ))}
+      {tabs.map(t => {
+        const current = samePath(location.pathname, t.to);
+        return (
+          <NavLink
+            key={t.to}
+            to={t.to}
+            className={({ isActive }) => isActive ? 'active' : ''}
+            data-testid={t.testid}
+            onClick={event => { if (current) event.preventDefault(); }}
+            style={{ pointerEvents: current ? 'none' : undefined }}
+          >
+            <span className="ico">{t.icon}</span>
+            <span>{t.label}</span>
+          </NavLink>
+        );
+      })}
     </nav>
   );
 }
