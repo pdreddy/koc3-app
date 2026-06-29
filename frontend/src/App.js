@@ -58,6 +58,7 @@ function Shell() {
   const [schedule, setSchedule] = useState({});
   const [lineupSubmissionMeta, setLineupSubmissionMeta] = useState({});
   const [ownLineupSubmissions, setOwnLineupSubmissions] = useState({});
+  const [revealedScheduleSubmissions, setRevealedScheduleSubmissions] = useState({});
   const [revealedLineups, setRevealedLineups] = useState({});
   const [lastRefreshed, setLastRefreshed] = useState(Date.now());
   const [settings, setSettings] = useState({ eligibilityRules: DEFAULT_ELIGIBILITY_RULES });
@@ -65,12 +66,16 @@ function Shell() {
 
   const visibleLineupSubmissions = useMemo(() => {
     const merged = JSON.parse(JSON.stringify(lineupSubmissionMeta || {}));
+    Object.entries(revealedScheduleSubmissions || {}).forEach(([scheduleId, submissions]) => {
+      if (!submissions) return;
+      merged[scheduleId] = { ...(merged[scheduleId] || {}), ...submissions };
+    });
     Object.entries(ownLineupSubmissions || {}).forEach(([scheduleId, submission]) => {
       if (!submission || !session?.teamId) return;
       merged[scheduleId] = { ...(merged[scheduleId] || {}), [session.teamId]: submission };
     });
     return merged;
-  }, [lineupSubmissionMeta, ownLineupSubmissions, session?.teamId]);
+  }, [lineupSubmissionMeta, revealedScheduleSubmissions, ownLineupSubmissions, session?.teamId]);
 
 
   const syncSavedMatch = useCallback((record) => {
@@ -228,6 +233,23 @@ function Shell() {
     return () => { unsubT(); unsubM(); unsubLegacy(); unsubLegacyFallback(); unsubA(); unsubAU(); unsubR(); unsubS(); unsubLineups(); unsubRevealedLineups(); unsubSettings(); };
   }, [session]);
 
+
+
+
+  useEffect(() => {
+    const scheduleIds = Array.from(new Set(Object.values(revealedLineups || {}).map(row => row?.scheduleId).filter(Boolean)));
+    if (!scheduleIds.length) {
+      setRevealedScheduleSubmissions({});
+      return undefined;
+    }
+    const unsubs = scheduleIds.map(scheduleId => onValue(ref(db, `${PATHS.lineupSubmissions}/${scheduleId}`), (snap) => {
+      setRevealedScheduleSubmissions(prev => ({ ...prev, [scheduleId]: snap.val() || null }));
+      setLastRefreshed(Date.now());
+    }, () => {
+      setRevealedScheduleSubmissions(prev => ({ ...prev, [scheduleId]: null }));
+    }));
+    return () => unsubs.forEach(unsub => unsub());
+  }, [revealedLineups]);
 
   useEffect(() => {
     if (!session?.teamId) {

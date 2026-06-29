@@ -182,6 +182,15 @@ function lineupByLabel(submission) {
   return Object.fromEntries((submission?.lineup || []).map(line => [line.label, line.players || []]));
 }
 
+
+function shareTeamName(team, fallback) {
+  return String(team?.name || fallback || '').replace(/[^A-Za-z0-9&.'\- ]+/g, '').replace(/\s+/g, ' ').trim() || fallback || 'Team';
+}
+
+function formatPlayers(players) {
+  return (players || []).filter(Boolean).join(' / ') || 'Not available yet';
+}
+
 function revealedLineupRows(mySubmission, opponentSubmission) {
   const mine = lineupByLabel(mySubmission);
   const theirs = lineupByLabel(opponentSubmission);
@@ -193,22 +202,27 @@ function revealedLineupRows(mySubmission, opponentSubmission) {
 }
 
 function revealedRecordRows(revealedLineup, myTeamId, opponentTeamId, mySubmission, opponentSubmission) {
+  const fallbackMine = lineupByLabel(mySubmission);
+  const fallbackTheirs = lineupByLabel(opponentSubmission);
   if (!revealedLineup?.lineups) return revealedLineupRows(mySubmission, opponentSubmission);
   const mine = lineupByLabel({ lineup: revealedLineup.lineups?.[myTeamId] || [] });
   const theirs = lineupByLabel({ lineup: revealedLineup.lineups?.[opponentTeamId] || [] });
   return ['S1', 'D1', 'D2'].map(label => ({
     label,
-    mine: mine[label] || [],
-    theirs: theirs[label] || []
+    mine: mine[label]?.length ? mine[label] : (fallbackMine[label] || []),
+    theirs: theirs[label]?.length ? theirs[label] : (fallbackTheirs[label] || [])
   }));
 }
 
-function whatsappMessage(team, opponent, captainName, mySubmission, opponentSubmission, revealedLineup) {
+function whatsappMessage(fixture, team, opponent, captainName, mySubmission, opponentSubmission, revealedLineup) {
+  const myTeamName = shareTeamName(team, 'Our Team');
+  const opponentTeamName = shareTeamName(opponent, 'Opponent');
   const rows = revealedRecordRows(revealedLineup, team?.id, opponent?.id, mySubmission, opponentSubmission)
-    .map(row => `${row.label}: ${row.mine.join(' / ')} vs ${row.theirs.join(' / ')}`)
+    .map(row => `${row.label}: ${formatPlayers(row.mine)} vs ${formatPlayers(row.theirs)}`)
     .join('\n');
-  const revealedAt = revealedLineup?.revealedAt || mySubmission?.revealedAt || opponentSubmission?.revealedAt;
-  return `KOC Match\n\n${team?.name || 'Our Team'} vs ${opponent?.name || 'Opponent'}\n\nCaptain:\n${captainName || 'Captain'}\n\nSubmitted:\n${team?.name || 'Our Team'} — ${dateTimeLabel(mySubmission?.submittedAt || mySubmission?.lockedAt)}\n${opponent?.name || 'Opponent'} — ${dateTimeLabel(opponentSubmission?.submittedAt || opponentSubmission?.lockedAt)}\n\nRevealed:\n${dateTimeLabel(revealedAt)}\n\nOfficial revealed lineups:\n${rows}\n\nThe KOC App remains the official source of truth.`;
+  const revealedAt = revealedLineup?.revealedAt || mySubmission?.revealedAt || opponentSubmission?.revealedAt || (mySubmission?.lockedAt && opponentSubmission?.lockedAt ? Math.max(mySubmission.lockedAt, opponentSubmission.lockedAt) : null);
+  const group = fixture?.group || team?.group || opponent?.group || '—';
+  return `KOC Match\n\n${myTeamName} vs ${opponentTeamName}\n\nSchedule:\nRound ${fixture?.round || '—'} · ${formatDate(fixture?.date)} · ${fixture?.time || 'TBD'}\nGroup ${group}\nSchedule ID: ${fixture?.id || '—'}\n\nCaptain:\n${captainName || 'Captain'}\n\nSubmitted:\n${myTeamName} — ${dateTimeLabel(mySubmission?.submittedAt || mySubmission?.lockedAt)}\n${opponentTeamName} — ${dateTimeLabel(opponentSubmission?.submittedAt || opponentSubmission?.lockedAt)}\n\nRevealed:\n${dateTimeLabel(revealedAt)}\n\nOfficial revealed lineups:\n${rows}\n\nThe KOC App remains the official source of truth.`;
 }
 
 function statusForFixture(isCompleted, mine, theirs) {
@@ -296,7 +310,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
   const errors = validateDashboardLineup(captainTeam, selected, matches, teams, eligibilityRules);
   const names = selectedNames(captainTeam, selected);
   const canSubmit = !completed && !locked && errors.length === 0;
-  const waText = whatsappMessage(captainTeam, opponent, captainTeam?.players?.find(p => p.isCaptain)?.name || captainTeam?.players?.[0]?.name || session.teamName, lineupSubmission, opponentSubmission, revealedLineup);
+  const waText = whatsappMessage(item, captainTeam, opponent, captainTeam?.players?.find(p => p.isCaptain)?.name || captainTeam?.players?.[0]?.name || session.teamName, lineupSubmission, opponentSubmission, revealedLineup);
   const waHref = `https://wa.me/?text=${encodeURIComponent(waText)}`;
 
   useEffect(() => {
@@ -478,7 +492,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
               )}
               <button className="btn ghost" type="button" onClick={onRefresh}>Refresh</button>
               <p className="hint">Last Updated<br />{timeLabel(lineupSubmission.lastUpdatedAt)}</p>
-              {revealed && <div className="lineup-reveal"><h4>Revealed Lineups {lineupSubmission?.revealId ? `· Code ${lineupSubmission.revealId.slice(-8).toUpperCase()}` : ''}</h4>{revealedRecordRows(revealedLineup, captainTeam.id, opponent?.id, lineupSubmission, opponentSubmission).map(row => <div key={row.label}><strong>{row.label}:</strong> {row.mine.join(' / ')} <strong>vs</strong> {row.theirs.join(' / ')}</div>)}</div>}
+              {revealed && <div className="lineup-reveal"><h4>Revealed Lineups {lineupSubmission?.revealId ? `· Code ${lineupSubmission.revealId.slice(-8).toUpperCase()}` : ''}</h4>{revealedRecordRows(revealedLineup, captainTeam.id, opponent?.id, lineupSubmission, opponentSubmission).map(row => <div key={row.label}><strong>{row.label}:</strong> {formatPlayers(row.mine)} <strong>vs</strong> {formatPlayers(row.theirs)}</div>)}</div>}
               {!revealed && <p className="hint">Lineup details and WhatsApp sharing stay hidden until both captains submit and lock.</p>}
             </div>
           )}
