@@ -5,16 +5,17 @@ import { ROLES, hasRole, canViewAudit } from '../utils/roles';
 import { writeAuditLog } from '../services/AuditService';
 
 const PRIMARY_LINKS = [
-  { to: '/', label: 'Home' },
-  { to: '/teams', label: 'Teams' },
-  { to: '/schedule', label: 'Schedule' },
-  { to: '/standings', label: 'Standings' },
-  { to: '/rules', label: 'Rules' },
-  { to: '/more', label: 'More' }
+  { to: '/', label: 'Home', icon: '⌂' },
+  { to: '/teams', label: 'Teams', icon: '◉' },
+  { to: '/schedule', label: 'Schedule', icon: '▦' },
+  { to: '/standings', label: 'Standings', icon: '↗' },
+  { to: '/rules', label: 'Rules', icon: '✓' },
+  { to: '/more', label: 'More', icon: '•••' }
 ];
 
 export default function AppHeader() {
   const { session, logout } = useAuth();
+  const canScore = hasRole(session, [ROLES.CAPTAIN, ROLES.ADMIN, ROLES.SUPER_ADMIN]);
   const handleLogout = async () => {
     const currentSession = session;
     logout();
@@ -23,10 +24,10 @@ export default function AppHeader() {
   return (
     <header className="app-header" data-testid="app-header">
       <Link to="/" className="brand" data-testid="header-home" aria-label="KOC3 home">
-        <span className="logo" aria-hidden="true">🏆</span>
+        <span className="logo" aria-hidden="true">K3</span>
         <span className="brand-copy">
           <strong>KOC3</strong>
-          <small>Tennis League</small>
+          <small><span aria-hidden="true">●</span> Live Tennis League</small>
         </span>
       </Link>
 
@@ -37,12 +38,16 @@ export default function AppHeader() {
             to={link.to}
             className={({ isActive }) => isActive ? 'active' : ''}
           >
-            {link.label}
+            <span aria-hidden="true">{link.icon}</span>
+            <span>{link.label}</span>
           </NavLink>
         ))}
       </nav>
 
       <div className="header-actions">
+        {canScore && (
+          <Link to="/score" className="score-cta" data-testid="header-score-link">Score Match</Link>
+        )}
         {hasRole(session, [ROLES.ADMIN, ROLES.SUPER_ADMIN]) && (
           <span className="user-pill" data-testid="user-pill">ADMIN</span>
         )}
