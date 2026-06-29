@@ -60,7 +60,7 @@ function timeLabel(ts) {
 
 function dateTimeLabel(ts) {
   if (!ts) return '—';
-  return new Date(ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  return new Date(ts).toLocaleString(undefined, { month: 'short', day: 'numeric' }).replace(',', '') + ' at ' + new Date(ts).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
 function selectedNames(team, selected = []) {
@@ -215,14 +215,18 @@ function revealedRecordRows(revealedLineup, myTeamId, opponentTeamId, mySubmissi
 }
 
 function whatsappMessage(fixture, team, opponent, captainName, mySubmission, opponentSubmission, revealedLineup) {
-  const myTeamName = shareTeamName(team, 'Our Team');
-  const opponentTeamName = shareTeamName(opponent, 'Opponent');
-  const rows = revealedRecordRows(revealedLineup, team?.id, opponent?.id, mySubmission, opponentSubmission)
+  const leftTeam = fixture?.team1Id === opponent?.id ? opponent : team;
+  const rightTeam = fixture?.team2Id === team?.id ? team : opponent;
+  const leftSubmission = leftTeam?.id === team?.id ? mySubmission : opponentSubmission;
+  const rightSubmission = rightTeam?.id === team?.id ? mySubmission : opponentSubmission;
+  const leftTeamName = shareTeamName(leftTeam, 'Team 1');
+  const rightTeamName = shareTeamName(rightTeam, 'Team 2');
+  const rows = revealedRecordRows(revealedLineup, leftTeam?.id, rightTeam?.id, leftSubmission, rightSubmission)
     .map(row => `${row.label}: ${formatPlayers(row.mine)} vs ${formatPlayers(row.theirs)}`)
     .join('\n');
   const revealedAt = revealedLineup?.revealedAt || mySubmission?.revealedAt || opponentSubmission?.revealedAt || (mySubmission?.lockedAt && opponentSubmission?.lockedAt ? Math.max(mySubmission.lockedAt, opponentSubmission.lockedAt) : null);
-  const group = fixture?.group || team?.group || opponent?.group || '—';
-  return `KOC Match\n\n${myTeamName} vs ${opponentTeamName}\n\nSchedule:\nRound ${fixture?.round || '—'} · ${formatDate(fixture?.date)} · ${fixture?.time || 'TBD'}\nGroup ${group}\nSchedule ID: ${fixture?.id || '—'}\n\nCaptain:\n${captainName || 'Captain'}\n\nSubmitted:\n${myTeamName} — ${dateTimeLabel(mySubmission?.submittedAt || mySubmission?.lockedAt)}\n${opponentTeamName} — ${dateTimeLabel(opponentSubmission?.submittedAt || opponentSubmission?.lockedAt)}\n\nRevealed:\n${dateTimeLabel(revealedAt)}\n\nOfficial revealed lineups:\n${rows}\n\nThe KOC App remains the official source of truth.`;
+  const group = fixture?.group || leftTeam?.group || rightTeam?.group || '—';
+  return `KOC Match Lineups\nGroup ${group} · Round ${fixture?.round || '—'}\n${formatDate(fixture?.date)} · ${fixture?.time || 'TBD'}\n\n${leftTeamName} vs ${rightTeamName}\n\nCaptain sharing:\n${captainName || 'Captain'}\n\nFollowing official lines are now revealed:\n${rows}\n\nSubmission timeline:\n${leftTeamName} submitted: ${dateTimeLabel(leftSubmission?.submittedAt || leftSubmission?.lockedAt)}\n${rightTeamName} submitted: ${dateTimeLabel(rightSubmission?.submittedAt || rightSubmission?.lockedAt)}\nFinal reveal: ${dateTimeLabel(revealedAt)}\n\nSchedule ID: ${fixture?.id || '—'}\nThe KOC App is the official source of truth for these lineups.`;
 }
 
 function statusForFixture(isCompleted, mine, theirs) {
