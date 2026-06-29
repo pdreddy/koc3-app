@@ -17,7 +17,7 @@
 // The SERVICE ROLE key bypasses Row Level Security — keep it secret, never
 // commit it, and only ever use it from your own machine / a server.
 // ============================================================================
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 
 const [, , exportPath] = process.argv;
@@ -25,6 +25,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!exportPath) { console.error('Usage: node scripts/migrate-rtdb-to-supabase.mjs <firebase-export.json>'); process.exit(1); }
+if (!existsSync(exportPath)) { console.error(`Export file not found: ${exportPath}`); process.exit(1); }
 if (!SUPABASE_URL || !SERVICE_KEY) { console.error('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY env vars.'); process.exit(1); }
 
 const AUTH_EMAIL_DOMAIN = 'koc3.local';

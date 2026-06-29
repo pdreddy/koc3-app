@@ -16,7 +16,7 @@
 // Get a personal access token: Supabase -> account avatar -> Access Tokens.
 // Requires Node 18+ (uses built-in fetch). Revoke the token when you're done.
 // ============================================================================
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
@@ -30,6 +30,13 @@ let REF = process.env.SUPABASE_PROJECT_REF;
 
 if (!ACCESS_TOKEN) { console.error('Set SUPABASE_ACCESS_TOKEN (Supabase -> Account -> Access Tokens).'); process.exit(1); }
 if (!exportPath) { console.error('Usage: node scripts/setup-supabase.mjs <firebase-export.json>'); process.exit(1); }
+if (!existsSync(resolve(exportPath))) {
+  console.error(`\n❌ Export file not found: ${resolve(exportPath)}`);
+  console.error('   Pass the real path to your Firebase JSON export, e.g.');
+  console.error('   node setup-supabase.mjs ~/Downloads/koc2-20fb8-export.json');
+  console.error('   (Tip: drag the file into the terminal to paste its path.)\n');
+  process.exit(1);
+}
 
 const API = 'https://api.supabase.com';
 async function api(path, { method = 'GET', body } = {}) {
