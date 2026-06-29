@@ -46,9 +46,16 @@ function statsForGroup(teamsInGroup, matches, allTeams) {
 }
 
 function GroupTable({ label, rows, qualifyTop }) {
+  const leader = rows[0];
   return (
-    <div className="card" data-testid={`standings-group-${label}`}>
-      <h2>Group {label} <span className="muted" style={{ fontWeight: 500, fontSize: '.85rem' }}>· {rows.length} teams</span></h2>
+    <section className="card standings-card" data-testid={`standings-group-${label}`}>
+      <div className="standings-card-head">
+        <div>
+          <span className="standings-kicker">Group {label}</span>
+          <h2>{leader?.team || `Group ${label}`} <span className="muted">· {rows.length} teams</span></h2>
+        </div>
+        <span className="standings-qualifier">Top {qualifyTop} qualify</span>
+      </div>
       <div className="table-wrap">
         <table className="std" data-testid={`standings-table-${label}`}>
           <thead>
@@ -70,7 +77,7 @@ function GroupTable({ label, rows, qualifyTop }) {
             {rows.map((r, i) => (
               <tr key={r.id} className={i < qualifyTop ? 'q' : ''} data-testid={`standings-${label}-row-${r.abbr}`}>
                 <td className="rank">{i + 1}</td>
-                <td><strong>{r.abbr}</strong></td>
+                <td className="standing-team-cell"><strong>{r.abbr}</strong><span>{r.team}</span></td>
                 <td>{r.matches}</td>
                 <td>{r.wins}</td>
                 <td>{r.losses}</td>
@@ -84,7 +91,7 @@ function GroupTable({ label, rows, qualifyTop }) {
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -97,16 +104,21 @@ export default function Standings({ teams, matches }) {
   const rowsB = statsForGroup(groupB, matches, teams);
 
   return (
-    <main className="container">
+    <main className="container standings-page">
       <div className="page-title">
         <h1>Standings</h1>
         <p>Two groups of 8 · Top 2 from each group qualify for semifinals</p>
       </div>
-      <div className="groups-grid">
+      <section className="standings-summary" aria-label="Standings summary">
+        <div className="standings-summary-card"><span>Groups</span><strong>2</strong><small>A & B brackets</small></div>
+        <div className="standings-summary-card"><span>Teams</span><strong>{groupA.length + groupB.length}</strong><small>Competing teams</small></div>
+        <div className="standings-summary-card"><span>Qualified</span><strong>4</strong><small>Top 2 each group</small></div>
+      </section>
+      <div className="groups-grid standings-grid">
         <GroupTable label="A" rows={rowsA} qualifyTop={2} />
         <GroupTable label="B" rows={rowsB} qualifyTop={2} />
       </div>
-      <p className="hint center">Sort: Team Points → Sets Won → Singles Wins → Head-to-Head → Games Difference</p>
+      <p className="hint center standings-sort-note">Sort: Team Points → Sets Won → Singles Wins → Head-to-Head → Games Difference</p>
     </main>
   );
 }

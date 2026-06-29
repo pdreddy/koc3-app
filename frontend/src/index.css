@@ -1915,3 +1915,48 @@ table.std tbody tr:hover td {
     transition: transform .16s ease, box-shadow .16s ease, filter .16s ease, background-color .16s ease;
   }
 }
+
+/* ===== Standings page redesign and Rules whitespace tuning ===== */
+.standings-page .page-title { margin-bottom: .85rem; }
+.standings-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .85rem; margin-bottom: .95rem; }
+.standings-summary-card { border-radius: 20px; padding: 1rem 1.1rem; color: #fff; background: linear-gradient(135deg, rgba(7,21,45,.96), rgba(37,99,235,.90)); box-shadow: 0 14px 34px rgba(30,58,138,.18); }
+.standings-summary-card span, .standings-summary-card small { display: block; color: rgba(255,255,255,.78); font-size: .76rem; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+.standings-summary-card strong { display: block; margin: .12rem 0; color: #fff; font-size: clamp(1.55rem, 3.6vw, 2.2rem); line-height: 1; }
+.standings-grid { gap: 1rem; }
+.standings-card { padding: 0; overflow: hidden; }
+.standings-card::before { border-radius: 22px 22px 0 0; }
+.standings-card-head { display: flex; justify-content: space-between; gap: .85rem; align-items: flex-start; padding: 1.05rem 1.1rem .85rem; border-bottom: 1px solid #e2e8f0; }
+.standings-card-head h2 { margin: .1rem 0 0; color: var(--ipl-ink-strong); font-size: clamp(1.05rem, 2vw, 1.25rem); }
+.standings-card-head h2 .muted { font-size: .82rem; font-weight: 700; }
+.standings-kicker { color: var(--ipl-blue); font-size: .74rem; font-weight: 950; letter-spacing: .08em; text-transform: uppercase; }
+.standings-qualifier { flex: 0 0 auto; border-radius: 999px; padding: .35rem .65rem; color: #166534; background: #dcfce7; border: 1px solid #bbf7d0; font-size: .74rem; font-weight: 950; }
+.standings-card .table-wrap { border: 0; border-radius: 0; box-shadow: none; }
+.standing-team-cell { min-width: 150px; }
+.standing-team-cell strong, .standing-team-cell span { display: block; }
+.standing-team-cell strong { color: var(--ipl-ink-strong); font-size: .9rem; }
+.standing-team-cell span { color: var(--ipl-muted); font-size: .74rem; margin-top: .12rem; white-space: nowrap; }
+.standings-card table.std tbody td { padding-top: .72rem; padding-bottom: .72rem; }
+.standings-sort-note { margin: 1rem auto 0; max-width: 780px; padding: .75rem 1rem; border-radius: 999px; background: rgba(255,255,255,.75); border: 1px solid rgba(219,234,254,.95); }
+.rules-page-shell { max-width: 1180px; padding-top: .85rem; }
+.rules-page-shell .page-title { margin-bottom: .75rem; padding: 1.1rem 1.25rem; }
+.rl-sec-head { margin: 1.2rem 0 .75rem; }
+.rl-sec-head h2 { font-size: clamp(1.35rem, 2.6vw, 1.85rem); }
+.rl-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: .85rem; }
+.rl-card { padding: 1rem 1.05rem; }
+.rl-card-head { margin-bottom: .7rem; min-height: 0; }
+.rl-item { gap: .65rem; padding: .58rem 0; }
+.rl-lbl { font-size: .95rem; }
+.rl-val { font-size: .88rem; line-height: 1.38; }
+.rl-flow, .rl-flow-four { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .85rem; }
+.rl-step { min-height: 92px; padding: .95rem .95rem .95rem 3.55rem; }
+.rl-playoffs { padding: 1.05rem 1.1rem; }
+.rl-cross { gap: .75rem; }
+.rl-motto { margin: 1.2rem 0 .5rem; }
+@media (max-width: 760px) {
+  .standings-summary { grid-template-columns: 1fr; }
+  .standings-card-head { flex-direction: column; }
+  .standings-qualifier { align-self: flex-start; }
+  .standings-sort-note { border-radius: 16px; }
+  .rules-page-shell { padding-top: .5rem; }
+  .rl-grid, .rl-flow, .rl-flow-four, .rl-cross { grid-template-columns: 1fr; }
+}
