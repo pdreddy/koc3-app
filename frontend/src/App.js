@@ -237,11 +237,16 @@ function Shell() {
 
 
   useEffect(() => {
-    const scheduleIds = Array.from(new Set(Object.values(revealedLineups || {}).map(row => row?.scheduleId).filter(Boolean)));
+    const revealedIds = Object.values(revealedLineups || {}).map(row => row?.scheduleId).filter(Boolean);
+    const lockedIds = Object.entries(lineupSubmissionMeta || {})
+      .filter(([, submissions]) => Object.values(submissions || {}).filter(submission => submission?.lockedAt || submission?.revealedAt || submission?.revealId).length >= 2)
+      .map(([scheduleId]) => scheduleId);
+    const scheduleIds = Array.from(new Set([...revealedIds, ...lockedIds]));
     if (!scheduleIds.length) {
       setRevealedScheduleSubmissions({});
       return undefined;
     }
+    setRevealedScheduleSubmissions(prev => Object.fromEntries(Object.entries(prev || {}).filter(([scheduleId]) => scheduleIds.includes(scheduleId))));
     const unsubs = scheduleIds.map(scheduleId => onValue(ref(db, `${PATHS.lineupSubmissions}/${scheduleId}`), (snap) => {
       setRevealedScheduleSubmissions(prev => ({ ...prev, [scheduleId]: snap.val() || null }));
       setLastRefreshed(Date.now());
@@ -249,7 +254,7 @@ function Shell() {
       setRevealedScheduleSubmissions(prev => ({ ...prev, [scheduleId]: null }));
     }));
     return () => unsubs.forEach(unsub => unsub());
-  }, [revealedLineups]);
+  }, [revealedLineups, lineupSubmissionMeta]);
 
   useEffect(() => {
     if (!session?.teamId) {
