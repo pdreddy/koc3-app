@@ -37,6 +37,9 @@ When it finishes: test locally (`cd frontend && npm install && npm start`),
 add the two `REACT_APP_SUPABASE_*` vars to Netlify and deploy (Step 7), and
 **revoke the access token**. That's it — you can skip the manual steps below.
 
+> Want isolated **dev / test / prod** environments (separate Supabase projects)?
+> See **[ENVIRONMENTS.md](./ENVIRONMENTS.md)** — same script with `--env dev|test|prod`.
+
 *(Prefer doing it by hand, or the script failed? Follow the manual steps next.)*
 
 ---

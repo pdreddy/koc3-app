@@ -13,6 +13,7 @@ from Firebase Realtime Database.
   configure logins, deploy).
 - Database definition lives in `supabase/migrations/*.sql`.
 - Frontend lives in `frontend/` (Create React App).
+- Running separate **dev / test / prod**? See **[ENVIRONMENTS.md](./ENVIRONMENTS.md)**.
 
 ## Quick start (after Supabase is set up)
 

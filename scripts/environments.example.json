@@ -1,0 +1,6 @@
+{
+  "_comment": "Copy this file to environments.json and fill in each project ref. The ref is the part before '.supabase.co' in your project URL (Project Settings -> General -> Reference ID). One Supabase project per environment.",
+  "dev":  { "projectRef": "YOUR-DEV-PROJECT-REF" },
+  "test": { "projectRef": "YOUR-TEST-PROJECT-REF" },
+  "prod": { "projectRef": "YOUR-PROD-PROJECT-REF" }
+}

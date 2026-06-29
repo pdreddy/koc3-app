@@ -8,10 +8,17 @@
 //   3) Fetches your anon + service_role keys and writes frontend/.env.
 //   4) Imports your Firebase export (data + login accounts).
 //
-// Usage:
+// Usage (per environment — see ENVIRONMENTS.md):
 //   SUPABASE_ACCESS_TOKEN=sbp_xxx \
-//   [SUPABASE_PROJECT_REF=abcd...]   # optional; auto-detected if you have one project
-//   node scripts/setup-supabase.mjs /full/path/to/koc-export.json
+//   node scripts/setup-supabase.mjs --env dev  /full/path/to/koc-export.json
+//   node scripts/setup-supabase.mjs --env test /full/path/to/koc-export.json
+//   node scripts/setup-supabase.mjs --env prod /full/path/to/koc-export.json
+//
+// Which Supabase project each env maps to comes from scripts/environments.json
+// (copy environments.example.json). One project per environment = full
+// isolation (separate data, logins, keys). Override the project once with
+// SUPABASE_PROJECT_REF. If you have a single project and no config, it's
+// auto-detected.
 //
 // Get a personal access token: Supabase -> account avatar -> Access Tokens.
 // Requires Node 18+ (uses built-in fetch). Revoke the token when you're done.
@@ -25,11 +32,36 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(__dirname, '..');
 
 const ACCESS_TOKEN = process.env.SUPABASE_ACCESS_TOKEN;
-const exportPath = process.argv[2];
-let REF = process.env.SUPABASE_PROJECT_REF;
+
+// --- parse args: [--env dev|test|prod] <firebase-export.json> ---
+const argv = process.argv.slice(2);
+let ENV = process.env.ENV || '';
+const positional = [];
+for (let i = 0; i < argv.length; i++) {
+  if (argv[i] === '--env') ENV = argv[++i] || '';
+  else if (argv[i].startsWith('--env=')) ENV = argv[i].slice(6);
+  else positional.push(argv[i]);
+}
+ENV = (ENV || 'prod').toLowerCase();
+const exportPath = positional[0];
+
+// dev runs locally (npm start); test/prod are Netlify deploy contexts.
+const ENV_FILE = { dev: '.env.development', test: '.env.test', prod: '.env.production' };
+const NETLIFY_SCOPE = { dev: 'local only (npm start)', test: 'Branch deploys & Deploy Previews', prod: 'Production' };
+
+function projectRefForEnv(env) {
+  if (process.env.SUPABASE_PROJECT_REF) return process.env.SUPABASE_PROJECT_REF;
+  const p = join(__dirname, 'environments.json');
+  if (!existsSync(p)) return undefined;
+  try { return JSON.parse(readFileSync(p, 'utf8'))?.[env]?.projectRef || undefined; }
+  catch { return undefined; }
+}
+
+let REF = projectRefForEnv(ENV);
 
 if (!ACCESS_TOKEN) { console.error('Set SUPABASE_ACCESS_TOKEN (Supabase -> Account -> Access Tokens).'); process.exit(1); }
-if (!exportPath) { console.error('Usage: node scripts/setup-supabase.mjs <firebase-export.json>'); process.exit(1); }
+if (!ENV_FILE[ENV]) { console.error(`--env must be one of: dev, test, prod (got "${ENV}")`); process.exit(1); }
+if (!exportPath) { console.error('Usage: node scripts/setup-supabase.mjs --env <dev|test|prod> <firebase-export.json>'); process.exit(1); }
 if (!existsSync(resolve(exportPath))) {
   console.error(`\n❌ Export file not found: ${resolve(exportPath)}`);
   console.error('   Pass the real path to your Firebase JSON export, e.g.');
@@ -88,7 +120,7 @@ async function fetchKeys() {
 }
 
 function writeEnv(url, anonKey) {
-  const envPath = join(REPO, 'frontend', '.env');
+  const envPath = join(REPO, 'frontend', ENV_FILE[ENV]);
   writeFileSync(envPath, `REACT_APP_SUPABASE_URL=${url}\nREACT_APP_SUPABASE_ANON_KEY=${anonKey}\n`);
   console.log(`✓ wrote ${envPath}`);
 }
@@ -106,7 +138,7 @@ function runDataMigration(url, serviceKey) {
 async function main() {
   REF = await pickProject();
   const url = `https://${REF}.supabase.co`;
-  console.log(`\nSetting up ${url}\n`);
+  console.log(`\nSetting up [${ENV}] -> ${url}\n`);
 
   const dir = join(REPO, 'supabase', 'migrations');
   console.log('Resetting schema to a clean slate (data is re-imported below)...');
@@ -123,10 +155,17 @@ async function main() {
   console.log('\nImporting your data + accounts...\n');
   await runDataMigration(url, serviceKey);
 
-  console.log('\n✅ All done. Next:');
-  console.log('   • cd frontend && npm install && npm start   (test it locally)');
-  console.log('   • Add REACT_APP_SUPABASE_URL + REACT_APP_SUPABASE_ANON_KEY in Netlify, then deploy');
-  console.log('   • Revoke your Supabase access token now that setup is complete\n');
+  console.log(`\n✅ [${ENV}] done. Project: ${url}`);
+  if (ENV === 'dev') {
+    console.log('\nNext (local):');
+    console.log('   cd frontend && npm install && npm start   # uses .env.development -> dev project');
+  } else {
+    console.log(`\nNext: in Netlify, set these for the "${NETLIFY_SCOPE[ENV]}" scope (Site config -> Environment variables):`);
+    console.log(`   REACT_APP_SUPABASE_URL=${url}`);
+    console.log(`   REACT_APP_SUPABASE_ANON_KEY=${anonKey}`);
+    console.log('   then trigger a deploy for that context.');
+  }
+  console.log('\nWhen all environments are set up, revoke your Supabase access token.\n');
 }
 
 main().catch((err) => { console.error('\n❌ Setup failed:', err.message, '\n'); process.exit(1); });
