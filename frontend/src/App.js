@@ -97,14 +97,24 @@ function Shell() {
     (async () => {
       try {
         await ensureAuth();
-        const tSnap = await get(ref(db, PATHS.teams));
+
+        // Fetch all independent paths in parallel — reduces startup from 6 serial RTTs to 2
+        const [tSnap, aSnap, auSnap, settingsSnap, rSnap, sSnap] = await Promise.all([
+          get(ref(db, PATHS.teams)),
+          get(ref(db, PATHS.admin)),
+          get(ref(db, PATHS.adminUsers)),
+          get(ref(db, PATHS.settings)),
+          get(ref(db, PATHS.playerRatings)),
+          get(ref(db, PATHS.schedule)),
+        ]);
+
+        // Teams — seed or migrate
         let teamsData;
         if (!tSnap.exists()) {
           teamsData = buildInitialTeams();
           await set(ref(db, PATHS.teams), teamsData);
         } else {
           teamsData = tSnap.val() || {};
-          // Migration: backfill `group` for existing teams
           const updates = {};
           const sortedIds = Object.keys(teamsData).sort((a, b) => (teamsData[a].gradient || 0) - (teamsData[b].gradient || 0));
           sortedIds.forEach((tid, idx) => {
@@ -124,12 +134,12 @@ function Shell() {
           }
         }
 
-        const aSnap = await get(ref(db, PATHS.admin));
+        // Admin password
         if (!aSnap.exists()) {
           await set(ref(db, PATHS.admin), { password: DEFAULT_ADMIN_PASSWORD });
         }
 
-        const auSnap = await get(ref(db, PATHS.adminUsers));
+        // Admin users
         const adminUsers = auSnap.val() || {};
         const existingAdminUsers = Object.keys(adminUsers).reduce((lookup, username) => {
           lookup[normalizeAdminUsername(username)] = true;
@@ -143,20 +153,19 @@ function Shell() {
           await update(ref(db, PATHS.adminUsers), missingAdminUsers);
         }
 
-        const settingsSnap = await get(ref(db, PATHS.settings));
+        // Settings
         if (!settingsSnap.exists()) {
           await set(ref(db, PATHS.settings), { eligibilityRules: DEFAULT_ELIGIBILITY_RULES });
         }
 
-        const rSnap = await get(ref(db, PATHS.playerRatings));
+        // Player ratings
         if (!rSnap.exists()) {
           await set(ref(db, PATHS.playerRatings), { ...buildUtrRatingsTable(), ...buildAuctionPlayerRatingsTable() });
         } else {
           await update(ref(db, PATHS.playerRatings), auctionPlayerRatingUpdates());
         }
 
-        // Seed schedule on first run
-        const sSnap = await get(ref(db, PATHS.schedule));
+        // Schedule — seed if missing or stale
         const scheduleData = sSnap.val() || {};
         const scheduleMatches = Object.values(scheduleData).filter(item => item?.type !== 'buffer');
         const shouldSeedSchedule = !sSnap.exists() || scheduleMatches.length === 0 || scheduleMatches.some(item => item?.scheduleVersion !== KOC3_SCHEDULE_VERSION);
@@ -288,7 +297,7 @@ function Shell() {
     <div className="app-shell">
       <ActivityAudit />
       {!hideChrome && <AppHeader />}
-      <Suspense fallback={<div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', color: 'var(--muted)' }}>Loading…</div>}>
+      <Suspense fallback={<PageSpinner />}>
       <Routes>
         <Route path="/" element={<Home teams={teams} schedule={schedule} matches={matches} eligibilityRules={settings.eligibilityRules} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} lastRefreshed={lastRefreshed} onRefresh={() => setLastRefreshed(Date.now())} />} />
         <Route path="/teams" element={<Teams teams={teams} loaded={loaded} />} />
@@ -319,6 +328,14 @@ function Shell() {
       </Routes>
       </Suspense>
       {!hideChrome && <BottomNav />}
+    </div>
+  );
+}
+
+function PageSpinner() {
+  return (
+    <div className="page-spinner">
+      <div className="page-spinner-dot" />
     </div>
   );
 }

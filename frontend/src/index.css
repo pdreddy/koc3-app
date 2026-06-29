@@ -2050,3 +2050,21 @@ button,
     transition-duration: .06s;
   }
 }
+
+/* ===== Page loading spinner ===== */
+.page-spinner {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+.page-spinner-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid var(--border-light);
+  border-top-color: var(--primary-blue);
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
