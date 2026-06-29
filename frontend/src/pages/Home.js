@@ -738,14 +738,6 @@ export default function Home({ teams, schedule, matches = [], eligibilityRules =
         <p>Public landing page: navigate the full league without login.</p>
       </div>
       <PublicNavigationGrid />
-      <ScheduleMiniList
-        title="All Schedules"
-        description="Sign in as a captain to see only your fixtures, capacity, and danger bells."
-        fixtures={sortedFixtures}
-        teams={teams}
-        emptyText="No fixtures are available yet."
-        testid="public-schedule-card"
-      />
     </main>
   );
 }

@@ -38,7 +38,13 @@ function formatSetScore(set) {
   return score;
 }
 
-function LineupPanel({ fixture, teams, submissions }) {
+function lineupForTeam(teamId, submissions, reveal) {
+  const submittedLineup = submissions?.[teamId]?.lineup;
+  if (Array.isArray(submittedLineup) && submittedLineup.length > 0) return submittedLineup;
+  return reveal?.lineups?.[teamId] || [];
+}
+
+function LineupPanel({ fixture, teams, submissions, reveal }) {
   return (
     <div className="lineup-reveal" style={{ marginTop: '.45rem' }} data-testid={`schedule-lineups-${fixture.id}`}>
       <h4>Revealed Lineups</h4>
@@ -48,7 +54,7 @@ function LineupPanel({ fixture, teams, submissions }) {
         return (
           <div key={teamId} style={{ marginTop: '.35rem' }}>
             <strong>{team?.name || teamId}</strong>
-            {formatLineup(submissions?.[teamId]?.lineup).map(row => (
+            {formatLineup(lineupForTeam(teamId, submissions, reveal)).map(row => (
               <div key={row.label}><strong>{row.label}:</strong> {formatPlayers(row.players)}</div>
             ))}
           </div>
@@ -85,7 +91,12 @@ function matchBelongsToFixture(match, fixture, teams) {
   return !!matchTeamIds && matchTeamIds === fixtureTeamIds;
 }
 
-function MatchRow({ m, t1, t2, isCompleted, lineupReady, scoreReady, lineupOpen, scoreOpen, onToggleLineup, onToggleScore, submissions, match, teams, showPublicDetails }) {
+function hasLineupForTeam(teamId, submissions, reveal) {
+  const lineup = lineupForTeam(teamId, submissions, reveal);
+  return Array.isArray(lineup) && lineup.length > 0;
+}
+
+function MatchRow({ m, t1, t2, isCompleted, lineupReady, scoreReady, lineupOpen, scoreOpen, onToggleLineup, onToggleScore, submissions, reveal, match, teams, showPublicDetails }) {
   return (
     <div data-testid={`schedule-match-${m.id}`} style={{ background: isCompleted ? '#ecfdf5' : '#f8fafc', borderLeft: `3px solid ${isCompleted ? '#10b981' : (m.group === 'A' ? '#2563eb' : '#d97706')}`, borderRadius: 8, padding: '.55rem .65rem' }}>
       <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
@@ -111,8 +122,8 @@ function MatchRow({ m, t1, t2, isCompleted, lineupReady, scoreReady, lineupOpen,
             <button type="button" className="btn small ghost" disabled={!lineupReady} onClick={onToggleLineup} data-testid={`schedule-reveal-lineups-${m.id}`}>{lineupOpen ? 'Hide lineups' : 'Reveal lineups'}</button>
             <button type="button" className="btn small ghost" disabled={!scoreReady} onClick={onToggleScore} data-testid={`schedule-view-score-${m.id}`}>{scoreOpen ? 'Hide score' : 'View score'}</button>
           </div>
-          {!lineupReady && <div className="hint" style={{ marginTop: '.3rem' }}>Lineups and score unlock here after both captains reveal/lock lineups and the score is submitted.</div>}
-          {lineupOpen && <LineupPanel fixture={m} teams={teams} submissions={submissions} />}
+          {!lineupReady && <div className="hint" style={{ marginTop: '.3rem' }}>Lineups unlock here after both captains reveal/lock lineups. Scores unlock after a submitted score is approved.</div>}
+          {lineupOpen && <LineupPanel fixture={m} teams={teams} submissions={submissions} reveal={reveal} />}
           {scoreOpen && <ScorePanel match={match} teams={teams} />}
         </>
       )}
@@ -240,14 +251,14 @@ export default function Schedule({ teams, schedule, matches = [], lineupSubmissi
                   {(() => {
                     const submissions = lineupSubmissions?.[m.id] || {};
                     const reveal = Object.values(revealedLineups || {}).find(row => row?.scheduleId === m.id);
-                    const bothSubmitted = [m.team1Id, m.team2Id].every(teamId => {
+                    const bothLocked = [m.team1Id, m.team2Id].every(teamId => {
                       const sub = submissions?.[teamId] || {};
                       return (sub.lockedAt || sub.revealedAt || sub.revealId) && !sub.unlockedAt;
                     });
                     const scoreMatch = approvedMatchList.find(match => matchBelongsToFixture(match, m, teams));
-                    const bothLineupsRevealed = !!reveal || bothSubmitted;
-                    const lineupReady = bothLineupsRevealed && !!scoreMatch;
-                    const scoreReady = lineupReady;
+                    const bothLineupsAvailable = [m.team1Id, m.team2Id].every(teamId => hasLineupForTeam(teamId, submissions, reveal));
+                    const lineupReady = (bothLineupsAvailable || !!reveal || bothLocked) && ![m.team1Id, m.team2Id].some(teamId => submissions?.[teamId]?.unlockedAt);
+                    const scoreReady = !!scoreMatch;
                     return (
                       <MatchRow
                         m={m}
@@ -261,6 +272,7 @@ export default function Schedule({ teams, schedule, matches = [], lineupSubmissi
                         onToggleLineup={() => setOpenLineups(prev => ({ ...prev, [m.id]: !prev[m.id] }))}
                         onToggleScore={() => setOpenScores(prev => ({ ...prev, [m.id]: !prev[m.id] }))}
                         submissions={submissions}
+                        reveal={reveal}
                         match={scoreMatch}
                         teams={teams}
                         showPublicDetails={showPublicDetails}
