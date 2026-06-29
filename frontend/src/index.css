@@ -1149,6 +1149,10 @@ main.container,
 .dashboard-lineup-row h4 { margin: 0 0 .55rem; color: var(--text); }
 .dashboard-lineup-pair { display: grid; gap: .55rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .dashboard-submitted-panel { display: grid; gap: .45rem; }
+
+.whatsapp-share-action { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; }
+.whatsapp-icon { width: 1.35rem; height: 1.35rem; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; background: #25d366; color: #fff; font-size: .92rem; line-height: 1; box-shadow: inset 0 0 0 1px rgba(255,255,255,.42); }
+.whatsapp-share-action:hover .whatsapp-icon, .whatsapp-share-action:focus-visible .whatsapp-icon { transform: scale(1.06); }
 .dashboard-sticky-actions { margin-top: .75rem; }
 .lineup-reveal { border: 1px solid var(--ring); border-radius: 12px; padding: .7rem; background: #eff6ff; }
 @keyframes drawerIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }

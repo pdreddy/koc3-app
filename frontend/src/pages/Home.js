@@ -42,6 +42,11 @@ const LINEUP_STATUS = {
   completed: { label: '⚫ Completed', className: 'lineup-status completed' }
 };
 
+
+function WhatsAppIcon() {
+  return <span className="whatsapp-icon" aria-hidden="true">☎</span>;
+}
+
 function timeLabel(ts) {
   if (!ts) return '—';
   return new Date(ts).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
@@ -441,7 +446,20 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
               <h3>✅ Submitted & Locked</h3>
               <p>Submitted<br /><strong>{timeLabel(lineupSubmission.submittedAt)}</strong></p>
               <p>WhatsApp<br /><strong>{revealed ? (lineupSubmission.whatsappShared ? `WhatsApp Shared ${timeLabel(lineupSubmission.whatsappSharedAt)}` : 'Not Shared') : 'Available after both teams lock'}</strong></p>
-              {revealed && <a className="btn success" href={waHref} target="_blank" rel="noreferrer" onClick={markWhatsappShared} data-testid={`share-lineup-whatsapp-${item.id}`}>Share via WhatsApp</a>}
+              {revealed && (
+                <a
+                  className="btn success whatsapp-share-action"
+                  href={waHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={markWhatsappShared}
+                  aria-label={`Share ${captainTeam?.name || 'lineup'} via WhatsApp`}
+                  data-testid={`share-lineup-whatsapp-${item.id}`}
+                >
+                  <WhatsAppIcon />
+                  <span>Share via WhatsApp</span>
+                </a>
+              )}
               <button className="btn ghost" type="button" onClick={onRefresh}>Refresh</button>
               <p className="hint">Last Updated<br />{timeLabel(lineupSubmission.lastUpdatedAt)}</p>
               {revealed && <div className="lineup-reveal"><h4>Revealed Lineups {lineupSubmission?.revealId ? `· Code ${lineupSubmission.revealId.slice(-8).toUpperCase()}` : ''}</h4>{revealedRecordRows(revealedLineup, captainTeam.id, opponent?.id, lineupSubmission, opponentSubmission).map(row => <div key={row.label}><strong>{row.label}:</strong> {row.mine.join(' / ')} <strong>vs</strong> {row.theirs.join(' / ')}</div>)}</div>}
