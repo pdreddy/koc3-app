@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from 'react';
+import { approvedMatches } from '../utils/matchStatus';
+import { matchTeamNames, matchWinnerId } from '../utils/matchTeams';
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -13,40 +15,105 @@ function weekdayShort(iso) {
   return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase();
 }
 
-function MatchRow({ m, t1, t2, isCompleted }) {
+function formatPlayers(players = []) {
+  return Array.isArray(players) && players.length > 0 ? players.join(' / ') : '—';
+}
+
+function formatLineup(lineup = []) {
+  const labels = ['S1', 'D1', 'D2'];
+  return labels.map(label => {
+    const line = Array.isArray(lineup) ? lineup.find(row => row?.label === label) : null;
+    const players = line?.players || [];
+    return { label, players: Array.isArray(players) ? players.map(player => player?.name || player).filter(Boolean) : [] };
+  });
+}
+
+function formatSetScore(set) {
+  if (!set) return '';
+  let score = `${set.team1}-${set.team2}`;
+  if (set.tieBreak) score += `(${set.tieBreak.team1}-${set.tieBreak.team2})`;
+  if (set.matchTieBreak) score += `(${set.matchTieBreak.team1}-${set.matchTieBreak.team2})`;
+  return score;
+}
+
+function LineupPanel({ fixture, teams, submissions }) {
   return (
-    <div data-testid={`schedule-match-${m.id}`} style={{
-      display: 'flex', gap: '.5rem', alignItems: 'center',
-      background: isCompleted ? '#ecfdf5' : '#f8fafc',
-      borderLeft: `3px solid ${isCompleted ? '#10b981' : (m.group === 'A' ? '#2563eb' : '#d97706')}`,
-      borderRadius: 8, padding: '.55rem .65rem'
-    }}>
-      <div style={{
-        background: '#fff', borderRadius: 6, padding: '.25rem .4rem',
-        minWidth: 60, textAlign: 'center',
-        color: m.group === 'A' ? '#2563eb' : '#d97706',
-        fontWeight: 900, fontSize: '.72rem', lineHeight: 1.2
-      }}>
-        <div>{weekdayShort(m.date)}</div>
-        <div style={{ color: 'var(--ink)', fontSize: '.7rem', marginTop: 1 }}>{m.time}</div>
-      </div>
-      <div style={{ flex: 1, fontSize: '.82rem', lineHeight: 1.3 }}>
-        <div style={{ fontWeight: 800 }}>{t1 ? `${t1.name}` : '?'} <span className="muted" style={{ fontWeight: 600, fontSize: '.72rem' }}>({t1?.abbreviation || '?'})</span></div>
-        <div className="muted" style={{ fontWeight: 800, fontSize: '.7rem', margin: '.05rem 0' }}>vs</div>
-        <div style={{ fontWeight: 800 }}>{t2 ? `${t2.name}` : '?'} <span className="muted" style={{ fontWeight: 600, fontSize: '.72rem' }}>({t2?.abbreviation || '?'})</span></div>
-      </div>
-      {isCompleted && <span className="tag win" style={{ fontSize: '.65rem' }}>✓</span>}
+    <div className="lineup-reveal" style={{ marginTop: '.45rem' }} data-testid={`schedule-lineups-${fixture.id}`}>
+      <h4>Revealed Lineups</h4>
+      {['team1Id', 'team2Id'].map(key => {
+        const teamId = fixture[key];
+        const team = teams[teamId];
+        return (
+          <div key={teamId} style={{ marginTop: '.35rem' }}>
+            <strong>{team?.name || teamId}</strong>
+            {formatLineup(submissions?.[teamId]?.lineup).map(row => (
+              <div key={row.label}><strong>{row.label}:</strong> {formatPlayers(row.players)}</div>
+            ))}
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-export default function Schedule({ teams, schedule }) {
+function ScorePanel({ match, teams }) {
+  if (!match) return null;
+  const names = matchTeamNames(match, teams);
+  const winnerId = matchWinnerId(match, teams);
+  const winnerName = winnerId === names.team1Id ? names.t1Name : (winnerId === names.team2Id ? names.t2Name : (match.win || 'Unknown'));
+  return (
+    <div className="lines" style={{ marginTop: '.45rem' }} data-testid={`schedule-score-${match.scheduleId || match.matchScheduleId || match.id}`}>
+      <strong>{winnerName} won · {match.g1}–{match.g2} games · {match.s1}–{match.s2} sets</strong>
+      {(match.lines || []).map((line, idx) => (
+        <div className="ln" key={idx}>
+          <strong>{line.label}:</strong> {formatPlayers(line.players?.team1)} vs {formatPlayers(line.players?.team2)} — {(line.sets || []).map(formatSetScore).join(', ')} ({line.g1}-{line.g2})
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MatchRow({ m, t1, t2, isCompleted, lineupReady, scoreReady, lineupOpen, scoreOpen, onToggleLineup, onToggleScore, submissions, match, teams }) {
+  return (
+    <div data-testid={`schedule-match-${m.id}`} style={{ background: isCompleted ? '#ecfdf5' : '#f8fafc', borderLeft: `3px solid ${isCompleted ? '#10b981' : (m.group === 'A' ? '#2563eb' : '#d97706')}`, borderRadius: 8, padding: '.55rem .65rem' }}>
+      <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
+        <div style={{
+          background: '#fff', borderRadius: 6, padding: '.25rem .4rem',
+          minWidth: 60, textAlign: 'center',
+          color: m.group === 'A' ? '#2563eb' : '#d97706',
+          fontWeight: 900, fontSize: '.72rem', lineHeight: 1.2
+        }}>
+          <div>{weekdayShort(m.date)}</div>
+          <div style={{ color: 'var(--ink)', fontSize: '.7rem', marginTop: 1 }}>{m.time}</div>
+        </div>
+        <div style={{ flex: 1, fontSize: '.82rem', lineHeight: 1.3 }}>
+          <div style={{ fontWeight: 800 }}>{t1 ? `${t1.name}` : '?'} <span className="muted" style={{ fontWeight: 600, fontSize: '.72rem' }}>({t1?.abbreviation || '?'})</span></div>
+          <div className="muted" style={{ fontWeight: 800, fontSize: '.7rem', margin: '.05rem 0' }}>vs</div>
+          <div style={{ fontWeight: 800 }}>{t2 ? `${t2.name}` : '?'} <span className="muted" style={{ fontWeight: 600, fontSize: '.72rem' }}>({t2?.abbreviation || '?'})</span></div>
+        </div>
+        {isCompleted && <span className="tag win" style={{ fontSize: '.65rem' }}>✓</span>}
+      </div>
+      <div style={{ display: 'flex', gap: '.35rem', flexWrap: 'wrap', marginTop: '.5rem' }}>
+        <button type="button" className="btn small ghost" disabled={!lineupReady} onClick={onToggleLineup} data-testid={`schedule-reveal-lineups-${m.id}`}>{lineupOpen ? 'Hide lineups' : 'Reveal lineups'}</button>
+        <button type="button" className="btn small ghost" disabled={!scoreReady} onClick={onToggleScore} data-testid={`schedule-view-score-${m.id}`}>{scoreOpen ? 'Hide score' : 'View score'}</button>
+      </div>
+      {!lineupReady && <div className="hint" style={{ marginTop: '.3rem' }}>Lineups and score unlock here after both captains reveal/lock lineups and the score is submitted.</div>}
+      {lineupOpen && <LineupPanel fixture={m} teams={teams} submissions={submissions} />}
+      {scoreOpen && <ScorePanel match={match} teams={teams} />}
+    </div>
+  );
+}
+
+export default function Schedule({ teams, schedule, matches = [], lineupSubmissions = {}, revealedLineups = {} }) {
   const [filterTeam, setFilterTeam] = useState('all');
   const [filterGroup, setFilterGroup] = useState('all');
+  const [openLineups, setOpenLineups] = useState({});
+  const [openScores, setOpenScores] = useState({});
 
   const scheduleItems = useMemo(() => Object.values(schedule || {}), [schedule]);
   const bufferItems = useMemo(() => scheduleItems.filter(item => item?.type === 'buffer'), [scheduleItems]);
   const matchList = useMemo(() => scheduleItems.filter(item => item?.type !== 'buffer'), [scheduleItems]);
+  const approvedMatchList = useMemo(() => approvedMatches(matches), [matches]);
 
   const teamOptions = useMemo(() =>
     Object.values(teams || {})
@@ -152,7 +219,35 @@ export default function Schedule({ teams, schedule }) {
                     {m.status === 'completed' && <span className="tag win" style={{ fontSize: '.65rem' }}>Played</span>}
                     {m.status === 'cancelled' && <span className="tag lose" style={{ fontSize: '.65rem' }}>Cancelled</span>}
                   </div>
-                  <MatchRow m={m} t1={teams[m.team1Id]} t2={teams[m.team2Id]} isCompleted={m.status === 'completed'} />
+                  {(() => {
+                    const submissions = lineupSubmissions?.[m.id] || {};
+                    const reveal = Object.values(revealedLineups || {}).find(row => row?.scheduleId === m.id);
+                    const bothSubmitted = [m.team1Id, m.team2Id].every(teamId => {
+                      const sub = submissions?.[teamId] || {};
+                      return (sub.lockedAt || sub.revealedAt || sub.revealId) && !sub.unlockedAt;
+                    });
+                    const scoreMatch = approvedMatchList.find(match => String(match.scheduleId || match.matchScheduleId || '') === String(m.id));
+                    const bothLineupsRevealed = !!reveal || bothSubmitted;
+                    const lineupReady = bothLineupsRevealed && !!scoreMatch;
+                    const scoreReady = lineupReady;
+                    return (
+                      <MatchRow
+                        m={m}
+                        t1={teams[m.team1Id]}
+                        t2={teams[m.team2Id]}
+                        isCompleted={m.status === 'completed' || scoreReady}
+                        lineupReady={lineupReady}
+                        scoreReady={scoreReady}
+                        lineupOpen={!!openLineups[m.id]}
+                        scoreOpen={!!openScores[m.id]}
+                        onToggleLineup={() => setOpenLineups(prev => ({ ...prev, [m.id]: !prev[m.id] }))}
+                        onToggleScore={() => setOpenScores(prev => ({ ...prev, [m.id]: !prev[m.id] }))}
+                        submissions={submissions}
+                        match={scoreMatch}
+                        teams={teams}
+                      />
+                    );
+                  })()}
                 </div>
               ))}
             </div>
