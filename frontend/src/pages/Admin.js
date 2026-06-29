@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { ref, set, update, remove, push } from 'firebase/database';
+import { ref, set, update, remove, push, onValue, get } from 'firebase/database';
 import { db, PATHS } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { ScoreProcessingService } from '../services/ScoreProcessingService';
@@ -7,6 +7,20 @@ import { buildScheduleFor8x2 } from '../utils/roundRobin';
 import { groupInfoForTeamId, normalizeAuctionTeam, sortByGroupOrder } from '../data/auctionTeams';
 import { normalizeEligibilityRules } from '../utils/eligibilityRules';
 import { recordLineupAudit } from '../services/AuditService';
+import { buildUtrRatingsTable } from '../data/utrRatings';
+import { auctionPlayerRatingUpdates, buildAuctionPlayerRatingsTable } from '../data/auctionPlayers';
+
+function firebaseObjectToList(data, source) {
+  if (!data) return [];
+  const node = data.matches || data.matchResults || data.results || data;
+  if (Array.isArray(node)) return node.filter(Boolean).map((m, idx) => ({ id: m.id || `${source}-${idx}`, source, ...m }));
+  if (typeof node === 'object') {
+    const direct = Object.entries(node).map(([id, m]) => ({ id, source, ...(m || {}) }));
+    if (direct.some(m => m.lines || m.t1 || m.t2 || m.t1Id || m.t2Id || m.winnerId || m.win)) return direct;
+    return Object.entries(node).flatMap(([groupId, child]) => firebaseObjectToList(child, source).map(m => ({ ...m, id: `${groupId}-${m.id}` })));
+  }
+  return [];
+}
 
 
 
@@ -524,8 +538,24 @@ function AdminLineupManager({ teams, schedule, lineupSubmissions, revealedLineup
   );
 }
 
-export default function Admin({ teams, adminConfig, matches, previousMatches = [], schedule, lineupSubmissions = {}, revealedLineups = {}, playerRatings = {}, settings = {} }) {
+export default function Admin({ teams, adminConfig, matches, schedule, lineupSubmissions = {}, revealedLineups = {}, settings = {} }) {
   const [tab, setTab] = useState('teams');
+  const [legacyMatches, setLegacyMatches] = useState([]);
+  const [legacyFallbackMatches, setLegacyFallbackMatches] = useState([]);
+  const [playerRatings, setPlayerRatings] = useState({});
+
+  useEffect(() => {
+    const unsubLegacy = onValue(ref(db, PATHS.koc2db), (snap) => {
+      setLegacyMatches(firebaseObjectToList(snap.val(), 'koc2db'));
+    });
+    const unsubFallback = onValue(ref(db, PATHS.season1), (snap) => {
+      setLegacyFallbackMatches(firebaseObjectToList(snap.val(), 'season1'));
+    });
+    const unsubR = onValue(ref(db, PATHS.playerRatings), (snap) => {
+      setPlayerRatings(snap.val() || {});
+    });
+    return () => { unsubLegacy(); unsubFallback(); unsubR(); };
+  }, []);
   const [newAdminPwd, setNewAdminPwd] = useState('');
   const [adminMsg, setAdminMsg] = useState('');
   const [rulesDraft, setRulesDraft] = useState(() => normalizeEligibilityRules(settings.eligibilityRules));

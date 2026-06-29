@@ -4,7 +4,11 @@
       ".read": false,
       ".write": false,
       "teams": { ".read": "auth != null", ".write": "auth != null && auth.token.superAdmin === true" },
-      "matches": { ".read": "auth != null", ".write": "auth != null" },
+      "matches": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".indexOn": ["ts", "week", "t1Id", "t2Id"]
+      },
       "playerRatings": { ".read": "auth != null", ".write": "auth != null && auth.token.superAdmin === true" },
       "admin": { ".read": "auth != null && auth.token.superAdmin === true", ".write": "auth != null && auth.token.superAdmin === true" },
       "adminUsers": { ".read": "auth != null && auth.token.superAdmin === true", ".write": "auth != null && auth.token.superAdmin === true" },
