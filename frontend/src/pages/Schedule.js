@@ -137,12 +137,45 @@ function MatchRow({ m, t1, t2, isCompleted, lineupReady, scoreReady, lineupOpen,
   );
 }
 
+const ScheduleMatchCard = React.memo(function ScheduleMatchCard({ m, teams, details = {}, showDetails }) {
+  const [lineupOpen, setLineupOpen] = useState(false);
+  const [scoreOpen, setScoreOpen] = useState(false);
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', margin: '.1rem 0 .2rem' }}>
+        <span className="tag" style={{
+          fontSize: '.65rem',
+          background: m.group === 'A' ? '#dbeafe' : '#fed7aa',
+          color: m.group === 'A' ? '#1e3a8a' : '#9a3412'
+        }}>Group {m.group}</span>
+        {m.status === 'completed' && <span className="tag win" style={{ fontSize: '.65rem' }}>Played</span>}
+        {m.status === 'cancelled' && <span className="tag lose" style={{ fontSize: '.65rem' }}>Cancelled</span>}
+      </div>
+      <MatchRow
+        m={m}
+        t1={teams[m.team1Id]}
+        t2={teams[m.team2Id]}
+        isCompleted={m.status === 'completed' || details.scoreReady}
+        lineupReady={!!details.lineupReady}
+        scoreReady={!!details.scoreReady}
+        lineupOpen={lineupOpen}
+        scoreOpen={scoreOpen}
+        onToggleLineup={() => setLineupOpen(open => !open)}
+        onToggleScore={() => setScoreOpen(open => !open)}
+        submissions={details.submissions || {}}
+        reveal={details.reveal}
+        match={details.scoreMatch}
+        teams={teams}
+        showDetails={showDetails}
+      />
+    </div>
+  );
+});
+
 export default function Schedule({ teams, schedule, matches = [], lineupSubmissions = {}, revealedLineups = {} }) {
   const showScheduleDetails = true;
   const [filterTeam, setFilterTeam] = useState('all');
   const [filterGroup, setFilterGroup] = useState('all');
-  const [openLineups, setOpenLineups] = useState({});
-  const [openScores, setOpenScores] = useState({});
 
   const scheduleItems = useMemo(() => Object.values(schedule || {}), [schedule]);
   const bufferItems = useMemo(() => scheduleItems.filter(item => item?.type === 'buffer'), [scheduleItems]);
@@ -287,39 +320,13 @@ export default function Schedule({ teams, schedule, matches = [], lineupSubmissi
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '.4rem' }}>
               {visible.map(m => (
-                <div key={m.id}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', margin: '.1rem 0 .2rem' }}>
-                    <span className="tag" style={{
-                      fontSize: '.65rem',
-                      background: m.group === 'A' ? '#dbeafe' : '#fed7aa',
-                      color: m.group === 'A' ? '#1e3a8a' : '#9a3412'
-                    }}>Group {m.group}</span>
-                    {m.status === 'completed' && <span className="tag win" style={{ fontSize: '.65rem' }}>Played</span>}
-                    {m.status === 'cancelled' && <span className="tag lose" style={{ fontSize: '.65rem' }}>Cancelled</span>}
-                  </div>
-                  {(() => {
-                    const details = fixtureDetailsById[m.id] || {};
-                    return (
-                      <MatchRow
-                        m={m}
-                        t1={teams[m.team1Id]}
-                        t2={teams[m.team2Id]}
-                        isCompleted={m.status === 'completed' || details.scoreReady}
-                        lineupReady={!!details.lineupReady}
-                        scoreReady={!!details.scoreReady}
-                        lineupOpen={!!openLineups[m.id]}
-                        scoreOpen={!!openScores[m.id]}
-                        onToggleLineup={() => setOpenLineups(prev => ({ ...prev, [m.id]: !prev[m.id] }))}
-                        onToggleScore={() => setOpenScores(prev => ({ ...prev, [m.id]: !prev[m.id] }))}
-                        submissions={details.submissions || {}}
-                        reveal={details.reveal}
-                        match={details.scoreMatch}
-                        teams={teams}
-                        showDetails={showScheduleDetails}
-                      />
-                    );
-                  })()}
-                </div>
+                <ScheduleMatchCard
+                  key={m.id}
+                  m={m}
+                  teams={teams}
+                  details={fixtureDetailsById[m.id] || {}}
+                  showDetails={showScheduleDetails}
+                />
               ))}
             </div>
           </div>
