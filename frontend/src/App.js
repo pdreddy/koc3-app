@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, startTransition } from 'react';
+import useAppStore from './store/appStore';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { onValue, ref, set, get, update } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
@@ -76,17 +77,33 @@ function Shell() {
   const location = useLocation();
   const { session, refreshTeamSession } = useAuth();
   const hideChrome = location.pathname === '/login';
-  const [teams, setTeams] = useState({});
-  const [matches, setMatches] = useState([]);
-  const [adminConfig, setAdminConfig] = useState({ password: '', users: {} });
-  const [schedule, setSchedule] = useState({});
-  const [lineupSubmissionMeta, setLineupSubmissionMeta] = useState({});
-  const [ownLineupSubmissions, setOwnLineupSubmissions] = useState({});
-  const [revealedScheduleSubmissions, setRevealedScheduleSubmissions] = useState({});
-  const [revealedLineups, setRevealedLineups] = useState({});
-  const [lastRefreshed, setLastRefreshed] = useState(Date.now());
-  const [settings, setSettings] = useState({ eligibilityRules: DEFAULT_ELIGIBILITY_RULES });
-  const [loaded, setLoaded] = useState(false);
+
+  // Read from Zustand store (each selector is stable — only re-renders when that slice changes)
+  const teams                      = useAppStore(s => s.teams);
+  const matches                    = useAppStore(s => s.matches);
+  const adminConfig                = useAppStore(s => s.adminConfig);
+  const schedule                   = useAppStore(s => s.schedule);
+  const lineupSubmissionMeta       = useAppStore(s => s.lineupSubmissionMeta);
+  const ownLineupSubmissions       = useAppStore(s => s.ownLineupSubmissions);
+  const revealedScheduleSubmissions= useAppStore(s => s.revealedScheduleSubmissions);
+  const revealedLineups            = useAppStore(s => s.revealedLineups);
+  const lastRefreshed              = useAppStore(s => s.lastRefreshed);
+  const settings                   = useAppStore(s => s.settings);
+  const loaded                     = useAppStore(s => s.loaded);
+
+  // Write to Zustand store
+  const setTeams                       = useAppStore(s => s.setTeams);
+  const setMatches                     = useAppStore(s => s.setMatches);
+  const setAdminConfig                 = useAppStore(s => s.setAdminConfig);
+  const setSchedule                    = useAppStore(s => s.setSchedule);
+  const setLineupSubmissionMeta        = useAppStore(s => s.setLineupSubmissionMeta);
+  const setOwnLineupSubmissions        = useAppStore(s => s.setOwnLineupSubmissions);
+  const setRevealedScheduleSubmissions = useAppStore(s => s.setRevealedScheduleSubmissions);
+  const setRevealedLineups             = useAppStore(s => s.setRevealedLineups);
+  const setLastRefreshed               = useAppStore(s => s.setLastRefreshed);
+  const setSettings                    = useAppStore(s => s.setSettings);
+  const setLoaded                      = useAppStore(s => s.setLoaded);
+  const touchLastRefreshed             = useAppStore(s => s.touchLastRefreshed);
 
   const visibleLineupSubmissions = useMemo(() => {
     const merged = Object.fromEntries(Object.entries(lineupSubmissionMeta || {}).map(([scheduleId, submissions]) => [scheduleId, { ...(submissions || {}) }]));
@@ -104,16 +121,16 @@ function Shell() {
 
   const syncSavedMatch = useCallback((record) => {
     if (!record?.id) return;
-    setMatches(prev => {
-      const next = [record, ...prev.filter(match => match.id !== record.id)];
+    useAppStore.setState(s => {
+      const next = [record, ...s.matches.filter(m => m.id !== record.id)];
       next.sort((a, b) => (b.ts || 0) - (a.ts || 0));
-      return next;
+      return { matches: next };
     });
   }, []);
 
   const syncDeletedMatch = useCallback((matchId) => {
     if (!matchId) return;
-    setMatches(prev => prev.filter(match => match.id !== matchId));
+    useAppStore.setState(s => ({ matches: s.matches.filter(m => m.id !== matchId) }));
   }, []);
 
   // One-time seeding on mount — does not need to re-run when session changes
@@ -240,13 +257,13 @@ function Shell() {
     const unsubLineups = onValue(ref(db, PATHS.lineupSubmissionMeta), (snap) => {
       startTransition(() => {
         setLineupSubmissionMeta(snap.val() || {});
-        setLastRefreshed(Date.now());
+        touchLastRefreshed();
       });
     });
     const unsubRevealedLineups = onValue(ref(db, PATHS.revealedLineups), (snap) => {
       startTransition(() => {
         setRevealedLineups(snap.val() || {});
-        setLastRefreshed(Date.now());
+        touchLastRefreshed();
       });
     });
     const unsubSettings = onValue(ref(db, PATHS.settings), (snap) => {
@@ -272,7 +289,7 @@ function Shell() {
     setRevealedScheduleSubmissions(prev => Object.fromEntries(Object.entries(prev || {}).filter(([scheduleId]) => scheduleIds.includes(scheduleId))));
     const unsubs = scheduleIds.map(scheduleId => onValue(ref(db, `${PATHS.lineupSubmissions}/${scheduleId}`), (snap) => {
       setRevealedScheduleSubmissions(prev => ({ ...prev, [scheduleId]: snap.val() || null }));
-      setLastRefreshed(Date.now());
+      touchLastRefreshed();
     }, () => {
       setRevealedScheduleSubmissions(prev => ({ ...prev, [scheduleId]: null }));
     }));
@@ -291,7 +308,7 @@ function Shell() {
     }
     const unsubs = scheduleIds.map(scheduleId => onValue(ref(db, `${PATHS.lineupSubmissions}/${scheduleId}/${session.teamId}`), (snap) => {
       setOwnLineupSubmissions(prev => ({ ...prev, [scheduleId]: snap.val() || null }));
-      setLastRefreshed(Date.now());
+      touchLastRefreshed();
     }));
     return () => unsubs.forEach(unsub => unsub());
   }, [schedule, session?.teamId]);
@@ -304,7 +321,7 @@ function Shell() {
     }
   }, [teams, session?.role, session?.teamId, session?.teamName, refreshTeamSession]);
 
-  const handleRefresh = useCallback(() => setLastRefreshed(Date.now()), []);
+  const handleRefresh = useCallback(() => touchLastRefreshed(), [touchLastRefreshed]);
 
   return (
     <div className="app-shell">
