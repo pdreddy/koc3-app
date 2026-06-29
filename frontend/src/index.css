@@ -2105,3 +2105,104 @@ button,
   from { transform: translateY(0) rotate(0deg); }
   to   { transform: translateY(-18px) rotate(180deg); }
 }
+
+/* =================================================================
+   MOBILE & PWA HARDENED OVERRIDES
+   These rules appear last in the cascade to win over all conflicts.
+   ================================================================= */
+
+/* --- Base layout --- */
+html, body, #root {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+/* --- App shell --- */
+.app-shell {
+  position: relative;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  /* Space below content so it isn't hidden under the fixed bottom nav */
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+}
+
+/* --- Sticky header --- */
+.app-header {
+  position: sticky;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 40;
+  /* Push content below the status bar when installed as PWA */
+  padding-top: max(0.85rem, calc(env(safe-area-inset-top) + 0.5rem));
+}
+
+/* --- Fixed bottom nav --- */
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  z-index: 50;
+  padding-bottom: env(safe-area-inset-bottom);
+  /* Prevent nav from overflowing into the home-indicator area */
+  padding-bottom: max(env(safe-area-inset-bottom), 4px);
+}
+
+/* --- Scrollable content area --- */
+main.container {
+  flex: 1;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* --- Mobile viewport narrower than 760px --- */
+@media (max-width: 760px) {
+  .app-shell {
+    padding-bottom: calc(68px + env(safe-area-inset-bottom));
+  }
+  .top-nav { display: none; }
+  main.container {
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+  }
+  .bottom-nav a { min-height: 56px; font-size: 0.7rem; }
+}
+
+/* --- Very small phones (SE, etc.) --- */
+@media (max-width: 380px) {
+  .bottom-nav a { font-size: 0.62rem; }
+  .app-header .brand strong { font-size: 0.94rem; }
+}
+
+/* --- Landscape on mobile --- */
+@media (orientation: landscape) and (max-height: 540px) {
+  .app-shell { padding-bottom: calc(54px + env(safe-area-inset-bottom)); }
+  .bottom-nav a { min-height: 44px; }
+  .app-header { position: relative; }
+}
+
+/* --- Installed PWA (standalone / fullscreen) --- */
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  .app-header {
+    padding-top: max(1rem, calc(env(safe-area-inset-top) + 0.5rem));
+  }
+  .bottom-nav {
+    padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
+  }
+  .app-shell {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+}
+
+/* --- Touch UX --- */
+button, .btn, a, select, input, textarea {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+* { -webkit-overflow-scrolling: touch; }
