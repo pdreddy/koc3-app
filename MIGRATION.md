@@ -11,6 +11,36 @@ Each step says exactly what to click or type. Total time: ~30–45 minutes.
 
 ---
 
+## ⚡ Fast path — one command (recommended)
+
+If you'd rather not click through Steps 2–6 by hand, run the all-in-one setup
+script **on your own computer** (Node 18+). It runs the SQL, enables the hook,
+writes `frontend/.env`, and imports your data + accounts automatically.
+
+You need two things first:
+- A **Supabase personal access token** — Supabase → account avatar →
+  **Access Tokens** → **Generate new token** (copy it; shown once).
+- Your **Firebase export JSON** (see Step 4 below for how to get it).
+
+```bash
+cd scripts
+npm install
+
+export SUPABASE_ACCESS_TOKEN="sbp_...your token..."
+# If you have more than one Supabase project, also set:
+# export SUPABASE_PROJECT_REF="your-project-ref"
+
+node setup-supabase.mjs /full/path/to/koc-export.json
+```
+
+When it finishes: test locally (`cd frontend && npm install && npm start`),
+add the two `REACT_APP_SUPABASE_*` vars to Netlify and deploy (Step 7), and
+**revoke the access token**. That's it — you can skip the manual steps below.
+
+*(Prefer doing it by hand, or the script failed? Follow the manual steps next.)*
+
+---
+
 ## What changed (the 30-second version)
 
 | Before (Firebase) | After (Supabase) |
