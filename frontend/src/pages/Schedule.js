@@ -91,6 +91,10 @@ function matchBelongsToFixture(match, fixture, teams) {
   return !!matchTeamIds && matchTeamIds === fixtureTeamIds;
 }
 
+function teamPairKey(team1Id, team2Id) {
+  return [team1Id, team2Id].filter(Boolean).sort().join('|');
+}
+
 function hasLineupForTeam(teamId, submissions, reveal) {
   const lineup = lineupForTeam(teamId, submissions, reveal);
   return Array.isArray(lineup) && lineup.length > 0;
@@ -143,6 +147,28 @@ export default function Schedule({ teams, schedule, matches = [], lineupSubmissi
   const bufferItems = useMemo(() => scheduleItems.filter(item => item?.type === 'buffer'), [scheduleItems]);
   const matchList = useMemo(() => scheduleItems.filter(item => item?.type !== 'buffer'), [scheduleItems]);
   const approvedMatchList = useMemo(() => approvedMatches(matches), [matches]);
+  const revealedByScheduleId = useMemo(() => {
+    const map = {};
+    Object.values(revealedLineups || {}).forEach(row => {
+      if (row?.scheduleId) map[row.scheduleId] = row;
+    });
+    return map;
+  }, [revealedLineups]);
+  const approvedMatchByFixtureId = useMemo(() => {
+    const byScheduleId = {};
+    const byTeamPair = {};
+    approvedMatchList.forEach(match => {
+      const scheduleId = match.scheduleId || match.matchScheduleId;
+      if (scheduleId && !byScheduleId[scheduleId]) byScheduleId[scheduleId] = match;
+      const names = matchTeamNames(match, teams);
+      const pair = teamPairKey(names.team1Id, names.team2Id);
+      if (pair && !byTeamPair[pair]) byTeamPair[pair] = match;
+    });
+    return matchList.reduce((map, fixture) => {
+      map[fixture.id] = byScheduleId[fixture.id] || byTeamPair[teamPairKey(fixture.team1Id, fixture.team2Id)] || null;
+      return map;
+    }, {});
+  }, [approvedMatchList, matchList, teams]);
 
   const teamOptions = useMemo(() =>
     Object.values(teams || {})
@@ -250,12 +276,12 @@ export default function Schedule({ teams, schedule, matches = [], lineupSubmissi
                   </div>
                   {(() => {
                     const submissions = lineupSubmissions?.[m.id] || {};
-                    const reveal = Object.values(revealedLineups || {}).find(row => row?.scheduleId === m.id);
+                    const reveal = revealedByScheduleId[m.id];
                     const bothLocked = [m.team1Id, m.team2Id].every(teamId => {
                       const sub = submissions?.[teamId] || {};
                       return (sub.lockedAt || sub.revealedAt || sub.revealId) && !sub.unlockedAt;
                     });
-                    const scoreMatch = approvedMatchList.find(match => matchBelongsToFixture(match, m, teams));
+                    const scoreMatch = approvedMatchByFixtureId[m.id] || (showPublicDetails ? approvedMatchList.find(match => matchBelongsToFixture(match, m, teams)) : null);
                     const bothLineupsAvailable = [m.team1Id, m.team2Id].every(teamId => hasLineupForTeam(teamId, submissions, reveal));
                     const lineupReady = (bothLineupsAvailable || !!reveal || bothLocked) && ![m.team1Id, m.team2Id].some(teamId => submissions?.[teamId]?.unlockedAt);
                     const scoreReady = !!scoreMatch;
