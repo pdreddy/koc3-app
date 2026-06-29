@@ -116,11 +116,12 @@ async function enableHook() {
 
 async function fetchKeys() {
   const keys = await api(`/v1/projects/${REF}/api-keys?reveal=true`);
-  const byName = (n) => keys.find((k) => k.name === n || k.type === n);
-  const anon = byName('anon') || byName('publishable');
-  const service = byName('service_role') || byName('secret');
+  const label = (k) => `${k?.name || ''} ${k?.type || ''}`.toLowerCase();
+  // Works for both legacy (anon/service_role JWTs) and new (sb_publishable_/sb_secret_) keys.
+  const anon = keys.find((k) => /^sb_publishable_/.test(k.api_key || '') || /\b(anon|publishable)\b/.test(label(k)));
+  const service = keys.find((k) => /^sb_secret_/.test(k.api_key || '') || /\b(service_role|secret)\b/.test(label(k)));
   if (!anon?.api_key || !service?.api_key) {
-    throw new Error('Could not read anon/service_role keys — grab them from Dashboard -> Settings -> API.');
+    throw new Error('Could not read keys from the Management API — set them manually from Dashboard -> Project Settings -> API.');
   }
   return { anonKey: anon.api_key, serviceKey: service.api_key };
 }
