@@ -1,6 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { ref, set, update, remove, push } from 'firebase/database';
-import { db, PATHS } from '../firebase';
+import { ref, set, update, remove, push, db, PATHS } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { ScoreProcessingService } from '../services/ScoreProcessingService';
 import { buildScheduleFor8x2 } from '../utils/roundRobin';

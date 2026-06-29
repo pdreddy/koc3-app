@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ref, update } from 'firebase/database';
+import { ref, update } from '../firebase';
 import { db, ensureAuth, PATHS } from '../firebase';
 import { ScoreProcessingService } from '../services/ScoreProcessingService';
 import { writeAuditLog, recordLineupAudit } from '../services/AuditService';

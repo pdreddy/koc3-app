@@ -1,4 +1,4 @@
-import { get, push, ref, update } from 'firebase/database';
+import { get, push, ref, update } from '../firebase';
 import { db, PATHS } from '../firebase';
 import { buildPtlRatings } from '../utils/ptlRating';
 import { resolveMatchTeams, matchWinnerId } from '../utils/matchTeams';

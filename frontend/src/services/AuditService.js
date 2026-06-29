@@ -1,4 +1,4 @@
-import { push, ref } from 'firebase/database';
+import { push, ref } from '../firebase';
 import { db, PATHS } from '../firebase';
 import { normalizeRole } from '../utils/roles';
 

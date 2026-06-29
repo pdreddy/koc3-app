@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ref, update } from 'firebase/database';
+import { ref, update } from '../firebase';
 import { db, ensureAuth, PATHS } from '../firebase';
 import { recordLineupAudit } from '../services/AuditService';
 import { useAuth } from '../contexts/AuthContext';

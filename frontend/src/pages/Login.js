@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { ROLES } from '../utils/roles';
-import { DEFAULT_ADMIN_USERS, normalizeAdminUsername } from '../data/initialTeams';
+import { ROLES, normalizeRole } from '../utils/roles';
+import { normalizeAdminUsername } from '../data/initialTeams';
 import { writeAuditLog } from '../services/AuditService';
+import { supabase, teamAuthEmail, adminAuthEmail } from '../supabaseClient';
 
-export default function Login({ teams, adminConfig }) {
+export default function Login({ teams }) {
   const [mode, setMode] = useState('team'); // 'team' | 'admin'
   const [teamId, setTeamId] = useState('');
   const [adminUsername, setAdminUsername] = useState('');
@@ -23,43 +24,40 @@ export default function Login({ teams, adminConfig }) {
     setError('');
     if (mode === 'admin') {
       const username = normalizeAdminUsername(adminUsername);
-      const users = adminConfig?.users || {};
-      const configuredUserEntry = Object.entries(users).find(([key]) => normalizeAdminUsername(key) === username);
-      const configuredUser = configuredUserEntry?.[1] || null;
-      const defaultUser = username ? DEFAULT_ADMIN_USERS[username] : null;
-      const adminUser = configuredUser || defaultUser;
-      if (!username || !adminUser) {
+      if (!username) { setError('Enter your admin username.'); return; }
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: adminAuthEmail(username),
+        password: password.trim(),
+      });
+      if (authError || !data?.user) {
         setError('Incorrect admin username or password.');
         return;
       }
-      const centralPassword = String(adminConfig?.password || '').trim();
-      const allowedPasswords = [configuredUser?.password, ...(configuredUser?.passwords || []), centralPassword].map(value => String(value || '').trim()).filter(Boolean);
-      const expected = allowedPasswords[0] || '';
-      if (!expected) {
-        setError('Admin password not configured yet.');
-        return;
-      }
-      if (allowedPasswords.includes(password.trim())) {
-        const adminRole = adminUser?.role || adminConfig?.role || ROLES.SUPER_ADMIN;
-        const nextSession = { role: adminRole, userId: username || adminRole, name: adminUser?.name || username || adminRole, loginAt: Date.now() };
-        loginAdmin(adminRole, { username: nextSession.userId, name: nextSession.name });
-        await writeAuditLog({ actionType: 'Login', session: nextSession, targetType: 'user', targetId: nextSession.userId });
-        navigate(next, { replace: true });
-      } else {
-        setError('Incorrect admin username or password.');
-      }
+      // Role comes from the profile (which also drives the JWT claims + RLS).
+      const { data: profile } = await supabase
+        .from('profiles').select('role,name').eq('id', data.user.id).maybeSingle();
+      const adminRole = normalizeRole(profile?.role) || ROLES.SUPER_ADMIN;
+      const name = profile?.name || username;
+      const nextSession = { role: adminRole, userId: username, name, loginAt: Date.now() };
+      loginAdmin(adminRole, { username, name });
+      await writeAuditLog({ actionType: 'Login', session: nextSession, targetType: 'user', targetId: username });
+      navigate(next, { replace: true });
     } else {
       if (!teamId) { setError('Please choose your team.'); return; }
       const team = teams[teamId];
       if (!team) { setError('Team not found.'); return; }
-      if (password.trim() === String(team.password || '')) {
-        const nextSession = { role: ROLES.CAPTAIN, teamId: team.id, teamName: team.name, loginAt: Date.now() };
-        loginTeam(team.id, team.name);
-        await writeAuditLog({ actionType: 'Login', session: nextSession, targetType: 'team', targetId: team.id });
-        navigate('/', { replace: true });
-      } else {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: teamAuthEmail(team.id),
+        password: password.trim(),
+      });
+      if (authError || !data?.user) {
         setError('Incorrect team password.');
+        return;
       }
+      const nextSession = { role: ROLES.CAPTAIN, teamId: team.id, teamName: team.name, loginAt: Date.now() };
+      loginTeam(team.id, team.name);
+      await writeAuditLog({ actionType: 'Login', session: nextSession, targetType: 'team', targetId: team.id });
+      navigate('/', { replace: true });
     }
   };
 

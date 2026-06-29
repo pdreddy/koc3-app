@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { ROLES, normalizeRole } from '../utils/roles';
+import { supabase } from '../supabaseClient';
 
 const AuthContext = createContext(null);
 const STORAGE_KEY = 'koc_session_v1';
@@ -18,10 +19,19 @@ export function AuthProvider({ children }) {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(session)); } catch {}
   }, [session]);
 
+  // Keep the local UI session in sync with the Supabase auth session: if the
+  // Supabase session ends (sign-out or expiry), drop back to guest.
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') setSession({ role: ROLES.GUEST });
+    });
+    return () => data?.subscription?.unsubscribe();
+  }, []);
+
   const loginAdmin = (role = ROLES.SUPER_ADMIN, user = {}) => setSession({ role, userId: user.username || user.userId || role, name: user.name || user.username || role, loginAt: Date.now() });
   const loginTeam = (teamId, teamName) => setSession({ role: ROLES.CAPTAIN, teamId, teamName, loginAt: Date.now() });
   const refreshTeamSession = (teamId, teamName) => setSession(prev => (prev.role === ROLES.CAPTAIN && prev.teamId === teamId && prev.teamName !== teamName) ? { ...prev, teamName } : prev);
-  const logout = () => setSession({ role: ROLES.GUEST });
+  const logout = () => { supabase.auth.signOut().catch(() => {}); setSession({ role: ROLES.GUEST }); };
 
   return (
     <AuthContext.Provider value={{ session, loginAdmin, loginTeam, refreshTeamSession, logout }}>

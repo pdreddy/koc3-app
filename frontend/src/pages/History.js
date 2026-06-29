@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { ref, remove } from 'firebase/database';
-import { db, PATHS } from '../firebase';
+import { ref, remove, db, PATHS } from '../firebase';
 import { ScoreProcessingService } from '../services/ScoreProcessingService';
 import { writeAuditLog } from '../services/AuditService';
 import { isAdminRole } from '../utils/roles';

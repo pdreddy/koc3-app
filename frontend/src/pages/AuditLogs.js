@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { onValue, ref } from 'firebase/database';
-import { db, PATHS } from '../firebase';
+import { onValue, ref, db, PATHS } from '../firebase';
 
 export default function AuditLogs() {
   const [logs, setLogs] = useState([]);
