@@ -2191,3 +2191,46 @@ button,
 @media (prefers-reduced-motion: reduce) {
   .route-progress span { animation: none; width: 100%; }
 }
+
+/* ===== Schedule detail controls ===== */
+.schedule-detail-status,
+.schedule-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  margin-top: .55rem;
+}
+
+.schedule-detail-status {
+  margin-top: .65rem;
+}
+
+.schedule-status-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: .02em;
+  padding: .18rem .5rem;
+}
+
+.schedule-status-pill.ready {
+  border-color: #bbf7d0;
+  background: #dcfce7;
+  color: #166534;
+}
+
+.schedule-status-pill.locked {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.schedule-detail-actions .btn[disabled] {
+  cursor: not-allowed;
+  opacity: .58;
+}
