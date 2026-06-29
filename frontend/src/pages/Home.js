@@ -283,7 +283,7 @@ function LineupRoleSelect({ team, selected, onChange, readOnly, optionErrors = {
 }
 
 
-function OpponentCapacityPreview({ opponent, teams, matches, eligibilityRules, lineupSubmissions }) {
+const OpponentCapacityPreview = React.memo(function OpponentCapacityPreview({ opponent, teams, matches, eligibilityRules, lineupSubmissions }) {
   const rows = useMemo(() => opponent ? buildCaptainCapacityRows(opponent, teams, matches, eligibilityRules, lineupSubmissions) : [], [opponent, teams, matches, eligibilityRules, lineupSubmissions]);
   if (!opponent) return null;
   const highlighted = [...rows]
@@ -306,9 +306,9 @@ function OpponentCapacityPreview({ opponent, teams, matches, eligibilityRules, l
       </div>
     </div>
   );
-}
+});
 
-function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmission, opponentSubmission, revealedLineup, matches, eligibilityRules, session, onRefresh }) {
+const CaptainFixtureCard = React.memo(function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmission, opponentSubmission, revealedLineup, matches, eligibilityRules, session, onRefresh }) {
   const [expanded, setExpanded] = useState(false);
   const [selected, setSelected] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -513,7 +513,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
       )}
     </article>
   );
-}
+});
 
 function ScheduleMiniList({ title, description, fixtures, teams, emptyText, testid, showStatus = false }) {
   return (

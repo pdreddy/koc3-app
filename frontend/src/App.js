@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, startTransition } from 'react';
+import React, { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, startTransition } from 'react';
 import useAppStore from './store/appStore';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { onValue, ref, set, get, update } from 'firebase/database';
@@ -73,10 +73,23 @@ function firebaseObjectToList(data, source) {
   return [];
 }
 
-function Shell() {
+// Thin chrome wrapper — only re-renders on pathname change
+function ChromeWrapper({ children }) {
   const location = useLocation();
-  const { session, refreshTeamSession } = useAuth();
   const hideChrome = location.pathname === '/login';
+  return (
+    <div className="app-shell">
+      <RouteProgress />
+      <ActivityAudit />
+      {!hideChrome && <AppHeader />}
+      {children}
+      {!hideChrome && <BottomNav />}
+    </div>
+  );
+}
+
+function Shell() {
+  const { session, refreshTeamSession } = useAuth();
 
   // Read from Zustand store (each selector is stable — only re-renders when that slice changes)
   const teams                      = useAppStore(s => s.teams);
@@ -117,6 +130,13 @@ function Shell() {
     });
     return merged;
   }, [lineupSubmissionMeta, revealedScheduleSubmissions, ownLineupSubmissions, session?.teamId]);
+
+  // Defer heavy props — nav clicks paint the chrome immediately, data updates follow
+  const deferredMatches        = useDeferredValue(matches);
+  const deferredSchedule       = useDeferredValue(schedule);
+  const deferredLineups        = useDeferredValue(visibleLineupSubmissions);
+  const deferredRevealedLineups= useDeferredValue(revealedLineups);
+  const deferredTeams          = useDeferredValue(teams);
 
 
   const syncSavedMatch = useCallback((record) => {
@@ -324,42 +344,38 @@ function Shell() {
   const handleRefresh = useCallback(() => touchLastRefreshed(), [touchLastRefreshed]);
 
   return (
-    <div className="app-shell">
-      <RouteProgress />
-      <ActivityAudit />
-      {!hideChrome && <AppHeader />}
+    <ChromeWrapper>
       <Suspense fallback={<PageSpinner />}>
-      <Routes>
-        <Route path="/" element={<Home teams={teams} schedule={schedule} matches={matches} eligibilityRules={settings.eligibilityRules} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} lastRefreshed={lastRefreshed} onRefresh={handleRefresh} />} />
-        <Route path="/teams" element={<Teams teams={teams} loaded={loaded} />} />
-        <Route path="/schedule" element={<Schedule teams={teams} schedule={schedule} matches={matches} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} />} />
-        <Route path="/standings" element={<Standings teams={teams} matches={matches} />} />
-        <Route path="/matchups" element={<Matchups matches={matches} teams={teams} />} />
-        <Route path="/ptl" element={<Navigate to="/more" replace />} />
-        <Route path="/history" element={<History matches={matches} teams={teams} onMatchDeleted={syncDeletedMatch} />} />
-        <Route path="/rules" element={<Rules />} />
-        <Route path="/more" element={<More />} />
-        <Route path="/login" element={<Login teams={teams} adminConfig={adminConfig} />} />
-        <Route path="/score" element={
-          <ProtectedTeam>
-            <ScoreEntry teams={teams} schedule={schedule} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} matches={matches} eligibilityRules={settings.eligibilityRules} onScoreSaved={syncSavedMatch} />
-          </ProtectedTeam>
-        } />
-        <Route path="/audit" element={
-          <ProtectedRoles allowed={[ROLES.SUPER_ADMIN]} next="/audit">
-            <AuditLogs />
-          </ProtectedRoles>
-        } />
-        <Route path="/admin" element={
-          <ProtectedAdmin>
-            <Admin teams={teams} adminConfig={adminConfig} matches={matches} schedule={schedule} lineupSubmissions={visibleLineupSubmissions} revealedLineups={revealedLineups} settings={settings} />
-          </ProtectedAdmin>
-        } />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+        <Routes>
+          <Route path="/" element={<Home teams={deferredTeams} schedule={deferredSchedule} matches={deferredMatches} eligibilityRules={settings.eligibilityRules} lineupSubmissions={deferredLineups} revealedLineups={deferredRevealedLineups} lastRefreshed={lastRefreshed} onRefresh={handleRefresh} />} />
+          <Route path="/teams" element={<Teams teams={deferredTeams} loaded={loaded} />} />
+          <Route path="/schedule" element={<Schedule teams={deferredTeams} schedule={deferredSchedule} matches={deferredMatches} lineupSubmissions={deferredLineups} revealedLineups={deferredRevealedLineups} />} />
+          <Route path="/standings" element={<Standings teams={deferredTeams} matches={deferredMatches} />} />
+          <Route path="/matchups" element={<Matchups matches={deferredMatches} teams={deferredTeams} />} />
+          <Route path="/ptl" element={<Navigate to="/more" replace />} />
+          <Route path="/history" element={<History matches={deferredMatches} teams={deferredTeams} onMatchDeleted={syncDeletedMatch} />} />
+          <Route path="/rules" element={<Rules />} />
+          <Route path="/more" element={<More />} />
+          <Route path="/login" element={<Login teams={deferredTeams} adminConfig={adminConfig} />} />
+          <Route path="/score" element={
+            <ProtectedTeam>
+              <ScoreEntry teams={deferredTeams} schedule={deferredSchedule} lineupSubmissions={deferredLineups} revealedLineups={deferredRevealedLineups} matches={deferredMatches} eligibilityRules={settings.eligibilityRules} onScoreSaved={syncSavedMatch} />
+            </ProtectedTeam>
+          } />
+          <Route path="/audit" element={
+            <ProtectedRoles allowed={[ROLES.SUPER_ADMIN]} next="/audit">
+              <AuditLogs />
+            </ProtectedRoles>
+          } />
+          <Route path="/admin" element={
+            <ProtectedAdmin>
+              <Admin teams={deferredTeams} adminConfig={adminConfig} matches={deferredMatches} schedule={deferredSchedule} lineupSubmissions={deferredLineups} revealedLineups={deferredRevealedLineups} settings={settings} />
+            </ProtectedAdmin>
+          } />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </Suspense>
-      {!hideChrome && <BottomNav />}
-    </div>
+    </ChromeWrapper>
   );
 }
 
