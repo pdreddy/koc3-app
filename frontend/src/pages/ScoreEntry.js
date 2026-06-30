@@ -976,6 +976,8 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
   const [autoLoadedRevealId, setAutoLoadedRevealId] = useState('');
   const [loadedLineupFixture, setLoadedLineupFixture] = useState(null);
   const [visibleSetCounts, setVisibleSetCounts] = useState({});
+  const [collapsedCourts, setCollapsedCourts] = useState({});
+  const [editingCollapsedCourts, setEditingCollapsedCourts] = useState({});
 
   useEffect(() => {
     if (myTeam?.id && !team1Id) setTeam1Id(myTeam.id);
@@ -1111,6 +1113,24 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
   const showMoreSets = (idx) => {
     setVisibleSetCounts(counts => ({ ...counts, [idx]: Math.min(5, (counts[idx] || 3) + 2) }));
   };
+
+  const courtScoreReady = (court) => {
+    if (!courtHasEntry(court)) return false;
+    const result = computeCourt(court);
+    if (!result.winnerTeamNum) return false;
+    return validateLineScore({ label: court.label, type: court.type, sets: result.sets }).length === 0;
+  };
+
+  useEffect(() => {
+    setCollapsedCourts(previous => {
+      const next = { ...previous };
+      courts.forEach((court, idx) => {
+        if (courtScoreReady(court) && !editingCollapsedCourts[idx]) next[idx] = true;
+        if (!courtScoreReady(court)) delete next[idx];
+      });
+      return next;
+    });
+  }, [courts, editingCollapsedCourts]);
 
   const handleSubmit = async () => {
     setError(''); setFieldErrors({}); setSuccess(''); setShareText(''); setPendingRecord(null);
@@ -1253,6 +1273,8 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
       setShareText(formatMatchShareText(savedRecord));
       setPendingRecord(null);
       setVisibleSetCounts({});
+      setCollapsedCourts({});
+      setEditingCollapsedCourts({});
       setCourts(COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
     } catch (e) {
       setError('Save failed: ' + e.message);
@@ -1375,12 +1397,35 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
 
       {team1 && team2 && !scoreBlocked && courts.map((c, idx) => {
         const status = courtCompletion(c);
+        const result = computeCourt(c);
+        const winnerName = result.winnerTeamNum === 1 ? team1.name : (result.winnerTeamNum === 2 ? team2.name : 'Winner pending');
+        const setSummary = formatSetsForShare(result.sets);
+        const isCollapsed = collapsedCourts[idx] && courtScoreReady(c);
+        if (isCollapsed) {
+          return (
+            <div className={`match-line court-card classic collapsed ${status.status}`} key={idx} data-testid={`court-${idx}-collapsed`}>
+              <div className="court-card-head">
+                <h3>{c.label}</h3>
+                <span className="tag">{c.type}</span>
+                <span className="tag win">{winnerName} won</span>
+                <button type="button" className="btn small ghost court-edit-btn" onClick={() => { setCollapsedCourts(prev => ({ ...prev, [idx]: false })); setEditingCollapsedCourts(prev => ({ ...prev, [idx]: true })); }} data-testid={`court-${idx}-edit`}>Edit</button>
+              </div>
+              <div className="court-collapse-summary">
+                <strong>{setSummary}</strong>
+                <span className="muted">Games {result.g1}-{result.g2} · Sets {result.s1}-{result.s2}</span>
+              </div>
+            </div>
+          );
+        }
         return (
         <div className={`match-line court-card classic ${status.status}`} key={idx}>
           <div className="court-card-head">
             <h3>{c.label}</h3>
             <span className="tag">{c.type}</span>
             <span className={`tag status ${status.status}`}>{status.message}</span>
+            {courtScoreReady(c) && editingCollapsedCourts[idx] && (
+              <button type="button" className="btn small ghost court-edit-btn" onClick={() => { setEditingCollapsedCourts(prev => ({ ...prev, [idx]: false })); setCollapsedCourts(prev => ({ ...prev, [idx]: true })); }} data-testid={`court-${idx}-done`}>Done</button>
+            )}
           </div>
 
           <div className="score-entry-grid">

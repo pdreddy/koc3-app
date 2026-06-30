@@ -3835,3 +3835,38 @@ table.std { min-width: 420px !important; }
 .field-error-list + .field-error-list {
   margin-top: .45rem;
 }
+
+.court-card.classic.collapsed {
+  background: linear-gradient(135deg, #ecfdf5, #f8fafc);
+  border-color: rgba(16,185,129,0.35);
+}
+
+.court-card.classic.collapsed .court-card-head {
+  border-bottom: 0;
+  margin-bottom: .35rem;
+  padding-bottom: 0;
+}
+
+.court-edit-btn {
+  flex: 0 0 auto !important;
+  margin-left: auto;
+  min-height: 34px !important;
+  padding: .25rem .7rem !important;
+}
+
+.court-collapse-summary {
+  align-items: center;
+  background: rgba(255,255,255,0.74);
+  border: 1px solid #bbf7d0;
+  border-radius: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem .8rem;
+  justify-content: space-between;
+  padding: .65rem .75rem;
+}
+
+.court-collapse-summary strong {
+  color: #065f46;
+  font-size: .95rem;
+}
