@@ -3932,3 +3932,40 @@ table.std { min-width: 420px !important; }
     grid-column: auto;
   }
 }
+
+.login-team-preview {
+  align-items: center;
+  background: linear-gradient(135deg, #eff6ff, #f8fafc);
+  border: 1px solid #dbeafe;
+  border-radius: 18px;
+  box-shadow: 0 10px 22px rgba(37,99,235,0.08);
+  display: flex;
+  gap: .8rem;
+  margin-top: .65rem;
+  padding: .7rem .8rem;
+}
+
+.login-team-preview div {
+  display: grid;
+  gap: .08rem;
+  min-width: 0;
+}
+
+.login-team-preview strong,
+.login-team-preview span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.login-team-preview strong {
+  color: #0f172a;
+  font-size: .95rem;
+  font-weight: 950;
+}
+
+.login-team-preview span {
+  color: #64748b;
+  font-size: .78rem;
+  font-weight: 800;
+}
