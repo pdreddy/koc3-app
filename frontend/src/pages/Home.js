@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ref, update } from 'firebase/database';
 import { db, ensureAuth, PATHS } from '../firebase';
@@ -9,6 +9,7 @@ import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from '../utils/e
 import { approvedMatches } from '../utils/matchStatus';
 import { resolveMatchTeams } from '../utils/matchTeams';
 import { CaptainCapacityCard, buildCaptainCapacityRows } from '../components/CaptainCapacity';
+import TeamLogo from '../components/TeamLogo';
 
 function formatDate(iso) {
   if (!iso) return 'TBD';
@@ -731,6 +732,97 @@ function CaptainScheduleList({ fixtures, completedFixtures, teams, captainTeam, 
 }
 
 
+function TeamLogoManager({ team }) {
+  const [open, setOpen] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
+  const fileRef = useRef(null);
+
+  const currentLogo = team?.logoUrl || null;
+
+  async function saveLogoUrl(logoUrl) {
+    setSaving(true);
+    setMsg('');
+    try {
+      await ensureAuth();
+      await update(ref(db, `${PATHS.teams}/${team.id}`), { logoUrl });
+      setMsg('Logo updated! It may take a moment to refresh everywhere.');
+      setOpen(false);
+      setUrlInput('');
+    } catch (e) {
+      setMsg('Save failed: ' + (e.message || 'unknown error'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 200 * 1024) { setMsg('File too large (max 200 KB). Use a URL instead.'); return; }
+    const reader = new FileReader();
+    reader.onload = ev => saveLogoUrl(ev.target.result);
+    reader.readAsDataURL(file);
+  }
+
+  function handleUrl(e) {
+    e.preventDefault();
+    if (!urlInput.trim()) return;
+    saveLogoUrl(urlInput.trim());
+  }
+
+  return (
+    <div style={{ marginTop: '.75rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem', flexWrap: 'wrap' }}>
+        <TeamLogo team={team} size={56} />
+        <div>
+          <div style={{ fontWeight: 700, fontSize: '.95rem' }}>{team.name}</div>
+          <button className="btn ghost small" style={{ marginTop: '.3rem' }} onClick={() => setOpen(o => !o)}>
+            {open ? 'Cancel' : currentLogo ? 'Change Logo' : 'Upload Logo'}
+          </button>
+        </div>
+      </div>
+      {msg && <p style={{ marginTop: '.4rem', fontSize: '.85rem', color: msg.startsWith('Save failed') ? '#dc2626' : '#16a34a' }}>{msg}</p>}
+      {open && (
+        <div style={{ marginTop: '.75rem', background: 'rgba(255,255,255,0.05)', borderRadius: '.5rem', padding: '1rem', display: 'grid', gap: '.75rem' }}>
+          <div>
+            <label style={{ fontSize: '.8rem', opacity: 0.7, display: 'block', marginBottom: '.3rem' }}>Upload image file (PNG/SVG, max 200 KB)</label>
+            <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} disabled={saving} />
+          </div>
+          <div>
+            <label style={{ fontSize: '.8rem', opacity: 0.7, display: 'block', marginBottom: '.3rem' }}>Or paste an image URL</label>
+            <form onSubmit={handleUrl} style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+              <input
+                type="url"
+                className="form-input"
+                placeholder="https://..."
+                value={urlInput}
+                onChange={e => setUrlInput(e.target.value)}
+                disabled={saving}
+                style={{ flex: 1, minWidth: '200px', fontSize: '.88rem' }}
+              />
+              <button type="submit" className="btn small" disabled={saving || !urlInput.trim()}>
+                {saving ? 'Saving…' : 'Save URL'}
+              </button>
+            </form>
+          </div>
+          {currentLogo && (
+            <button
+              className="btn ghost small"
+              style={{ color: '#dc2626', alignSelf: 'start' }}
+              disabled={saving}
+              onClick={() => saveLogoUrl('')}
+            >
+              Remove custom logo (revert to default)
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TeamSnapshot({ team, upcomingCount, completedCount, capacityRows }) {
   const rosterCount = team?.players?.length || 0;
   const blockedCount = capacityRows.filter(row => row.warnings.some(message => message.includes('reached'))).length;
@@ -738,6 +830,7 @@ function TeamSnapshot({ team, upcomingCount, completedCount, capacityRows }) {
   return (
     <section className="card" data-testid="captain-team-snapshot">
       <h2>Team Snapshot</h2>
+      <TeamLogoManager team={team} />
       <div className="rl-grid" style={{ marginTop: '.75rem' }}>
         <div className="rl-item"><span className="rl-ic" aria-hidden="true">👥</span><div><div className="rl-lbl">Roster</div><div className="rl-val">{rosterCount} players · Captain: {team.players?.[0]?.name || team.captain || 'TBD'}</div></div></div>
         <div className="rl-item"><span className="rl-ic" aria-hidden="true">🏷️</span><div><div className="rl-lbl">Group / Auction</div><div className="rl-val">Group {team.group || '—'} · Spent ${Number(team.totalSpent || 0).toLocaleString()} · Left ${Number(team.moneyLeft || 0).toLocaleString()}</div></div></div>

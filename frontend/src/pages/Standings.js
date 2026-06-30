@@ -1,21 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { resolveMatchTeams, matchWinnerId } from '../utils/matchTeams';
 import { isApprovedMatch } from '../utils/matchStatus';
-import { getTeamLogoUrl } from '../utils/teamLogos';
-
-function TeamLogoSmall({ abbr, name }) {
-  const url = getTeamLogoUrl(abbr);
-  const [err, setErr] = useState(false);
-  if (url && !err) return <img src={url} alt={name} width={24} height={24} style={{ borderRadius: '50%', objectFit: 'contain', background: 'rgba(0,0,0,0.15)', verticalAlign: 'middle', marginRight: '.35rem', flexShrink: 0 }} onError={() => setErr(true)} />;
-  return null;
-}
+import TeamLogo from '../components/TeamLogo';
 
 function statsForGroup(teamsInGroup, matches, allTeams) {
   const groupIds = new Set(teamsInGroup.map(t => t.id));
   const stats = {};
   teamsInGroup.forEach(t => {
     stats[t.id] = {
-      id: t.id, team: t.name, abbr: t.abbreviation,
+      id: t.id, team: t.name, abbr: t.abbreviation, logoUrl: t.logoUrl || null,
       matches: 0, wins: 0, losses: 0,
       setsFor: 0, setsAgainst: 0,
       gamesFor: 0, gamesAgainst: 0, points: 0, singlesWins: 0
@@ -88,7 +81,7 @@ function GroupTable({ label, rows, qualifyTop }) {
             {rows.map((r, i) => (
               <tr key={r.id} className={i < qualifyTop ? 'q' : ''} data-testid={`standings-${label}-row-${r.abbr}`}>
                 <td className="rank">{i + 1}</td>
-                <td className="standing-team-cell"><TeamLogoSmall abbr={r.abbr} name={r.team} /><strong>{r.abbr}</strong><span>{r.team}</span></td>
+                <td className="standing-team-cell"><TeamLogo team={{ abbreviation: r.abbr, name: r.team, logoUrl: r.logoUrl }} size={24} style={{ marginRight: '.35rem', verticalAlign: 'middle' }} /><strong>{r.abbr}</strong><span>{r.team}</span></td>
                 <td>{r.matches}</td>
                 <td>{r.wins}</td>
                 <td>{r.losses}</td>

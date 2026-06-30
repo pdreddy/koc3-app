@@ -1,28 +1,5 @@
 import React, { useState } from 'react';
-import { getTeamLogoUrl } from '../utils/teamLogos';
-
-function TeamLogo({ abbreviation, name, size = 52 }) {
-  const url = getTeamLogoUrl(abbreviation);
-  const [imgError, setImgError] = useState(false);
-  if (url && !imgError) {
-    return (
-      <img
-        src={url}
-        alt={name}
-        width={size}
-        height={size}
-        style={{ borderRadius: '50%', objectFit: 'contain', flexShrink: 0, background: 'rgba(0,0,0,0.3)' }}
-        onError={() => setImgError(true)}
-      />
-    );
-  }
-  // Fallback: initials circle
-  return (
-    <div style={{ width: size, height: size, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: size * 0.32, color: '#fff', flexShrink: 0, letterSpacing: '-1px' }}>
-      {abbreviation || (name || '?')[0]}
-    </div>
-  );
-}
+import TeamLogo from '../components/TeamLogo';
 
 function TeamCard({ t, isOpen, onToggle }) {
   const gradClass = `team-grad-${t.gradient || 1}`;
@@ -34,7 +11,7 @@ function TeamCard({ t, isOpen, onToggle }) {
         data-testid={`team-toggle-${t.abbreviation}`}
         style={{ display: 'flex', alignItems: 'center', gap: '.75rem' }}
       >
-        <TeamLogo abbreviation={t.abbreviation} name={t.name} size={48} />
+        <TeamLogo team={t} size={48} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <h2 style={{ margin: 0 }}>{t.name}</h2>
           {t.captain && <div style={{ fontSize: '.78rem', opacity: 0.8, marginTop: '.1rem' }}>🏆 {t.captain}</div>}
