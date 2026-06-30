@@ -66,8 +66,13 @@ export default function Login({ teams, adminConfig }) {
   return (
     <div className="login-shell">
       <div className="login-card" data-testid="login-card">
-        <h1>🏆 KOC3</h1>
-        <p className="sub">Captains & organizers sign in</p>
+        <div className="login-logos">
+          <img src="/koc-shield.svg" alt="KOC Tennis League" className="login-logo-koc" />
+          <span className="login-logo-x">×</span>
+          <img src="/pprc-logo.svg" alt="PPRC" className="login-logo-pprc" />
+        </div>
+        <h1 className="login-title">KOC Tennis League</h1>
+        <p className="sub">Captains &amp; organizers sign in</p>
 
         <div className="login-tabs" role="tablist">
           <button

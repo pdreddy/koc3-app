@@ -2973,3 +2973,159 @@ input::placeholder, textarea::placeholder { color: var(--muted2) !important; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #c4c9d8; }
+
+/* ══════════════════════════════════════════════════
+   KOC × PPRC BRANDED LOGIN  (dark navy / gold)
+   ══════════════════════════════════════════════════ */
+
+.login-shell {
+  background: linear-gradient(160deg, #0a0e1a 0%, #0f1830 40%, #1a1040 100%) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+/* Stadium glow effect */
+.login-shell::before {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 400px;
+  background: radial-gradient(ellipse at center, rgba(245,158,11,0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.login-card {
+  background: rgba(255,255,255,0.04) !important;
+  border: 1px solid rgba(245,158,11,0.25) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 0 0 1px rgba(245,158,11,0.08), 0 30px 80px rgba(0,0,0,0.6), 0 0 60px rgba(245,158,11,0.06) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  max-width: 420px !important;
+  padding: 2rem 1.6rem !important;
+}
+
+/* Dual logos */
+.login-logos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+.login-logo-koc  { width: 72px; height: 86px; filter: drop-shadow(0 4px 12px rgba(245,158,11,0.4)); }
+.login-logo-pprc { width: 72px; height: 86px; filter: drop-shadow(0 4px 12px rgba(245,158,11,0.4)); }
+.login-logo-x {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #f59e0b;
+  opacity: 0.7;
+  line-height: 1;
+  align-self: center;
+}
+
+/* Title */
+.login-title {
+  color: #fde68a !important;
+  text-align: center;
+  font-size: 1.3rem !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.2rem !important;
+  text-shadow: 0 0 20px rgba(245,158,11,0.4);
+}
+.login-card .sub {
+  color: rgba(253,230,138,0.55) !important;
+  font-size: 0.82rem !important;
+  margin-bottom: 1.25rem !important;
+}
+
+/* Tabs */
+.login-tabs {
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(245,158,11,0.15) !important;
+  border-radius: 12px !important;
+  padding: 0.3rem !important;
+  margin-bottom: 1.25rem !important;
+}
+.login-tabs button {
+  color: rgba(253,230,138,0.5) !important;
+  font-weight: 700 !important;
+  font-size: 0.83rem !important;
+  border-radius: 9px !important;
+}
+.login-tabs button.active {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  color: #0a0e1a !important;
+  box-shadow: 0 2px 10px rgba(245,158,11,0.35) !important;
+}
+
+/* Fields */
+.login-card .field-label {
+  color: rgba(253,230,138,0.7) !important;
+  font-size: 0.78rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  margin-bottom: 0.4rem !important;
+}
+.login-card .input,
+.login-card .select {
+  background: rgba(255,255,255,0.07) !important;
+  border: 1px solid rgba(245,158,11,0.2) !important;
+  color: #fde68a !important;
+  border-radius: 10px !important;
+}
+.login-card .input::placeholder { color: rgba(253,230,138,0.3) !important; }
+.login-card .input:focus,
+.login-card .select:focus {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 0 3px rgba(245,158,11,0.15) !important;
+  outline: none !important;
+}
+.login-card .select option { background: #0f1830; color: #fde68a; }
+
+/* Submit button */
+.login-card .btn.full {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+  color: #0a0e1a !important;
+  font-weight: 900 !important;
+  font-size: 0.95rem !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 20px rgba(245,158,11,0.4) !important;
+  border: none !important;
+  letter-spacing: 0.04em !important;
+  margin-top: 0.5rem !important;
+}
+.login-card .btn.full:hover {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%) !important;
+  box-shadow: 0 6px 28px rgba(245,158,11,0.55) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Guest hint */
+.login-card .hint { color: rgba(253,230,138,0.4) !important; }
+.login-card .btn.ghost {
+  color: #f59e0b !important;
+  border-color: rgba(245,158,11,0.3) !important;
+  background: transparent !important;
+}
+.login-card .btn.ghost:hover { border-color: #f59e0b !important; background: rgba(245,158,11,0.08) !important; }
+
+/* Error box on dark bg */
+.login-card .error-box {
+  background: rgba(220,38,38,0.12) !important;
+  border-color: rgba(220,38,38,0.35) !important;
+  color: #fca5a5 !important;
+}
+
+/* Header logo image */
+.header-logo-img {
+  width: 32px;
+  height: 38px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.2));
+}
