@@ -7,6 +7,7 @@ import { buildScheduleFor8x2 } from '../utils/roundRobin';
 import { groupInfoForTeamId, normalizeAuctionTeam, sortByGroupOrder } from '../data/auctionTeams';
 import { normalizeEligibilityRules } from '../utils/eligibilityRules';
 import { recordLineupAudit } from '../services/AuditService';
+import { canDeleteMatch, canEditTeams, canManageSettings } from '../utils/roles';
 import { buildUtrRatingsTable } from '../data/utrRatings';
 import { auctionPlayerRatingUpdates, buildAuctionPlayerRatingsTable } from '../data/auctionPlayers';
 
@@ -281,6 +282,7 @@ function ScheduleEditor({ schedule, teams }) {
   const [editing, setEditing] = useState({}); // matchId -> draft
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const { session } = useAuth();
 
   const teamList = Object.values(teams || {}).sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
   const matchList = Object.values(schedule || {}).filter(item => item?.type !== 'buffer');
@@ -419,7 +421,7 @@ function ScheduleEditor({ schedule, teams }) {
                   </div>
                   <div style={{ display: 'flex', gap: '.35rem' }}>
                     <button className="btn small success" onClick={() => saveMatch(m)} disabled={busy} data-testid={`admin-fixture-${m.id}-save`}>Save</button>
-                    <button className="btn small danger" onClick={() => deleteMatch(m)} data-testid={`admin-fixture-${m.id}-del`}>Delete</button>
+                    {canDeleteMatch(session) && <button className="btn small danger" onClick={() => deleteMatch(m)} data-testid={`admin-fixture-${m.id}-del`}>Delete</button>}
                   </div>
                 </div>
               );
@@ -597,22 +599,25 @@ export default function Admin({ teams, adminConfig, matches, schedule, lineupSub
     }
   };
 
+  const { session } = useAuth();
+  const isSuperAdmin = canManageSettings(session);
+
   return (
     <main className="container">
       <div className="page-title">
         <h1>Admin Dashboard</h1>
-        <p>Manage teams, passwords, and matches</p>
+        <p>{isSuperAdmin ? 'Super Admin — full access' : 'Admin — lineup & score management'}</p>
       </div>
 
       <div className="tabs">
-        <button className={`tab ${tab === 'teams' ? 'active' : ''}`} onClick={() => setTab('teams')} data-testid="admin-tab-teams">Teams</button>
-        <button className={`tab ${tab === 'schedule' ? 'active' : ''}`} onClick={() => setTab('schedule')} data-testid="admin-tab-schedule">Schedule</button>
         <button className={`tab ${tab === 'lineups' ? 'active' : ''}`} onClick={() => setTab('lineups')} data-testid="admin-tab-lineups">Lineups</button>
-        <button className={`tab ${tab === 'settings' ? 'active' : ''}`} onClick={() => setTab('settings')} data-testid="admin-tab-settings">Settings</button>
-        <button className={`tab ${tab === 'passwords' ? 'active' : ''}`} onClick={() => setTab('passwords')} data-testid="admin-tab-passwords">Passwords</button>
+        {isSuperAdmin && <button className={`tab ${tab === 'teams' ? 'active' : ''}`} onClick={() => setTab('teams')} data-testid="admin-tab-teams">Teams</button>}
+        {isSuperAdmin && <button className={`tab ${tab === 'schedule' ? 'active' : ''}`} onClick={() => setTab('schedule')} data-testid="admin-tab-schedule">Schedule</button>}
+        {isSuperAdmin && <button className={`tab ${tab === 'settings' ? 'active' : ''}`} onClick={() => setTab('settings')} data-testid="admin-tab-settings">Settings</button>}
+        {isSuperAdmin && <button className={`tab ${tab === 'passwords' ? 'active' : ''}`} onClick={() => setTab('passwords')} data-testid="admin-tab-passwords">Passwords</button>}
       </div>
 
-      {tab === 'teams' && (
+      {tab === 'teams' && isSuperAdmin && (
         <>
           <TeamJsonImporter />
           {teamList.map(t => <TeamEditor key={t.id} team={t} matches={matches} />)}
@@ -675,11 +680,13 @@ export default function Admin({ teams, adminConfig, matches, schedule, lineupSub
             <button className="btn full" onClick={saveEligibilityRules} data-testid="admin-save-eligibility-rules">Save Eligibility Rules</button>
           </div>
 
-          <div className="card">
-            <h2>🗑️ Danger Zone</h2>
-            <p className="hint" style={{ marginBottom: '.5rem' }}>{matches.length} match result{matches.length === 1 ? '' : 's'} on record.</p>
-            <button className="btn full danger" onClick={handleClearMatches} data-testid="admin-clear-matches-btn">Clear All Match Results</button>
-          </div>
+          {canDeleteMatch(session) && (
+            <div className="card">
+              <h2>🗑️ Danger Zone</h2>
+              <p className="hint" style={{ marginBottom: '.5rem' }}>{matches.length} match result{matches.length === 1 ? '' : 's'} on record.</p>
+              <button className="btn full danger" onClick={handleClearMatches} data-testid="admin-clear-matches-btn">Clear All Match Results</button>
+            </div>
+          )}
         </>
       )}
     </main>

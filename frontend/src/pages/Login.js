@@ -11,6 +11,7 @@ export default function Login({ teams, adminConfig }) {
   const [adminUsername, setAdminUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const { loginAdmin, loginTeam } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -21,132 +22,166 @@ export default function Login({ teams, adminConfig }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (mode === 'admin') {
-      const username = normalizeAdminUsername(adminUsername);
-      const users = adminConfig?.users || {};
-      const configuredUserEntry = Object.entries(users).find(([key]) => normalizeAdminUsername(key) === username);
-      const configuredUser = configuredUserEntry?.[1] || null;
-      const defaultUser = username ? DEFAULT_ADMIN_USERS[username] : null;
-      const adminUser = configuredUser || defaultUser;
-      if (!username || !adminUser) {
-        setError('Incorrect admin username or password.');
-        return;
-      }
-      const centralPassword = String(adminConfig?.password || '').trim();
-      const allowedPasswords = [configuredUser?.password, ...(configuredUser?.passwords || []), centralPassword].map(value => String(value || '').trim()).filter(Boolean);
-      const expected = allowedPasswords[0] || '';
-      if (!expected) {
-        setError('Admin password not configured yet.');
-        return;
-      }
-      if (allowedPasswords.includes(password.trim())) {
-        const adminRole = adminUser?.role || adminConfig?.role || ROLES.SUPER_ADMIN;
-        const nextSession = { role: adminRole, userId: username || adminRole, name: adminUser?.name || username || adminRole, loginAt: Date.now() };
-        loginAdmin(adminRole, { username: nextSession.userId, name: nextSession.name });
-        await writeAuditLog({ actionType: 'Login', session: nextSession, targetType: 'user', targetId: nextSession.userId });
-        navigate(next, { replace: true });
+    setLoading(true);
+    try {
+      if (mode === 'admin') {
+        const username = normalizeAdminUsername(adminUsername);
+        const users = adminConfig?.users || {};
+        const configuredUserEntry = Object.entries(users).find(([key]) => normalizeAdminUsername(key) === username);
+        const configuredUser = configuredUserEntry?.[1] || null;
+        const defaultUser = username ? DEFAULT_ADMIN_USERS[username] : null;
+        const adminUser = configuredUser || defaultUser;
+        if (!username || !adminUser) { setError('Incorrect admin username or password.'); return; }
+        const centralPassword = String(adminConfig?.password || '').trim();
+        const allowedPasswords = [configuredUser?.password, ...(configuredUser?.passwords || []), centralPassword].map(value => String(value || '').trim()).filter(Boolean);
+        if (!allowedPasswords[0]) { setError('Admin password not configured yet.'); return; }
+        if (allowedPasswords.includes(password.trim())) {
+          const adminRole = adminUser?.role || adminConfig?.role || ROLES.SUPER_ADMIN;
+          const nextSession = { role: adminRole, userId: username || adminRole, name: adminUser?.name || username || adminRole, loginAt: Date.now() };
+          loginAdmin(adminRole, { username: nextSession.userId, name: nextSession.name });
+          await writeAuditLog({ actionType: 'Login', session: nextSession, targetType: 'user', targetId: nextSession.userId });
+          navigate(next, { replace: true });
+        } else {
+          setError('Incorrect admin username or password.');
+        }
       } else {
-        setError('Incorrect admin username or password.');
+        if (!teamId) { setError('Please choose your team.'); return; }
+        const team = teams[teamId];
+        if (!team) { setError('Team not found.'); return; }
+        if (password.trim() === String(team.password || '')) {
+          const nextSession = { role: ROLES.CAPTAIN, teamId: team.id, teamName: team.name, loginAt: Date.now() };
+          loginTeam(team.id, team.name);
+          await writeAuditLog({ actionType: 'Login', session: nextSession, targetType: 'team', targetId: team.id });
+          navigate('/', { replace: true });
+        } else {
+          setError('Incorrect team password.');
+        }
       }
-    } else {
-      if (!teamId) { setError('Please choose your team.'); return; }
-      const team = teams[teamId];
-      if (!team) { setError('Team not found.'); return; }
-      if (password.trim() === String(team.password || '')) {
-        const nextSession = { role: ROLES.CAPTAIN, teamId: team.id, teamName: team.name, loginAt: Date.now() };
-        loginTeam(team.id, team.name);
-        await writeAuditLog({ actionType: 'Login', session: nextSession, targetType: 'team', targetId: team.id });
-        navigate('/', { replace: true });
-      } else {
-        setError('Incorrect team password.');
-      }
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="login-shell">
-      <div className="login-card" data-testid="login-card">
-        <div className="login-logos">
-          <img src="/logos/koc-logo.svg" alt="KOC Tennis League" className="login-logo-koc" />
-          <span className="login-logo-x">×</span>
-          <img src="/logos/pprc-logo.svg" alt="PPRC" className="login-logo-pprc" />
+    <div className="lx-shell">
+      {/* LEFT — branding panel */}
+      <div className="lx-brand" aria-hidden="true">
+        <div className="lx-brand-inner">
+          <div className="lx-logos">
+            <img src="/logos/koc-logo.svg" alt="" className="lx-logo" />
+            <span className="lx-x">×</span>
+            <img src="/logos/pprc-logo.svg" alt="" className="lx-logo" />
+          </div>
+          <h2 className="lx-brand-title">KOC Tennis League</h2>
+          <p className="lx-brand-sub">Prosper Premier Racquet Club · Season 2024</p>
+          <div className="lx-stats">
+            <div className="lx-stat"><strong>16</strong><span>Teams</span></div>
+            <div className="lx-stat"><strong>2</strong><span>Groups</span></div>
+            <div className="lx-stat"><strong>Top 4</strong><span>Qualify</span></div>
+          </div>
         </div>
-        <h1 className="login-title">KOC Tennis League</h1>
-        <p className="sub">Captains &amp; organizers sign in</p>
+        <div className="lx-brand-bg" />
+      </div>
 
-        <div className="login-tabs" role="tablist">
-          <button
-            className={mode === 'team' ? 'active' : ''}
-            onClick={() => { setMode('team'); setError(''); setPassword(''); }}
-            data-testid="login-tab-team"
-          >Team Captain</button>
-          <button
-            className={mode === 'admin' ? 'active' : ''}
-            onClick={() => { setMode('admin'); setError(''); setPassword(''); setTeamId(''); setAdminUsername(''); }}
-            data-testid="login-tab-admin"
-          >Admin</button>
-        </div>
+      {/* RIGHT — form panel */}
+      <div className="lx-form-panel">
+        <div className="lx-form-wrap" data-testid="login-card">
 
-        {error && <div className="error-box" data-testid="login-error">{error}</div>}
-
-        <form onSubmit={handleSubmit}>
-          {mode === 'team' && (
-            <div className="field">
-              <div className="field-label">Your Team</div>
-              <select
-                className="select"
-                value={teamId}
-                onChange={e => setTeamId(e.target.value)}
-                data-testid="login-team-select"
-              >
-                <option value="">— Select your team —</option>
-                {teamList.map(t => (
-                  <option key={t.id} value={t.id}>{t.name} ({t.abbreviation})</option>
-                ))}
-              </select>
+          <div className="lx-form-header">
+            <div className="lx-form-logo-sm">
+              <img src="/logos/koc-logo.svg" alt="KOC" />
             </div>
-          )}
-
-          {mode === 'admin' && (
-            <div className="field">
-              <div className="field-label">Admin Username</div>
-              <input
-                className="input"
-                value={adminUsername}
-                onChange={e => setAdminUsername(e.target.value)}
-                placeholder="Enter admin username"
-                data-testid="login-admin-username-input"
-                autoComplete="username"
-              />
+            <div>
+              <div className="lx-form-title">Sign in</div>
+              <div className="lx-form-sub">KOC Tennis League portal</div>
             </div>
-          )}
-
-          <div className="field">
-            <div className="field-label">{mode === 'admin' ? 'Admin Password' : 'Team Password'}</div>
-            <input
-              type="password"
-              className="input"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="Enter password"
-              data-testid="login-password-input"
-              autoComplete="current-password"
-            />
           </div>
 
-          <button type="submit" className="btn full" data-testid="login-submit-btn">
-            Sign In
-          </button>
-        </form>
+          {/* Role selector */}
+          <div className="lx-role-tabs" role="tablist">
+            <button
+              className={`lx-role-tab${mode === 'team' ? ' active' : ''}`}
+              onClick={() => { setMode('team'); setError(''); setPassword(''); }}
+              data-testid="login-tab-team"
+            >
+              <span className="lx-tab-icon">🎾</span>
+              <span className="lx-tab-label">Team Captain</span>
+            </button>
+            <button
+              className={`lx-role-tab${mode === 'admin' ? ' active' : ''}`}
+              onClick={() => { setMode('admin'); setError(''); setPassword(''); setTeamId(''); setAdminUsername(''); }}
+              data-testid="login-tab-admin"
+            >
+              <span className="lx-tab-icon">⚙️</span>
+              <span className="lx-tab-label">Admin</span>
+            </button>
+          </div>
 
-        <div className="hint center" style={{ marginTop: '.8rem' }}>
-          Browsing only? <button
-            type="button"
-            className="btn small ghost"
-            style={{ marginLeft: '.4rem' }}
-            onClick={() => navigate('/teams')}
-            data-testid="login-guest-btn"
-          >Continue as Guest</button>
+          {error && (
+            <div className="lx-error" data-testid="login-error">
+              <span>⚠️</span> {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="lx-form">
+            {mode === 'team' && (
+              <div className="lx-field">
+                <label className="lx-label">Your Team</label>
+                <select
+                  className="lx-input"
+                  value={teamId}
+                  onChange={e => setTeamId(e.target.value)}
+                  data-testid="login-team-select"
+                >
+                  <option value="">— Select your team —</option>
+                  {teamList.map(t => (
+                    <option key={t.id} value={t.id}>{t.name} ({t.abbreviation})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {mode === 'admin' && (
+              <div className="lx-field">
+                <label className="lx-label">Username</label>
+                <input
+                  className="lx-input"
+                  value={adminUsername}
+                  onChange={e => setAdminUsername(e.target.value)}
+                  placeholder="Admin username"
+                  data-testid="login-admin-username-input"
+                  autoComplete="username"
+                />
+              </div>
+            )}
+
+            <div className="lx-field">
+              <label className="lx-label">{mode === 'admin' ? 'Password' : 'Team Password'}</label>
+              <input
+                type="password"
+                className="lx-input"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="Enter password"
+                data-testid="login-password-input"
+                autoComplete="current-password"
+              />
+            </div>
+
+            <button type="submit" className="lx-submit" data-testid="login-submit-btn" disabled={loading}>
+              {loading ? 'Signing in…' : 'Sign In →'}
+            </button>
+          </form>
+
+          <div className="lx-guest">
+            <span>Just browsing?</span>
+            <button
+              type="button"
+              className="lx-guest-btn"
+              onClick={() => navigate('/teams')}
+              data-testid="login-guest-btn"
+            >Continue as Guest</button>
+          </div>
         </div>
       </div>
     </div>
