@@ -319,6 +319,8 @@ const CaptainFixtureCard = React.memo(function CaptainFixtureCard({ item, teams,
   const opponent = item.team1Id === captainTeam.id ? team2 : team1;
   const locked = !!lineupSubmission?.lockedAt && !lineupSubmission?.unlockedAt;
   const revealed = !!revealedLineup?.revealId || !!lineupSubmission?.revealedAt || (!!lineupSubmission?.lockedAt && !!opponentSubmission?.lockedAt);
+  const scoreAlreadySaved = !!lineupSubmission?.scoreSavedAt;
+  const isPlayoff = item?.matchType === 'playoff' || !item?.group;
   const status = statusForFixture(completed, lineupSubmission, opponentSubmission);
   const errors = validateDashboardLineup(captainTeam, selected, matches, teams, eligibilityRules);
   const names = selectedNames(captainTeam, selected);
@@ -471,13 +473,19 @@ const CaptainFixtureCard = React.memo(function CaptainFixtureCard({ item, teams,
                 : <span style={{ color: '#94a3b8' }}>Waiting...</span>}
             </span>
           </div>
+          {!locked && !completed && <div style={{ fontSize: '.75rem', color: '#b45309', marginTop: '.25rem', display: 'flex', alignItems: 'center', gap: '.3rem' }}><span>⚠️</span> Submit your lineup before score entry.</div>}
+          {scoreAlreadySaved && !isPlayoff && !completed && <div style={{ fontSize: '.75rem', color: '#15803d', marginTop: '.25rem', display: 'flex', alignItems: 'center', gap: '.3rem' }}><span>✅</span> Score submitted {timeLabel(lineupSubmission.scoreSavedAt)}.</div>}
         </div>
         <div className="captain-fixture-actions">
           {!completed && !locked && <button type="button" className="btn small cfc-btn-lines" onClick={() => setExpanded(v => !v)} data-testid={`submit-lines-${item.id}`}>{expanded ? 'Hide Lines' : 'Submit Lines'}</button>}
           {locked && <button type="button" className="btn small ghost" onClick={() => setExpanded(v => !v)}>{expanded ? 'Hide' : 'View Status'}</button>}
-          {revealed && !completed
-            ? <Link className="btn small cfc-btn-score" to={scoreEntryHref(item, revealedLineup, lineupSubmission)} data-testid={`submit-score-${item.id}`}>Submit Score</Link>
-            : <button type="button" className="btn small ghost cfc-btn-score-disabled" disabled data-testid={`submit-score-${item.id}`}>Submit Score</button>}
+          {!locked
+            ? <button type="button" className="btn small ghost cfc-btn-score-disabled" disabled title="Submit your lineup first before entering the score" data-testid={`submit-score-${item.id}`}>Submit Score</button>
+            : scoreAlreadySaved && !isPlayoff
+              ? <button type="button" className="btn small ghost cfc-btn-score-disabled" disabled title="Score already submitted for this match" data-testid={`submit-score-${item.id}`}>Score Submitted ✓</button>
+              : revealed && !completed
+                ? <Link className="btn small cfc-btn-score" to={scoreEntryHref(item, revealedLineup, lineupSubmission)} data-testid={`submit-score-${item.id}`}>Submit Score</Link>
+                : <button type="button" className="btn small ghost cfc-btn-score-disabled" disabled title="Waiting for both lineups to be revealed" data-testid={`submit-score-${item.id}`}>Submit Score</button>}
           <button type="button" className="btn small cfc-btn-capacity" onClick={() => setShowOpponentCapacity(v => !v)} data-testid={`toggle-opponent-capacity-${item.id}`}>{showOpponentCapacity ? 'Hide Opponent Capacity' : 'Show Opponent Capacity'}</button>
         </div>
       </div>

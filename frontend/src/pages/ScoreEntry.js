@@ -1002,6 +1002,24 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
       return;
     }
 
+    // Lines must be submitted before score entry (captains only)
+    if (session.role === ROLES.CAPTAIN) {
+      const schedId = loadedLineupFixture?.item?.id || targetScheduleId;
+      const mySubmission = schedId ? lineupSubmissions?.[schedId]?.[session.teamId] : null;
+      if (!mySubmission?.lockedAt) {
+        setError('Lines must be submitted and locked before entering a score. Please submit your lineup first.');
+        return;
+      }
+
+      // One score per team per schedule in round-robin (playoff/final matches are exempt)
+      const fixture = schedId ? schedule?.[schedId] : null;
+      const isPlayoff = fixture?.matchType === 'playoff' || !fixture?.group;
+      if (!isPlayoff && mySubmission?.scoreSavedAt) {
+        setError('You have already submitted a score for this match. Only one score submission is allowed per team per round-robin match.');
+        return;
+      }
+    }
+
     // Validate all player names exist
     const validationErrors = [];
     const duplicatePlayers = getDuplicatePlayers(courts);
