@@ -48,7 +48,7 @@ export function canDeleteMatch(session) {
 
 // Edit team rosters and passwords
 export function canEditTeams(session) {
-  return hasRole(session, [ROLES.SUPER_ADMIN]);
+  return hasRole(session, [ROLES.SUPER_ADMIN, ROLES.ADMIN]);
 }
 
 // Manage season settings (schedule, eligibility rules, admin config)

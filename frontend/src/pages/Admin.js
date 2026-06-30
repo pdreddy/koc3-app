@@ -606,18 +606,18 @@ export default function Admin({ teams, adminConfig, matches, schedule, lineupSub
     <main className="container">
       <div className="page-title">
         <h1>Admin Dashboard</h1>
-        <p>{isSuperAdmin ? 'Super Admin — full access' : 'Admin — lineup & score management'}</p>
+        <p>{isSuperAdmin ? 'Super Admin — full access' : 'Admin — teams, lineups & scores'}</p>
       </div>
 
       <div className="tabs">
         <button className={`tab ${tab === 'lineups' ? 'active' : ''}`} onClick={() => setTab('lineups')} data-testid="admin-tab-lineups">Lineups</button>
-        {isSuperAdmin && <button className={`tab ${tab === 'teams' ? 'active' : ''}`} onClick={() => setTab('teams')} data-testid="admin-tab-teams">Teams</button>}
+        <button className={`tab ${tab === 'teams' ? 'active' : ''}`} onClick={() => setTab('teams')} data-testid="admin-tab-teams">Teams</button>
         {isSuperAdmin && <button className={`tab ${tab === 'schedule' ? 'active' : ''}`} onClick={() => setTab('schedule')} data-testid="admin-tab-schedule">Schedule</button>}
         {isSuperAdmin && <button className={`tab ${tab === 'settings' ? 'active' : ''}`} onClick={() => setTab('settings')} data-testid="admin-tab-settings">Settings</button>}
         {isSuperAdmin && <button className={`tab ${tab === 'passwords' ? 'active' : ''}`} onClick={() => setTab('passwords')} data-testid="admin-tab-passwords">Passwords</button>}
       </div>
 
-      {tab === 'teams' && isSuperAdmin && (
+      {tab === 'teams' && (
         <>
           <TeamJsonImporter />
           {teamList.map(t => <TeamEditor key={t.id} team={t} matches={matches} />)}
