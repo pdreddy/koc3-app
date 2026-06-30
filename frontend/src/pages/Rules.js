@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 const ruleCards = [
   {
@@ -125,6 +125,13 @@ function PlayoffBracket() {
 }
 
 export default function Rules() {
+  const [showSecondarySections, setShowSecondarySections] = useState(false);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setShowSecondarySections(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
   return (
     <main className="container rules-page-shell" data-testid="rules-page">
       <div className="page-title">
@@ -140,16 +147,20 @@ export default function Rules() {
       <div className="rl-sec-head"><h2>The Rules</h2><div className="ln" /></div>
       <section className="rl-grid">{ruleCards.map(card => <RuleCard key={card.num} card={card} />)}</section>
 
-      <div className="rl-sec-head"><h2>Playoffs</h2><div className="ln" /></div>
-      <PlayoffBracket />
+      {showSecondarySections && (
+        <>
+          <div className="rl-sec-head"><h2>Playoffs</h2><div className="ln" /></div>
+          <PlayoffBracket />
 
-      <div className="rl-sec-head"><h2>Remember</h2><div className="ln" /></div>
-      <section className="rl-flow rl-reminders">
-        <div className="rl-step"><b>🗓️</b><strong>Sunday 9 PM</strong><small>Lines are due.</small></div>
-        <div className="rl-step"><b>📊</b><strong>Monday EOD</strong><small>Scores are due.</small></div>
-      </section>
+          <div className="rl-sec-head"><h2>Remember</h2><div className="ln" /></div>
+          <section className="rl-flow rl-reminders">
+            <div className="rl-step"><b>🗓️</b><strong>Sunday 9 PM</strong><small>Lines are due.</small></div>
+            <div className="rl-step"><b>📊</b><strong>Monday EOD</strong><small>Scores are due.</small></div>
+          </section>
 
-      <div className="rl-motto" data-testid="rules-motto">Let's go! 🎾</div>
+          <div className="rl-motto" data-testid="rules-motto">Let's go! 🎾</div>
+        </>
+      )}
     </main>
   );
 }

@@ -4,144 +4,12 @@ import { db, PATHS } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { ScoreProcessingService } from '../services/ScoreProcessingService';
 import { buildScheduleFor8x2 } from '../utils/roundRobin';
-import { UTR_RATINGS, matchUtrRating, normalizeNameKey, suggestUtrMatches } from '../data/utrRatings';
 import { groupInfoForTeamId, normalizeAuctionTeam, sortByGroupOrder } from '../data/auctionTeams';
 import { normalizeEligibilityRules } from '../utils/eligibilityRules';
 import { recordLineupAudit } from '../services/AuditService';
+import { canManageRoles } from '../utils/roles';
+import TeamLogo from '../components/TeamLogo';
 
-
-function ratingRowId(row) {
-  return row?._id || String(row?.fullName || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-}
-
-function uniqueValues(values) {
-  return Array.from(new Set(values.map(value => String(value || '').trim()).filter(Boolean)));
-}
-
-function collectPlayerNames(teams, matches, previousMatches) {
-  const names = new Map();
-  const add = (name, source) => {
-    const clean = String(name || '').trim();
-    if (!clean) return;
-    const current = names.get(clean) || { name: clean, sources: new Set(), count: 0 };
-    current.sources.add(source);
-    current.count += 1;
-    names.set(clean, current);
-  };
-
-  Object.values(teams || {}).forEach(team => {
-    (team.players || []).forEach(player => add(player.name, `Roster ${team.abbreviation || team.name || ''}`.trim()));
-  });
-  [...(matches || []), ...(previousMatches || [])].forEach(match => {
-    (match.lines || []).forEach(line => {
-      [...(line.players?.team1 || []), ...(line.players?.team2 || [])].forEach(name => add(name, match.source || 'Match'));
-    });
-  });
-
-  return Array.from(names.values()).map(row => ({
-    ...row,
-    sources: Array.from(row.sources).join(', ')
-  })).sort((a, b) => a.name.localeCompare(b.name));
-}
-
-function AdminNameMapRow({ sourceName, sourceInfo, lookupRows }) {
-  const suggestions = useMemo(() => suggestUtrMatches(sourceName, lookupRows, 5), [sourceName, lookupRows]);
-  const [targetName, setTargetName] = useState(suggestions[0]?.row.fullName || lookupRows[0]?.fullName || '');
-  const [msg, setMsg] = useState('');
-  const targetRow = lookupRows.find(row => row.fullName === targetName) || suggestions[0]?.row;
-
-  const saveMapping = async () => {
-    if (!targetRow) { setMsg('Select an actual UTR player first.'); return; }
-    const id = ratingRowId(targetRow);
-    if (!id) { setMsg('Selected rating row has no Firebase id.'); return; }
-    const aliases = uniqueValues([...(targetRow.aliases || []), sourceName]);
-    const keys = uniqueValues([...(targetRow.keys || []), normalizeNameKey(sourceName)]);
-    try {
-      await update(ref(db, `${PATHS.playerRatings}/${id}`), { aliases, keys });
-      setMsg(`✅ DB updated: ${sourceName} → ${targetRow.fullName}`);
-    } catch (e) {
-      setMsg(`Save failed: ${e.message}`);
-    }
-  };
-
-  return (
-    <tr data-testid={`admin-name-map-${sourceName}`}>
-      <td>
-        <strong>{sourceName}</strong>
-        <div className="muted" style={{ fontSize: '.72rem' }}>{sourceInfo.sources} · {sourceInfo.count} occurrence{sourceInfo.count === 1 ? '' : 's'}</div>
-      </td>
-      <td>
-        {suggestions.length === 0 ? '—' : suggestions.map(item => (
-          <button
-            type="button"
-            key={item.row.fullName}
-            className={`tag ${item.score >= 0.72 ? 'tie' : ''}`}
-            onClick={() => setTargetName(item.row.fullName)}
-            title={item.reason}
-            style={{ marginRight: '.25rem', marginBottom: '.25rem' }}
-          >
-            {item.row.fullName} · {Math.round(item.score * 100)}%
-          </button>
-        ))}
-      </td>
-      <td>
-        <select className="select" value={targetName} onChange={e => setTargetName(e.target.value)} data-testid={`admin-name-map-${sourceName}-select`}>
-          {lookupRows.map(row => <option key={row.fullName} value={row.fullName}>{row.fullName}</option>)}
-        </select>
-      </td>
-      <td>
-        <button type="button" className="btn small success" onClick={saveMapping} data-testid={`admin-name-map-${sourceName}-save`}>Update DB Mapping</button>
-        {msg && <div className={msg.startsWith('✅') ? 'success-box' : 'error-box'} style={{ marginTop: '.35rem' }}>{msg}</div>}
-      </td>
-    </tr>
-  );
-}
-
-function NameMappingAdmin({ teams, matches, previousMatches, playerRatings }) {
-  const [filter, setFilter] = useState('unmapped');
-  const lookupRows = useMemo(() => {
-    const rows = Object.entries(playerRatings || {}).map(([id, row]) => ({ _id: id, ...(row || {}) }));
-    return rows.length > 0 ? rows : UTR_RATINGS;
-  }, [playerRatings]);
-  const sourceNames = useMemo(() => collectPlayerNames(teams, matches, previousMatches), [teams, matches, previousMatches]);
-  const rows = useMemo(() => sourceNames.map(row => {
-    const matched = matchUtrRating(row.name, lookupRows);
-    return {
-      ...row,
-      matchedName: matched?.row.fullName || '',
-      confidence: matched ? Math.round(matched.score * 100) : 0,
-      reason: matched?.reason || 'Needs mapping'
-    };
-  }), [lookupRows, sourceNames]);
-  const visibleRows = rows.filter(row => filter === 'all' || !row.matchedName);
-
-  return (
-    <div className="card" data-testid="admin-name-mapping-card">
-      <h2>PTL Name Mapping</h2>
-      <p className="hint">Map roster, KOC3 match, and KOC2 history names to actual UTR players. Clicking <strong>Update DB Mapping</strong> writes aliases and normalized keys directly to /koc_s3/playerRatings.</p>
-      <div style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap', marginBottom: '.7rem' }}>
-        <button className={`btn small ${filter === 'unmapped' ? '' : 'ghost'}`} onClick={() => setFilter('unmapped')} data-testid="admin-name-map-filter-unmapped">Needs mapping ({rows.filter(row => !row.matchedName).length})</button>
-        <button className={`btn small ${filter === 'all' ? '' : 'ghost'}`} onClick={() => setFilter('all')} data-testid="admin-name-map-filter-all">All names ({rows.length})</button>
-      </div>
-      <div className="table-wrap">
-        <table className="std ptl-table" data-testid="admin-name-mapping-table">
-          <thead>
-            <tr>
-              <th>Source name</th>
-              <th>Fuzzy suggestions</th>
-              <th>Actual UTR player</th>
-              <th>DB action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleRows.length === 0 && <tr><td colSpan="4" className="center muted">No names need mapping.</td></tr>}
-            {visibleRows.map(row => <AdminNameMapRow key={row.name} sourceName={row.name} sourceInfo={row} lookupRows={lookupRows} />)}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
 
 
 function applyNameRenamesToMatch(match, team, payload, playerRenameMap) {
@@ -187,7 +55,7 @@ function applyNameRenamesToMatch(match, team, payload, playerRenameMap) {
   return changed ? next : null;
 }
 
-function TeamJsonImporter() {
+function TeamJsonImporter({ canUpdatePasswords = false }) {
   const [msg, setMsg] = useState('');
 
   const saveTeamsFromJson = async (event) => {
@@ -211,7 +79,7 @@ function TeamJsonImporter() {
         const groupInfo = groupInfoForTeamId(normalized.id, index);
         updates[normalized.id] = {
           ...normalized,
-          password: team.password || `KOC${normalized.abbreviation}#3`,
+          ...(canUpdatePasswords ? { password: team.password || `KOC${normalized.abbreviation}#3` } : {}),
           gradient: team.gradient || index + 1,
           group: team.group || groupInfo.group,
           groupOrder: team.groupOrder || groupInfo.groupOrder
@@ -234,7 +102,7 @@ function TeamJsonImporter() {
   );
 }
 
-function TeamEditor({ team, matches = [] }) {
+function TeamEditor({ team, matches = [], canUpdatePasswords = false }) {
   const [name, setName] = useState(team.name);
   const [abbr, setAbbr] = useState(team.abbreviation);
   const [password, setPassword] = useState(team.password || '');
@@ -255,7 +123,7 @@ function TeamEditor({ team, matches = [] }) {
   const save = async () => {
     setSavedMsg('');
     if (!name.trim() || !abbr.trim()) { setSavedMsg('Name and abbreviation are required'); return; }
-    if (!password.trim()) { setSavedMsg('Password required'); return; }
+    if (canUpdatePasswords && !password.trim()) { setSavedMsg('Password required'); return; }
     const normalizedPlayers = players.filter(p => (p.name || '').trim()).map((p, idx) => {
       const utr = Number(p.utr);
       const cleanUtr = p.utr === '' || p.utr == null || !Number.isFinite(utr) ? '' : utr;
@@ -272,7 +140,7 @@ function TeamEditor({ team, matches = [] }) {
       ...team,
       name: name.trim(),
       abbreviation: abbr.trim().toUpperCase(),
-      password: password.trim(),
+      ...(canUpdatePasswords ? { password: password.trim() } : {}),
       group,
       captain,
       players: normalizedPlayers,
@@ -308,7 +176,7 @@ function TeamEditor({ team, matches = [] }) {
   return (
     <div className="card" data-testid={`admin-team-${team.abbreviation}`}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '.5rem', marginBottom: '.6rem', flexWrap: 'wrap' }}>
-        <h2 style={{ margin: 0 }}>{name || team.name}</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '.55rem' }}><TeamLogo team={{ ...team, name, abbreviation: abbr }} size="md" /><h2 style={{ margin: 0 }}>{name || team.name}</h2></div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', flexWrap: 'wrap' }}>
           <span className={`team-grad-${team.gradient || 1} abbr`} style={{ color: '#fff', padding: '.25rem .6rem', borderRadius: 999, fontWeight: 800, fontSize: '.75rem' }}>{abbr}</span>
           <button className="btn small success" onClick={save} data-testid={`admin-team-${team.abbreviation}-save-top`}>Save Team & Sync Names</button>
@@ -335,21 +203,23 @@ function TeamEditor({ team, matches = [] }) {
           <option value="B">Group B</option>
         </select>
       </div>
-      <div className="field">
-        <div className="field-label">Team Password</div>
-        <div style={{ display: 'flex', gap: '.4rem' }}>
-          <input
-            className="input"
-            type={showPwd ? 'text' : 'password'}
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            data-testid={`admin-team-${team.abbreviation}-password`}
-          />
-          <button type="button" className="btn small ghost" onClick={() => setShowPwd(s => !s)} data-testid={`admin-team-${team.abbreviation}-show-pwd`}>
-            {showPwd ? '🙈' : '👁️'}
-          </button>
+      {canUpdatePasswords && (
+        <div className="field">
+          <div className="field-label">Team Password</div>
+          <div style={{ display: 'flex', gap: '.4rem' }}>
+            <input
+              className="input"
+              type={showPwd ? 'text' : 'password'}
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              data-testid={`admin-team-${team.abbreviation}-password`}
+            />
+            <button type="button" className="btn small ghost" onClick={() => setShowPwd(s => !s)} data-testid={`admin-team-${team.abbreviation}-show-pwd`}>
+              {showPwd ? '🙈' : '👁️'}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="field">
         <div className="field-label">Players ({players.length})</div>
@@ -553,7 +423,10 @@ function ScheduleEditor({ schedule, teams }) {
 function AdminLineupManager({ teams, schedule, lineupSubmissions, revealedLineups }) {
   const { session } = useAuth();
   const [busyKey, setBusyKey] = useState('');
+  const [teamFilter, setTeamFilter] = useState('all');
   const fixtures = Object.values(schedule || {}).filter(item => item?.type !== 'buffer');
+  const teamOptions = Object.values(teams || {}).sort((a, b) => (a.group || '').localeCompare(b.group || '') || (a.groupOrder || 0) - (b.groupOrder || 0) || (a.name || '').localeCompare(b.name || ''));
+  const visibleFixtures = fixtures.filter(fixture => teamFilter === 'all' || fixture.team1Id === teamFilter || fixture.team2Id === teamFilter);
   const unlock = async (fixture, teamId, submission) => {
     const reason = window.prompt('Reason for returning this lineup to the captain for correction?');
     if (!reason?.trim()) return;
@@ -614,13 +487,21 @@ function AdminLineupManager({ teams, schedule, lineupSubmissions, revealedLineup
     <div className="card" data-testid="admin-lineup-manager">
       <h2>🔐 Lineup Submissions</h2>
       <p className="hint">Before reveal, Super Admin sees only submission status, timestamps, WhatsApp status, and audit/unlock metadata. Player names appear only after reveal.</p>
+      <label className="field" style={{ margin: '.65rem 0' }}>
+        <div className="field-label">Team filter</div>
+        <select className="select" value={teamFilter} onChange={e => setTeamFilter(e.target.value)} data-testid="admin-lineups-team-filter">
+          <option value="all">All teams</option>
+          {teamOptions.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
+        </select>
+      </label>
       <div style={{ display: 'grid', gap: '.65rem' }}>
-        {fixtures.map(fixture => {
+        {visibleFixtures.length === 0 && <div className="center muted" data-testid="admin-lineups-empty">No lineup fixtures match this team filter.</div>}
+        {visibleFixtures.map(fixture => {
           const submissions = lineupSubmissions?.[fixture.id] || {};
           const reveal = Object.values(revealedLineups || {}).find(row => row.scheduleId === fixture.id);
           return (
             <div key={fixture.id} className="captain-fixture-card">
-              <strong>{teams[fixture.team1Id]?.name || 'Team 1'} vs {teams[fixture.team2Id]?.name || 'Team 2'}</strong>
+              <strong className="admin-lineup-match-title"><TeamLogo team={teams[fixture.team1Id]} size="sm" />{teams[fixture.team1Id]?.name || 'Team 1'} vs <TeamLogo team={teams[fixture.team2Id]} size="sm" />{teams[fixture.team2Id]?.name || 'Team 2'}</strong>
               <div className="hint">Schedule ID: {fixture.id} {reveal?.revealCode ? `· Reveal code ${reveal.revealCode}` : ''}</div>
               {(Object.keys(submissions).length > 0 || reveal) && <button className="btn small danger" disabled={busyKey === `${fixture.id}-delete`} onClick={() => deleteFixtureLineups(fixture, submissions, reveal)} data-testid={`admin-delete-lineups-${fixture.id}`}>Delete / reset refs</button>}
               {[fixture.team1Id, fixture.team2Id].map(teamId => {
@@ -647,17 +528,20 @@ function AdminLineupManager({ teams, schedule, lineupSubmissions, revealedLineup
   );
 }
 
-export default function Admin({ teams, adminConfig, matches, previousMatches = [], schedule, lineupSubmissions = {}, revealedLineups = {}, playerRatings = {}, settings = {} }) {
+export default function Admin({ teams, adminConfig, matches, schedule, lineupSubmissions = {}, revealedLineups = {}, settings = {} }) {
   const [tab, setTab] = useState('teams');
   const [newAdminPwd, setNewAdminPwd] = useState('');
   const [adminMsg, setAdminMsg] = useState('');
   const [rulesDraft, setRulesDraft] = useState(() => normalizeEligibilityRules(settings.eligibilityRules));
+  const { session } = useAuth();
+  const canUpdatePasswords = canManageRoles(session);
 
   const teamList = Object.values(teams || {}).sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
   const currentRules = useMemo(() => normalizeEligibilityRules(settings.eligibilityRules), [settings.eligibilityRules]);
   React.useEffect(() => { setRulesDraft(currentRules); }, [currentRules]);
 
   const saveAdminPwd = async () => {
+    if (!canUpdatePasswords) { setAdminMsg('Only super admins can update passwords.'); return; }
     if (!newAdminPwd.trim()) { setAdminMsg('Password cannot be empty.'); return; }
     try {
       await update(ref(db, PATHS.admin), { password: newAdminPwd.trim() });
@@ -694,7 +578,7 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
     <main className="container">
       <div className="page-title">
         <h1>Admin Dashboard</h1>
-        <p>Manage teams, passwords, and matches</p>
+        <p>Manage teams, schedule, lineups, settings, and matches</p>
       </div>
 
       <div className="tabs">
@@ -702,14 +586,13 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
         <button className={`tab ${tab === 'schedule' ? 'active' : ''}`} onClick={() => setTab('schedule')} data-testid="admin-tab-schedule">Schedule</button>
         <button className={`tab ${tab === 'lineups' ? 'active' : ''}`} onClick={() => setTab('lineups')} data-testid="admin-tab-lineups">Lineups</button>
         <button className={`tab ${tab === 'settings' ? 'active' : ''}`} onClick={() => setTab('settings')} data-testid="admin-tab-settings">Settings</button>
-        <button className={`tab ${tab === 'nameMapping' ? 'active' : ''}`} onClick={() => setTab('nameMapping')} data-testid="admin-tab-name-mapping">PTL Name Mapping</button>
-        <button className={`tab ${tab === 'passwords' ? 'active' : ''}`} onClick={() => setTab('passwords')} data-testid="admin-tab-passwords">Passwords</button>
+        {canUpdatePasswords && <button className={`tab ${tab === 'passwords' ? 'active' : ''}`} onClick={() => setTab('passwords')} data-testid="admin-tab-passwords">Passwords</button>}
       </div>
 
       {tab === 'teams' && (
         <>
-          <TeamJsonImporter />
-          {teamList.map(t => <TeamEditor key={t.id} team={t} matches={matches} />)}
+          {canUpdatePasswords && <TeamJsonImporter canUpdatePasswords={canUpdatePasswords} />}
+          {teamList.map(t => <TeamEditor key={t.id} team={t} matches={matches} canUpdatePasswords={canUpdatePasswords} />)}
         </>
       )}
 
@@ -717,9 +600,7 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
 
       {tab === 'lineups' && <AdminLineupManager teams={teams} schedule={schedule} lineupSubmissions={lineupSubmissions} revealedLineups={revealedLineups} />}
 
-      {tab === 'nameMapping' && <NameMappingAdmin teams={teams} matches={matches} previousMatches={previousMatches} playerRatings={playerRatings} />}
-
-      {tab === 'passwords' && (
+      {canUpdatePasswords && tab === 'passwords' && (
         <div className="card">
           <h2>🔑 Team Passwords</h2>
           <p className="hint" style={{ marginBottom: '.6rem' }}>Share these with each team captain.</p>
@@ -736,19 +617,21 @@ export default function Admin({ teams, adminConfig, matches, previousMatches = [
 
       {tab === 'settings' && (
         <>
-          <div className="card">
-            <h2>🔐 Admin Password</h2>
-            {adminMsg && <div className={adminMsg.startsWith('✅') ? 'success-box' : 'error-box'}>{adminMsg}</div>}
-            <div className="field">
-              <div className="field-label">Current</div>
-              <input className="input" value={adminConfig?.password || ''} readOnly data-testid="admin-current-pwd" />
+          {canUpdatePasswords && (
+            <div className="card">
+              <h2>🔐 Admin Password</h2>
+              {adminMsg && <div className={adminMsg.startsWith('✅') ? 'success-box' : 'error-box'}>{adminMsg}</div>}
+              <div className="field">
+                <div className="field-label">Current</div>
+                <input className="input" value={adminConfig?.password || ''} readOnly data-testid="admin-current-pwd" />
+              </div>
+              <div className="field">
+                <div className="field-label">New Password</div>
+                <input className="input" type="password" value={newAdminPwd} onChange={e => setNewAdminPwd(e.target.value)} data-testid="admin-new-pwd" />
+              </div>
+              <button className="btn full" onClick={saveAdminPwd} data-testid="admin-save-pwd-btn">Update Admin Password</button>
             </div>
-            <div className="field">
-              <div className="field-label">New Password</div>
-              <input className="input" type="password" value={newAdminPwd} onChange={e => setNewAdminPwd(e.target.value)} data-testid="admin-new-pwd" />
-            </div>
-            <button className="btn full" onClick={saveAdminPwd} data-testid="admin-save-pwd-btn">Update Admin Password</button>
-          </div>
+          )}
 
 
           <div className="card">

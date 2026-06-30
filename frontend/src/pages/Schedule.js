@@ -1,4 +1,7 @@
 import React, { useMemo, useState } from 'react';
+import { approvedMatches } from '../utils/matchStatus';
+import { matchTeamNames, matchWinnerId } from '../utils/matchTeams';
+import TeamLogo from '../components/TeamLogo';
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -13,40 +16,216 @@ function weekdayShort(iso) {
   return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase();
 }
 
-function MatchRow({ m, t1, t2, isCompleted }) {
+function formatPlayers(players = []) {
+  return Array.isArray(players) && players.length > 0 ? players.join(' / ') : '—';
+}
+
+function formatLineup(lineup = []) {
+  const labels = ['S1', 'D1', 'D2'];
+  return labels.map(label => {
+    const line = Array.isArray(lineup) ? lineup.find(row => row?.label === label) : null;
+    const players = line?.players || [];
+    return { label, players: Array.isArray(players) ? players.map(player => player?.name || player).filter(Boolean) : [] };
+  });
+}
+
+function formatSetScore(set) {
+  if (!set) return '';
+  let score = `${set.team1}-${set.team2}`;
+  if (set.tieBreak) score += `(${set.tieBreak.team1}-${set.tieBreak.team2})`;
+  if (set.matchTieBreak) score += `(${set.matchTieBreak.team1}-${set.matchTieBreak.team2})`;
+  return score;
+}
+
+function lineupForTeam(teamId, submissions, reveal) {
+  const submittedLineup = submissions?.[teamId]?.lineup;
+  if (Array.isArray(submittedLineup) && submittedLineup.length > 0) return submittedLineup;
+  return reveal?.lineups?.[teamId] || [];
+}
+
+function LineupPanel({ fixture, teams, submissions, reveal }) {
   return (
-    <div data-testid={`schedule-match-${m.id}`} style={{
-      display: 'flex', gap: '.5rem', alignItems: 'center',
-      background: isCompleted ? '#ecfdf5' : '#f8fafc',
-      borderLeft: `3px solid ${isCompleted ? '#10b981' : (m.group === 'A' ? '#2563eb' : '#d97706')}`,
-      borderRadius: 8, padding: '.55rem .65rem'
-    }}>
-      <div style={{
-        background: '#fff', borderRadius: 6, padding: '.25rem .4rem',
-        minWidth: 60, textAlign: 'center',
-        color: m.group === 'A' ? '#2563eb' : '#d97706',
-        fontWeight: 900, fontSize: '.72rem', lineHeight: 1.2
-      }}>
-        <div>{weekdayShort(m.date)}</div>
-        <div style={{ color: 'var(--ink)', fontSize: '.7rem', marginTop: 1 }}>{m.time}</div>
-      </div>
-      <div style={{ flex: 1, fontSize: '.82rem', lineHeight: 1.3 }}>
-        <div style={{ fontWeight: 800 }}>{t1 ? `${t1.name}` : '?'} <span className="muted" style={{ fontWeight: 600, fontSize: '.72rem' }}>({t1?.abbreviation || '?'})</span></div>
-        <div className="muted" style={{ fontWeight: 800, fontSize: '.7rem', margin: '.05rem 0' }}>vs</div>
-        <div style={{ fontWeight: 800 }}>{t2 ? `${t2.name}` : '?'} <span className="muted" style={{ fontWeight: 600, fontSize: '.72rem' }}>({t2?.abbreviation || '?'})</span></div>
-      </div>
-      {isCompleted && <span className="tag win" style={{ fontSize: '.65rem' }}>✓</span>}
+    <div className="lineup-reveal" style={{ marginTop: '.45rem' }} data-testid={`schedule-lineups-${fixture.id}`}>
+      <h4>Revealed Lineups</h4>
+      {['team1Id', 'team2Id'].map(key => {
+        const teamId = fixture[key];
+        const team = teams[teamId];
+        return (
+          <div key={teamId} style={{ marginTop: '.35rem' }}>
+            <strong>{team?.name || teamId}</strong>
+            {formatLineup(lineupForTeam(teamId, submissions, reveal)).map(row => (
+              <div key={row.label}><strong>{row.label}:</strong> {formatPlayers(row.players)}</div>
+            ))}
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-export default function Schedule({ teams, schedule }) {
+function ScorePanel({ match, teams }) {
+  if (!match) return null;
+  const names = matchTeamNames(match, teams);
+  const winnerId = matchWinnerId(match, teams);
+  const winnerName = winnerId === names.team1Id ? names.t1Name : (winnerId === names.team2Id ? names.t2Name : (match.win || 'Unknown'));
+  return (
+    <div className="lines" style={{ marginTop: '.45rem' }} data-testid={`schedule-score-${match.scheduleId || match.matchScheduleId || match.id}`}>
+      <strong>{winnerName} won · {match.g1}–{match.g2} games · {match.s1}–{match.s2} sets</strong>
+      {(match.lines || []).map((line, idx) => (
+        <div className="ln" key={idx}>
+          <strong>{line.label}:</strong> {formatPlayers(line.players?.team1)} vs {formatPlayers(line.players?.team2)} — {(line.sets || []).map(formatSetScore).join(', ')} ({line.g1}-{line.g2})
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function matchBelongsToFixture(match, fixture, teams) {
+  if (!match || !fixture) return false;
+  const savedScheduleId = match.scheduleId || match.matchScheduleId;
+  if (savedScheduleId && String(savedScheduleId) === String(fixture.id)) return true;
+  const names = matchTeamNames(match, teams);
+  const matchTeamIds = [names.team1Id, names.team2Id].filter(Boolean).sort().join('|');
+  const fixtureTeamIds = [fixture.team1Id, fixture.team2Id].filter(Boolean).sort().join('|');
+  return !!matchTeamIds && matchTeamIds === fixtureTeamIds;
+}
+
+function teamPairKey(team1Id, team2Id) {
+  return [team1Id, team2Id].filter(Boolean).sort().join('|');
+}
+
+function hasLineupForTeam(teamId, submissions, reveal) {
+  const lineup = lineupForTeam(teamId, submissions, reveal);
+  return Array.isArray(lineup) && lineup.length > 0;
+}
+
+function MatchRow({ m, t1, t2, isCompleted, lineupReady, scoreReady, lineupOpen, scoreOpen, onToggleLineup, onToggleScore, submissions, reveal, match, teams, showDetails }) {
+  return (
+    <div data-testid={`schedule-match-${m.id}`} className="schedule-match-card" style={{ background: isCompleted ? '#ecfdf5' : '#f8fafc', borderLeft: `3px solid ${isCompleted ? '#10b981' : (m.group === 'A' ? '#2563eb' : '#d97706')}` }}>
+      <div className="schedule-match-main">
+        <div style={{
+          background: '#fff', borderRadius: 6, padding: '.25rem .4rem',
+          minWidth: 60, textAlign: 'center',
+          color: m.group === 'A' ? '#2563eb' : '#d97706',
+          fontWeight: 900, fontSize: '.72rem', lineHeight: 1.2
+        }}>
+          <div>{weekdayShort(m.date)}</div>
+          <div style={{ color: 'var(--ink)', fontSize: '.7rem', marginTop: 1 }}>{m.time}</div>
+        </div>
+        <div className="schedule-team-stack">
+          <div className="schedule-team-line"><TeamLogo team={t1} size="sm" /><span>{t1 ? `${t1.name}` : '?'}</span> <span className="muted">({t1?.abbreviation || '?'})</span></div>
+          <div className="muted schedule-vs-label">vs</div>
+          <div className="schedule-team-line"><TeamLogo team={t2} size="sm" /><span>{t2 ? `${t2.name}` : '?'}</span> <span className="muted">({t2?.abbreviation || '?'})</span></div>
+        </div>
+        {isCompleted && <span className="tag win" style={{ fontSize: '.65rem' }}>✓</span>}
+      </div>
+      {showDetails && (
+        <>
+          <div className="schedule-detail-status">
+            <span className={`schedule-status-pill ${lineupReady ? 'ready' : 'locked'}`}>{lineupReady ? 'Lineups ready' : 'Lineups pending'}</span>
+            <span className={`schedule-status-pill ${scoreReady ? 'ready' : 'locked'}`}>{scoreReady ? 'Score posted' : 'Score pending'}</span>
+          </div>
+          <div className="schedule-detail-actions">
+            <button type="button" className={`btn small ${lineupReady ? 'success' : 'ghost'}`} disabled={!lineupReady} onClick={onToggleLineup} data-testid={`schedule-reveal-lineups-${m.id}`}>{lineupOpen ? 'Hide lineups' : 'Reveal lineups'}</button>
+            <button type="button" className={`btn small ${scoreReady ? 'success' : 'ghost'}`} disabled={!scoreReady} onClick={onToggleScore} data-testid={`schedule-view-score-${m.id}`}>{scoreOpen ? 'Hide score' : 'View score'}</button>
+          </div>
+          {!lineupReady && <div className="hint" style={{ marginTop: '.3rem' }}>Lineups unlock here after both captains reveal/lock lineups. Scores unlock after a submitted score is approved.</div>}
+          {lineupOpen && <LineupPanel fixture={m} teams={teams} submissions={submissions} reveal={reveal} />}
+          {scoreOpen && <ScorePanel match={match} teams={teams} />}
+        </>
+      )}
+    </div>
+  );
+}
+
+const ScheduleMatchCard = React.memo(function ScheduleMatchCard({ m, teams, details = {}, showDetails }) {
+  const [lineupOpen, setLineupOpen] = useState(false);
+  const [scoreOpen, setScoreOpen] = useState(false);
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', margin: '.1rem 0 .2rem' }}>
+        <span className="tag" style={{
+          fontSize: '.65rem',
+          background: m.group === 'A' ? '#dbeafe' : '#fed7aa',
+          color: m.group === 'A' ? '#1e3a8a' : '#9a3412'
+        }}>Group {m.group}</span>
+        {m.status === 'completed' && <span className="tag win" style={{ fontSize: '.65rem' }}>Played</span>}
+        {m.status === 'cancelled' && <span className="tag lose" style={{ fontSize: '.65rem' }}>Cancelled</span>}
+      </div>
+      <MatchRow
+        m={m}
+        t1={teams[m.team1Id]}
+        t2={teams[m.team2Id]}
+        isCompleted={m.status === 'completed' || details.scoreReady}
+        lineupReady={!!details.lineupReady}
+        scoreReady={!!details.scoreReady}
+        lineupOpen={lineupOpen}
+        scoreOpen={scoreOpen}
+        onToggleLineup={() => setLineupOpen(open => !open)}
+        onToggleScore={() => setScoreOpen(open => !open)}
+        submissions={details.submissions || {}}
+        reveal={details.reveal}
+        match={details.scoreMatch}
+        teams={teams}
+        showDetails={showDetails}
+      />
+    </div>
+  );
+});
+
+export default function Schedule({ teams, schedule, matches = [], lineupSubmissions = {}, revealedLineups = {} }) {
+  const showScheduleDetails = true;
   const [filterTeam, setFilterTeam] = useState('all');
   const [filterGroup, setFilterGroup] = useState('all');
 
   const scheduleItems = useMemo(() => Object.values(schedule || {}), [schedule]);
   const bufferItems = useMemo(() => scheduleItems.filter(item => item?.type === 'buffer'), [scheduleItems]);
   const matchList = useMemo(() => scheduleItems.filter(item => item?.type !== 'buffer'), [scheduleItems]);
+  const approvedMatchList = useMemo(() => approvedMatches(matches), [matches]);
+  const revealedByScheduleId = useMemo(() => {
+    const map = {};
+    Object.values(revealedLineups || {}).forEach(row => {
+      if (row?.scheduleId) map[row.scheduleId] = row;
+    });
+    return map;
+  }, [revealedLineups]);
+  const approvedMatchByFixtureId = useMemo(() => {
+    const byScheduleId = {};
+    const byTeamPair = {};
+    approvedMatchList.forEach(match => {
+      const scheduleId = match.scheduleId || match.matchScheduleId;
+      if (scheduleId && !byScheduleId[scheduleId]) byScheduleId[scheduleId] = match;
+      const names = matchTeamNames(match, teams);
+      const pair = teamPairKey(names.team1Id, names.team2Id);
+      if (pair && !byTeamPair[pair]) byTeamPair[pair] = match;
+    });
+    return matchList.reduce((map, fixture) => {
+      map[fixture.id] = byScheduleId[fixture.id] || byTeamPair[teamPairKey(fixture.team1Id, fixture.team2Id)] || null;
+      return map;
+    }, {});
+  }, [approvedMatchList, matchList, teams]);
+  const fixtureDetailsById = useMemo(() => {
+    return matchList.reduce((map, fixture) => {
+      const submissions = lineupSubmissions?.[fixture.id] || {};
+      const reveal = revealedByScheduleId[fixture.id];
+      const teamIds = [fixture.team1Id, fixture.team2Id];
+      const bothLocked = teamIds.every(teamId => {
+        const sub = submissions?.[teamId] || {};
+        return (sub.lockedAt || sub.revealedAt || sub.revealId) && !sub.unlockedAt;
+      });
+      const scoreMatch = approvedMatchByFixtureId[fixture.id] || approvedMatchList.find(match => matchBelongsToFixture(match, fixture, teams));
+      const bothLineupsAvailable = teamIds.every(teamId => hasLineupForTeam(teamId, submissions, reveal));
+      const hasUnlockedLineup = teamIds.some(teamId => submissions?.[teamId]?.unlockedAt);
+      map[fixture.id] = {
+        submissions,
+        reveal,
+        scoreMatch,
+        lineupReady: (bothLineupsAvailable || !!reveal || bothLocked) && !hasUnlockedLineup,
+        scoreReady: !!scoreMatch
+      };
+      return map;
+    }, {});
+  }, [approvedMatchByFixtureId, approvedMatchList, lineupSubmissions, matchList, revealedByScheduleId, teams]);
 
   const teamOptions = useMemo(() =>
     Object.values(teams || {})
@@ -142,18 +321,13 @@ export default function Schedule({ teams, schedule }) {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '.4rem' }}>
               {visible.map(m => (
-                <div key={m.id}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', margin: '.1rem 0 .2rem' }}>
-                    <span className="tag" style={{
-                      fontSize: '.65rem',
-                      background: m.group === 'A' ? '#dbeafe' : '#fed7aa',
-                      color: m.group === 'A' ? '#1e3a8a' : '#9a3412'
-                    }}>Group {m.group}</span>
-                    {m.status === 'completed' && <span className="tag win" style={{ fontSize: '.65rem' }}>Played</span>}
-                    {m.status === 'cancelled' && <span className="tag lose" style={{ fontSize: '.65rem' }}>Cancelled</span>}
-                  </div>
-                  <MatchRow m={m} t1={teams[m.team1Id]} t2={teams[m.team2Id]} isCompleted={m.status === 'completed'} />
-                </div>
+                <ScheduleMatchCard
+                  key={m.id}
+                  m={m}
+                  teams={teams}
+                  details={fixtureDetailsById[m.id] || {}}
+                  showDetails={showScheduleDetails}
+                />
               ))}
             </div>
           </div>

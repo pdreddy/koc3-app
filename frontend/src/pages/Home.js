@@ -8,6 +8,7 @@ import { ROLES, hasRole } from '../utils/roles';
 import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from '../utils/eligibilityRules';
 import { approvedMatches } from '../utils/matchStatus';
 import { resolveMatchTeams } from '../utils/matchTeams';
+import TeamLogo from '../components/TeamLogo';
 import { CaptainCapacityCard, buildCaptainCapacityRows } from '../components/CaptainCapacity';
 
 function formatDate(iso) {
@@ -459,7 +460,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
   return (
     <article className="captain-fixture-card" data-testid={`captain-fixture-${item.id}`}>
       <div className="captain-fixture-main">
-        <span className="rl-ic" aria-hidden="true">📅</span>
+        <div className="fixture-logo-pair" aria-hidden="true"><TeamLogo team={team1} size="sm" /><TeamLogo team={team2} size="sm" /></div>
         <div style={{ flex: 1 }}>
           <div className="rl-lbl">Round {item.round || '—'} · {formatDate(item.date)} · {item.time || 'TBD'}</div>
           <div className="rl-val">{team1?.name || 'TBD'} <strong>vs</strong> {team2?.name || 'TBD'} · Group {item.group || team1?.group || team2?.group || '—'}</div>
@@ -545,6 +546,42 @@ function ScheduleMiniList({ title, description, fixtures, teams, emptyText, test
   );
 }
 
+const PUBLIC_HOME_LINKS = [
+  { to: '/teams', icon: '👥', title: 'Teams', desc: 'Rosters, captains, and team groups.' },
+  { to: '/schedule', icon: '📅', title: 'Schedule', desc: 'Round fixtures, lineups, and scores when public.' },
+  { to: '/standings', icon: '📊', title: 'Standings', desc: 'Group tables and qualification positions.' },
+  { to: '/matchups', icon: '🎾', title: 'Matchups', desc: 'Player, singles, and doubles matchup stats.' },
+  { to: '/history', icon: '🏁', title: 'Match History', desc: 'Approved submitted match results.' },
+  { to: '/rules', icon: '📋', title: 'Rules', desc: 'League format, eligibility, and scoring rules.' },
+  { to: '/more', icon: '⋯', title: 'More', desc: 'Additional pages and captain/admin login.' }
+];
+
+function PublicNavigationGrid() {
+  return (
+    <section className="card" data-testid="public-home-navigation">
+      <h2 style={{ marginTop: 0 }}>League Navigation</h2>
+      <p className="hint">Use the home page as the public hub for every league section.</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: '.65rem', marginTop: '.75rem' }}>
+        {PUBLIC_HOME_LINKS.map(link => (
+          <Link
+            key={link.to}
+            to={link.to}
+            className="rl-item home-nav-card"
+            style={{ textDecoration: 'none', color: 'inherit', alignItems: 'flex-start' }}
+            data-testid={`public-home-link-${link.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+          >
+            <span className="rl-ic" aria-hidden="true">{link.icon}</span>
+            <span>
+              <strong>{link.title}</strong>
+              <span className="hint" style={{ display: 'block', marginTop: '.15rem' }}>{link.desc}</span>
+            </span>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function CaptainScheduleList({ fixtures, completedFixtures, teams, captainTeam, lineupSubmissions, revealedLineups, matches, eligibilityRules, session, lastRefreshed, onRefresh }) {
   return (
     <section className="card" data-testid="captain-scheduled-matches-card">
@@ -574,7 +611,7 @@ function TeamSnapshot({ team, upcomingCount, completedCount, capacityRows }) {
   const warningCount = capacityRows.filter(row => row.warnings.length).length;
   return (
     <section className="card" data-testid="captain-team-snapshot">
-      <h2>Team Snapshot</h2>
+      <div className="team-snapshot-head"><TeamLogo team={team} size="lg" /><div><h2>Team Snapshot</h2><p className="hint">{team.name} · {team.abbreviation}</p></div></div>
       <div className="rl-grid" style={{ marginTop: '.75rem' }}>
         <div className="rl-item"><span className="rl-ic" aria-hidden="true">👥</span><div><div className="rl-lbl">Roster</div><div className="rl-val">{rosterCount} players · Captain: {team.players?.[0]?.name || team.captain || 'TBD'}</div></div></div>
         <div className="rl-item"><span className="rl-ic" aria-hidden="true">🏷️</span><div><div className="rl-lbl">Group / Auction</div><div className="rl-val">Group {team.group || '—'} · Spent ${Number(team.totalSpent || 0).toLocaleString()} · Left ${Number(team.moneyLeft || 0).toLocaleString()}</div></div></div>
@@ -699,16 +736,9 @@ export default function Home({ teams, schedule, matches = [], eligibilityRules =
     <main className="container" data-testid="public-home-page">
       <div className="page-title">
         <h1>KOC3 / PPRC Tennis</h1>
-        <p>Public landing page: all league schedules are visible without login.</p>
+        <p>Public landing page: navigate the full league without login.</p>
       </div>
-      <ScheduleMiniList
-        title="All Schedules"
-        description="Sign in as a captain to see only your fixtures, capacity, and danger bells."
-        fixtures={sortedFixtures}
-        teams={teams}
-        emptyText="No fixtures are available yet."
-        testid="public-schedule-card"
-      />
+      <PublicNavigationGrid />
     </main>
   );
 }

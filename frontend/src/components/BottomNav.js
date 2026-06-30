@@ -1,7 +1,8 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ROLES, hasRole, isAdminRole } from '../utils/roles';
+import { samePath } from '../utils/navigation';
 
 export const BOTTOM_NAV_MAX = 5;
 
@@ -26,22 +27,39 @@ export function getBottomNavTabs(session) {
   return tabs.slice(0, BOTTOM_NAV_MAX);
 }
 
+
 export default function BottomNav() {
   const { session } = useAuth();
+  const location = useLocation();
   const tabs = getBottomNavTabs(session);
   return (
     <nav className="bottom-nav" data-testid="bottom-nav" style={{ '--bottom-nav-count': tabs.length }}>
-      {tabs.map(t => (
-        <NavLink
-          key={t.to}
-          to={t.to}
-          className={({ isActive }) => isActive ? 'active' : ''}
-          data-testid={t.testid}
-        >
-          <span className="ico">{t.icon}</span>
-          <span>{t.label}</span>
-        </NavLink>
-      ))}
+      {tabs.map(t => {
+        const current = samePath(location.pathname, t.to);
+        const content = (
+          <>
+            <span className="ico">{t.icon}</span>
+            <span>{t.label}</span>
+          </>
+        );
+        if (current) {
+          return (
+            <span key={t.to} className="active nav-current" data-testid={t.testid} aria-current="page" aria-disabled="true">
+              {content}
+            </span>
+          );
+        }
+        return (
+          <NavLink
+            key={t.to}
+            to={t.to}
+            className={({ isActive }) => isActive ? 'active' : ''}
+            data-testid={t.testid}
+          >
+            {content}
+          </NavLink>
+        );
+      })}
     </nav>
   );
 }

@@ -1,7 +1,8 @@
 import React from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ROLES, hasRole, canViewAudit } from '../utils/roles';
+import { samePath } from '../utils/navigation';
 import { writeAuditLog } from '../services/AuditService';
 
 const PRIMARY_LINKS = [
@@ -13,8 +14,14 @@ const PRIMARY_LINKS = [
   { to: '/more', label: 'More' }
 ];
 
+
 export default function AppHeader() {
   const { session, logout } = useAuth();
+  const location = useLocation();
+  const isHome = samePath(location.pathname, '/');
+  const preventCurrentPageNavigation = (event, targetPath) => {
+    if (samePath(location.pathname, targetPath)) event.preventDefault();
+  };
   const handleLogout = async () => {
     const currentSession = session;
     logout();
@@ -22,24 +29,37 @@ export default function AppHeader() {
   };
   return (
     <header className="app-header" data-testid="app-header">
-      <Link to="/" className="brand" data-testid="header-home" aria-label="KOC3 home">
+      {isHome ? <span className="brand nav-current" data-testid="header-home" aria-label="KOC3 home" aria-current="page" aria-disabled="true">
         <span className="logo" aria-hidden="true">🏆</span>
         <span className="brand-copy">
           <strong>KOC3</strong>
           <small>Tennis League</small>
         </span>
-      </Link>
+      </span> : <Link to="/" className="brand" data-testid="header-home" aria-label="KOC3 home">
+        <span className="logo" aria-hidden="true">🏆</span>
+        <span className="brand-copy">
+          <strong>KOC3</strong>
+          <small>Tennis League</small>
+        </span>
+      </Link>}
 
       <nav className="top-nav" aria-label="Primary navigation">
-        {[...PRIMARY_LINKS, ...(canViewAudit(session) ? [{ to: '/audit', label: 'Audit' }] : [])].map(link => (
-          <NavLink
-            key={link.to}
-            to={link.to}
-            className={({ isActive }) => isActive ? 'active' : ''}
-          >
-            {link.label}
-          </NavLink>
-        ))}
+        {[...PRIMARY_LINKS, ...(canViewAudit(session) ? [{ to: '/audit', label: 'Audit' }] : [])].map(link => {
+          const current = samePath(location.pathname, link.to);
+          if (current) {
+            return <span key={link.to} className="active nav-current" aria-current="page" aria-disabled="true">{link.label}</span>;
+          }
+          return (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              className={({ isActive }) => isActive ? 'active' : ''}
+              onClick={event => preventCurrentPageNavigation(event, link.to)}
+            >
+              {link.label}
+            </NavLink>
+          );
+        })}
       </nav>
 
       <div className="header-actions">
