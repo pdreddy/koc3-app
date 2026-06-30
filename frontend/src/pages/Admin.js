@@ -8,6 +8,7 @@ import { groupInfoForTeamId, normalizeAuctionTeam, sortByGroupOrder } from '../d
 import { normalizeEligibilityRules } from '../utils/eligibilityRules';
 import { recordLineupAudit } from '../services/AuditService';
 import { canManageRoles } from '../utils/roles';
+import TeamLogo from '../components/TeamLogo';
 
 
 
@@ -175,7 +176,7 @@ function TeamEditor({ team, matches = [], canUpdatePasswords = false }) {
   return (
     <div className="card" data-testid={`admin-team-${team.abbreviation}`}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '.5rem', marginBottom: '.6rem', flexWrap: 'wrap' }}>
-        <h2 style={{ margin: 0 }}>{name || team.name}</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '.55rem' }}><TeamLogo team={{ ...team, name, abbreviation: abbr }} size="md" /><h2 style={{ margin: 0 }}>{name || team.name}</h2></div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', flexWrap: 'wrap' }}>
           <span className={`team-grad-${team.gradient || 1} abbr`} style={{ color: '#fff', padding: '.25rem .6rem', borderRadius: 999, fontWeight: 800, fontSize: '.75rem' }}>{abbr}</span>
           <button className="btn small success" onClick={save} data-testid={`admin-team-${team.abbreviation}-save-top`}>Save Team & Sync Names</button>
@@ -500,7 +501,7 @@ function AdminLineupManager({ teams, schedule, lineupSubmissions, revealedLineup
           const reveal = Object.values(revealedLineups || {}).find(row => row.scheduleId === fixture.id);
           return (
             <div key={fixture.id} className="captain-fixture-card">
-              <strong>{teams[fixture.team1Id]?.name || 'Team 1'} vs {teams[fixture.team2Id]?.name || 'Team 2'}</strong>
+              <strong className="admin-lineup-match-title"><TeamLogo team={teams[fixture.team1Id]} size="sm" />{teams[fixture.team1Id]?.name || 'Team 1'} vs <TeamLogo team={teams[fixture.team2Id]} size="sm" />{teams[fixture.team2Id]?.name || 'Team 2'}</strong>
               <div className="hint">Schedule ID: {fixture.id} {reveal?.revealCode ? `· Reveal code ${reveal.revealCode}` : ''}</div>
               {(Object.keys(submissions).length > 0 || reveal) && <button className="btn small danger" disabled={busyKey === `${fixture.id}-delete`} onClick={() => deleteFixtureLineups(fixture, submissions, reveal)} data-testid={`admin-delete-lineups-${fixture.id}`}>Delete / reset refs</button>}
               {[fixture.team1Id, fixture.team2Id].map(teamId => {

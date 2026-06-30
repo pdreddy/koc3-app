@@ -8,6 +8,7 @@ import { ROLES, hasRole } from '../utils/roles';
 import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from '../utils/eligibilityRules';
 import { approvedMatches } from '../utils/matchStatus';
 import { resolveMatchTeams } from '../utils/matchTeams';
+import TeamLogo from '../components/TeamLogo';
 import { CaptainCapacityCard, buildCaptainCapacityRows } from '../components/CaptainCapacity';
 
 function formatDate(iso) {
@@ -459,7 +460,7 @@ function CaptainFixtureCard({ item, teams, captainTeam, completed, lineupSubmiss
   return (
     <article className="captain-fixture-card" data-testid={`captain-fixture-${item.id}`}>
       <div className="captain-fixture-main">
-        <span className="rl-ic" aria-hidden="true">📅</span>
+        <div className="fixture-logo-pair" aria-hidden="true"><TeamLogo team={team1} size="sm" /><TeamLogo team={team2} size="sm" /></div>
         <div style={{ flex: 1 }}>
           <div className="rl-lbl">Round {item.round || '—'} · {formatDate(item.date)} · {item.time || 'TBD'}</div>
           <div className="rl-val">{team1?.name || 'TBD'} <strong>vs</strong> {team2?.name || 'TBD'} · Group {item.group || team1?.group || team2?.group || '—'}</div>
@@ -610,7 +611,7 @@ function TeamSnapshot({ team, upcomingCount, completedCount, capacityRows }) {
   const warningCount = capacityRows.filter(row => row.warnings.length).length;
   return (
     <section className="card" data-testid="captain-team-snapshot">
-      <h2>Team Snapshot</h2>
+      <div className="team-snapshot-head"><TeamLogo team={team} size="lg" /><div><h2>Team Snapshot</h2><p className="hint">{team.name} · {team.abbreviation}</p></div></div>
       <div className="rl-grid" style={{ marginTop: '.75rem' }}>
         <div className="rl-item"><span className="rl-ic" aria-hidden="true">👥</span><div><div className="rl-lbl">Roster</div><div className="rl-val">{rosterCount} players · Captain: {team.players?.[0]?.name || team.captain || 'TBD'}</div></div></div>
         <div className="rl-item"><span className="rl-ic" aria-hidden="true">🏷️</span><div><div className="rl-lbl">Group / Auction</div><div className="rl-val">Group {team.group || '—'} · Spent ${Number(team.totalSpent || 0).toLocaleString()} · Left ${Number(team.moneyLeft || 0).toLocaleString()}</div></div></div>

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { approvedMatches } from '../utils/matchStatus';
 import { matchTeamNames, matchWinnerId } from '../utils/matchTeams';
+import TeamLogo from '../components/TeamLogo';
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -100,8 +101,8 @@ function hasLineupForTeam(teamId, submissions, reveal) {
 
 function MatchRow({ m, t1, t2, isCompleted, lineupReady, scoreReady, lineupOpen, scoreOpen, onToggleLineup, onToggleScore, submissions, reveal, match, teams, showDetails }) {
   return (
-    <div data-testid={`schedule-match-${m.id}`} style={{ background: isCompleted ? '#ecfdf5' : '#f8fafc', borderLeft: `3px solid ${isCompleted ? '#10b981' : (m.group === 'A' ? '#2563eb' : '#d97706')}`, borderRadius: 8, padding: '.55rem .65rem' }}>
-      <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
+    <div data-testid={`schedule-match-${m.id}`} className="schedule-match-card" style={{ background: isCompleted ? '#ecfdf5' : '#f8fafc', borderLeft: `3px solid ${isCompleted ? '#10b981' : (m.group === 'A' ? '#2563eb' : '#d97706')}` }}>
+      <div className="schedule-match-main">
         <div style={{
           background: '#fff', borderRadius: 6, padding: '.25rem .4rem',
           minWidth: 60, textAlign: 'center',
@@ -111,10 +112,10 @@ function MatchRow({ m, t1, t2, isCompleted, lineupReady, scoreReady, lineupOpen,
           <div>{weekdayShort(m.date)}</div>
           <div style={{ color: 'var(--ink)', fontSize: '.7rem', marginTop: 1 }}>{m.time}</div>
         </div>
-        <div style={{ flex: 1, fontSize: '.82rem', lineHeight: 1.3 }}>
-          <div style={{ fontWeight: 800 }}>{t1 ? `${t1.name}` : '?'} <span className="muted" style={{ fontWeight: 600, fontSize: '.72rem' }}>({t1?.abbreviation || '?'})</span></div>
-          <div className="muted" style={{ fontWeight: 800, fontSize: '.7rem', margin: '.05rem 0' }}>vs</div>
-          <div style={{ fontWeight: 800 }}>{t2 ? `${t2.name}` : '?'} <span className="muted" style={{ fontWeight: 600, fontSize: '.72rem' }}>({t2?.abbreviation || '?'})</span></div>
+        <div className="schedule-team-stack">
+          <div className="schedule-team-line"><TeamLogo team={t1} size="sm" /><span>{t1 ? `${t1.name}` : '?'}</span> <span className="muted">({t1?.abbreviation || '?'})</span></div>
+          <div className="muted schedule-vs-label">vs</div>
+          <div className="schedule-team-line"><TeamLogo team={t2} size="sm" /><span>{t2 ? `${t2.name}` : '?'}</span> <span className="muted">({t2?.abbreviation || '?'})</span></div>
         </div>
         {isCompleted && <span className="tag win" style={{ fontSize: '.65rem' }}>✓</span>}
       </div>

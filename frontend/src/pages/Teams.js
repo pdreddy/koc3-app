@@ -1,13 +1,5 @@
 import React, { useMemo, useState } from 'react';
-
-function initials(name = '') {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(part => part[0]?.toUpperCase())
-    .join('') || 'KC';
-}
+import TeamLogo from '../components/TeamLogo';
 
 function TeamCard({ t, isOpen, onToggle }) {
   const gradClass = `team-grad-${t.gradient || 1}`;
@@ -27,7 +19,7 @@ function TeamCard({ t, isOpen, onToggle }) {
         aria-expanded={isOpen}
         data-testid={`team-toggle-${t.abbreviation}`}
       >
-        <span className="team-card-avatar" aria-hidden="true">{initials(t.name)}</span>
+        <TeamLogo team={t} size="lg" className="team-card-logo" />
         <span className="team-card-title">
           <strong>{t.name}</strong>
           <small>{captain?.name ? `Captain · ${captain.name}` : 'Roster details'}</small>
