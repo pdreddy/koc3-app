@@ -968,7 +968,8 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
 
   useEffect(() => {
     if (team2 && !teamsShareGroup(team1, team2)) setTeam2Id('');
-  }, [team1, team2, setTeam2Id]);
+    setError(''); setSuccess(''); setShareText(''); setPendingRecord(null);
+  }, [team1Id, team2Id, setTeam2Id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const exact = submittedLineupFixtures.find(row => lineupFixtureMatchesTarget(row, targetScheduleId, targetRevealId));
@@ -1013,6 +1014,15 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
     if (!isPlayoff && mySubmission?.scoreSavedAt) return true;
     return false;
   }, [session, loadedLineupFixture, targetScheduleId, lineupSubmissions, schedule]);
+
+  // Find existing submitted match record for this schedule to display read-only
+  const existingMatch = useMemo(() => {
+    const schedId = loadedLineupFixture?.item?.id || targetScheduleId;
+    if (!schedId || !scoreBlocked) return null;
+    const mySubmission = lineupSubmissions?.[schedId]?.[session.teamId];
+    if (!mySubmission?.scoreSavedAt) return null;
+    return (matches || []).find(m => m.scheduleId === schedId || m.matchScheduleId === schedId) || null;
+  }, [scoreBlocked, loadedLineupFixture, targetScheduleId, lineupSubmissions, session, matches]);
 
   const totals = useMemo(() => {
     let totalG1 = 0, totalG2 = 0, totalS1 = 0, totalS2 = 0, w1 = 0, w2 = 0;
@@ -1237,14 +1247,40 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
         />
       )}
 
-      {team1 && team2 && submittedLineupFixtures.length === 0 && (
+      {existingMatch && (
+        <div className="card" style={{ border: '1.5px solid #10b981', background: '#f0fdf4' }} data-testid="score-already-submitted-summary">
+          <h2 style={{ marginTop: 0, color: '#065f46' }}>✅ Score Already Submitted</h2>
+          <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '.75rem' }}>
+            <div><span className="muted" style={{ fontSize: '.8rem' }}>Result</span><div style={{ fontWeight: 800, fontSize: '1.1rem' }}>{existingMatch.t1Abbr || existingMatch.t1} {existingMatch.courtsWon1}–{existingMatch.courtsWon2} {existingMatch.t2Abbr || existingMatch.t2}</div></div>
+            <div><span className="muted" style={{ fontSize: '.8rem' }}>Winner</span><div style={{ fontWeight: 700 }}>{existingMatch.win}</div></div>
+            <div><span className="muted" style={{ fontSize: '.8rem' }}>Games</span><div>{existingMatch.g1}–{existingMatch.g2}</div></div>
+            <div><span className="muted" style={{ fontSize: '.8rem' }}>Sets</span><div>{existingMatch.s1}–{existingMatch.s2}</div></div>
+          </div>
+          {existingMatch.lines?.length > 0 && (
+            <div style={{ display: 'grid', gap: '.35rem' }}>
+              {existingMatch.lines.map((line, i) => (
+                <div key={i} style={{ display: 'flex', gap: '.6rem', alignItems: 'center', fontSize: '.85rem', padding: '.3rem .5rem', borderRadius: 6, background: '#fff' }}>
+                  <span style={{ fontWeight: 600, minWidth: 80, color: '#374151' }}>{line.label}</span>
+                  <span>{(line.players?.team1 || []).join(' / ')}</span>
+                  <span className="muted">vs</span>
+                  <span>{(line.players?.team2 || []).join(' / ')}</span>
+                  <span style={{ marginLeft: 'auto', fontWeight: 700 }}>{line.g1}–{line.g2}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="hint" style={{ marginTop: '.75rem', marginBottom: 0 }}>Contact an admin if this score needs to be corrected.</p>
+        </div>
+      )}
+
+      {team1 && team2 && !scoreBlocked && submittedLineupFixtures.length === 0 && (
         <div className="card score-lineup-loader" data-testid="form-score-lineup-pending">
           <h2>Official lineup pending</h2>
           <p className="hint">Score lines are loaded only after both captains submit and lock their dashboard lineups. Manual lineup selection is no longer available on Score Entry.</p>
         </div>
       )}
 
-      {team1 && team2 && courts.map((c, idx) => {
+      {team1 && team2 && !scoreBlocked && courts.map((c, idx) => {
         const status = courtCompletion(c);
         return (
         <div className={`match-line court-card classic ${status.status}`} key={idx}>
@@ -1298,7 +1334,7 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
         );
       })}
 
-      {team1 && team2 && (
+      {team1 && team2 && !scoreBlocked && (
         <div className="card">
           <h2>📊 Summary</h2>
           <div data-testid="score-summary">
