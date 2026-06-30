@@ -2116,11 +2116,13 @@ button,
 
 /* ===== Page loading spinner (Suspense fallback) ===== */
 .page-spinner {
-  flex: 1;
+  position: fixed;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 260px;
+  z-index: 9998;
+  background: var(--ds-bg, #060d1a);
 }
 
 /* Tennis ball + racket SVG spinner */
