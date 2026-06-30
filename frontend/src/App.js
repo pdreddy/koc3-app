@@ -53,6 +53,16 @@ function PageLoadingFallback() {
   );
 }
 
+function scheduleIdleTask(task) {
+  if (typeof window === 'undefined') return () => {};
+  if ('requestIdleCallback' in window) {
+    const id = window.requestIdleCallback(task, { timeout: 2500 });
+    return () => window.cancelIdleCallback?.(id);
+  }
+  const id = window.setTimeout(task, 600);
+  return () => window.clearTimeout(id);
+}
+
 function Shell() {
   const location = useLocation();
   const { session, refreshTeamSession } = useAuth();
@@ -100,90 +110,92 @@ function Shell() {
   useEffect(() => {
     ensureAuth();
 
-    (async () => {
-      try {
-        await ensureAuth();
-        const tSnap = await get(ref(db, PATHS.teams));
-        let teamsData;
-        if (!tSnap.exists()) {
-          teamsData = buildInitialTeams();
-          await set(ref(db, PATHS.teams), teamsData);
-        } else {
-          teamsData = tSnap.val() || {};
-          // Migration: backfill `group` for existing teams
-          const updates = {};
-          const sortedIds = Object.keys(teamsData).sort((a, b) => (teamsData[a].gradient || 0) - (teamsData[b].gradient || 0));
-          sortedIds.forEach((tid, idx) => {
-            if (!teamsData[tid].group) {
-              const g = idx < 8 ? 'A' : 'B';
-              updates[`${tid}/group`] = g;
-              teamsData[tid].group = g;
-            }
-          });
-          Object.assign(updates, canonicalTeamIdentityUpdates(teamsData));
-          if (Object.keys(updates).length > 0) {
-            Object.entries(updates).forEach(([path, value]) => {
-              const [teamId, field] = path.split('/');
-              if (teamId && field && teamsData[teamId]) teamsData[teamId][field] = value;
+    const cancelSeed = scheduleIdleTask(() => {
+      (async () => {
+        try {
+          await ensureAuth();
+          const tSnap = await get(ref(db, PATHS.teams));
+          let teamsData;
+          if (!tSnap.exists()) {
+            teamsData = buildInitialTeams();
+            await set(ref(db, PATHS.teams), teamsData);
+          } else {
+            teamsData = tSnap.val() || {};
+            // Migration: backfill `group` for existing teams
+            const updates = {};
+            const sortedIds = Object.keys(teamsData).sort((a, b) => (teamsData[a].gradient || 0) - (teamsData[b].gradient || 0));
+            sortedIds.forEach((tid, idx) => {
+              if (!teamsData[tid].group) {
+                const g = idx < 8 ? 'A' : 'B';
+                updates[`${tid}/group`] = g;
+                teamsData[tid].group = g;
+              }
             });
-            await update(ref(db, PATHS.teams), updates);
+            Object.assign(updates, canonicalTeamIdentityUpdates(teamsData));
+            if (Object.keys(updates).length > 0) {
+              Object.entries(updates).forEach(([path, value]) => {
+                const [teamId, field] = path.split('/');
+                if (teamId && field && teamsData[teamId]) teamsData[teamId][field] = value;
+              });
+              await update(ref(db, PATHS.teams), updates);
+            }
           }
-        }
 
-        const aSnap = await get(ref(db, PATHS.admin));
-        if (!aSnap.exists()) {
-          await set(ref(db, PATHS.admin), { password: DEFAULT_ADMIN_PASSWORD });
-        }
-
-        const auSnap = await get(ref(db, PATHS.adminUsers));
-        const adminUsers = auSnap.val() || {};
-        const existingAdminUsers = Object.keys(adminUsers).reduce((lookup, username) => {
-          lookup[normalizeAdminUsername(username)] = true;
-          return lookup;
-        }, {});
-        const missingAdminUsers = Object.entries(DEFAULT_ADMIN_USERS).reduce((updates, [username, user]) => {
-          if (!existingAdminUsers[username]) updates[username] = user;
-          return updates;
-        }, {});
-        if (Object.keys(missingAdminUsers).length > 0) {
-          await update(ref(db, PATHS.adminUsers), missingAdminUsers);
-        }
-
-        const settingsSnap = await get(ref(db, PATHS.settings));
-        if (!settingsSnap.exists()) {
-          await set(ref(db, PATHS.settings), { eligibilityRules: DEFAULT_ELIGIBILITY_RULES });
-        }
-
-        const rSnap = await get(ref(db, PATHS.playerRatings));
-        if (!rSnap.exists()) {
-          await set(ref(db, PATHS.playerRatings), { ...buildUtrRatingsTable(), ...buildAuctionPlayerRatingsTable() });
-        } else {
-          await update(ref(db, PATHS.playerRatings), auctionPlayerRatingUpdates());
-        }
-
-        // Seed schedule on first run
-        const sSnap = await get(ref(db, PATHS.schedule));
-        const scheduleData = sSnap.val() || {};
-        const scheduleMatches = Object.values(scheduleData).filter(item => item?.type !== 'buffer');
-        const shouldSeedSchedule = !sSnap.exists() || scheduleMatches.length === 0 || scheduleMatches.some(item => item?.scheduleVersion !== KOC3_SCHEDULE_VERSION);
-        if (shouldSeedSchedule) {
-          const list = Object.values(buildInitialTeams()).map(canonical => ({
-            ...canonical,
-            ...(teamsData[canonical.id] || {}),
-            group: canonical.group,
-            groupOrder: canonical.groupOrder
-          }));
-          const groupA = list.filter(t => (t.group || 'A') === 'A').sort(sortByGroupOrder);
-          const groupB = list.filter(t => t.group === 'B').sort(sortByGroupOrder);
-          if (groupA.length === 8 && groupB.length === 8) {
-            const fixtures = buildScheduleFor8x2(groupA, groupB);
-            await set(ref(db, PATHS.schedule), fixtures);
+          const aSnap = await get(ref(db, PATHS.admin));
+          if (!aSnap.exists()) {
+            await set(ref(db, PATHS.admin), { password: DEFAULT_ADMIN_PASSWORD });
           }
+
+          const auSnap = await get(ref(db, PATHS.adminUsers));
+          const adminUsers = auSnap.val() || {};
+          const existingAdminUsers = Object.keys(adminUsers).reduce((lookup, username) => {
+            lookup[normalizeAdminUsername(username)] = true;
+            return lookup;
+          }, {});
+          const missingAdminUsers = Object.entries(DEFAULT_ADMIN_USERS).reduce((updates, [username, user]) => {
+            if (!existingAdminUsers[username]) updates[username] = user;
+            return updates;
+          }, {});
+          if (Object.keys(missingAdminUsers).length > 0) {
+            await update(ref(db, PATHS.adminUsers), missingAdminUsers);
+          }
+
+          const settingsSnap = await get(ref(db, PATHS.settings));
+          if (!settingsSnap.exists()) {
+            await set(ref(db, PATHS.settings), { eligibilityRules: DEFAULT_ELIGIBILITY_RULES });
+          }
+
+          const rSnap = await get(ref(db, PATHS.playerRatings));
+          if (!rSnap.exists()) {
+            await set(ref(db, PATHS.playerRatings), { ...buildUtrRatingsTable(), ...buildAuctionPlayerRatingsTable() });
+          } else {
+            await update(ref(db, PATHS.playerRatings), auctionPlayerRatingUpdates());
+          }
+
+          // Seed schedule on first run
+          const sSnap = await get(ref(db, PATHS.schedule));
+          const scheduleData = sSnap.val() || {};
+          const scheduleMatches = Object.values(scheduleData).filter(item => item?.type !== 'buffer');
+          const shouldSeedSchedule = !sSnap.exists() || scheduleMatches.length === 0 || scheduleMatches.some(item => item?.scheduleVersion !== KOC3_SCHEDULE_VERSION);
+          if (shouldSeedSchedule) {
+            const list = Object.values(buildInitialTeams()).map(canonical => ({
+              ...canonical,
+              ...(teamsData[canonical.id] || {}),
+              group: canonical.group,
+              groupOrder: canonical.groupOrder
+            }));
+            const groupA = list.filter(t => (t.group || 'A') === 'A').sort(sortByGroupOrder);
+            const groupB = list.filter(t => t.group === 'B').sort(sortByGroupOrder);
+            if (groupA.length === 8 && groupB.length === 8) {
+              const fixtures = buildScheduleFor8x2(groupA, groupB);
+              await set(ref(db, PATHS.schedule), fixtures);
+            }
+          }
+        } catch (e) {
+          console.error('Seed failed', e);
         }
-      } catch (e) {
-        console.error('Seed failed', e);
-      }
-    })();
+      })();
+    });
 
     const unsubT = onValue(ref(db, PATHS.teams), (snap) => {
       setTeams(canonicalizeTeamsData(snap.val() || {}));
@@ -194,12 +206,6 @@ function Shell() {
       const list = Object.entries(data).map(([id, m]) => ({ id, ...m }));
       list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
       setMatches(list);
-    });
-    const unsubA = onValue(ref(db, PATHS.admin), (snap) => {
-      setAdminConfig(prev => ({ ...prev, ...(snap.val() || { password: '' }) }));
-    });
-    const unsubAU = onValue(ref(db, PATHS.adminUsers), (snap) => {
-      setAdminConfig(prev => ({ ...prev, users: snap.val() || {} }));
     });
     const unsubS = onValue(ref(db, PATHS.schedule), (snap) => {
       setSchedule(snap.val() || {});
@@ -216,11 +222,21 @@ function Shell() {
       const value = snap.val() || {};
       setSettings({ ...value, eligibilityRules: normalizeEligibilityRules(value.eligibilityRules) });
     });
-    return () => { unsubT(); unsubM(); unsubA(); unsubAU(); unsubS(); unsubLineups(); unsubRevealedLineups(); unsubSettings(); };
+    return () => { cancelSeed(); unsubT(); unsubM(); unsubS(); unsubLineups(); unsubRevealedLineups(); unsubSettings(); };
   }, []);
 
+  const needsAdminConfig = location.pathname === '/login' || location.pathname === '/admin';
 
-
+  useEffect(() => {
+    if (!needsAdminConfig) return undefined;
+    const unsubA = onValue(ref(db, PATHS.admin), (snap) => {
+      setAdminConfig(prev => ({ ...prev, ...(snap.val() || { password: '' }) }));
+    });
+    const unsubAU = onValue(ref(db, PATHS.adminUsers), (snap) => {
+      setAdminConfig(prev => ({ ...prev, users: snap.val() || {} }));
+    });
+    return () => { unsubA(); unsubAU(); };
+  }, [needsAdminConfig]);
 
   useEffect(() => {
     const revealedIds = Object.values(revealedLineups || {}).map(row => row?.scheduleId).filter(Boolean);
@@ -318,12 +334,15 @@ function ActivityAudit() {
     const eventKey = `${actor}:${path}`;
     if (lastEvent.current === eventKey) return;
     lastEvent.current = eventKey;
-    writeAuditLog({
-      actionType: hasRole(session, [ROLES.CAPTAIN]) ? 'Captain Page View' : 'Admin Page View',
-      session,
-      targetType: 'route',
-      targetId: path
-    }).catch(error => console.error('Activity audit failed', error));
+    const cancelAudit = scheduleIdleTask(() => {
+      writeAuditLog({
+        actionType: hasRole(session, [ROLES.CAPTAIN]) ? 'Captain Page View' : 'Admin Page View',
+        session,
+        targetType: 'route',
+        targetId: path
+      }).catch(error => console.error('Activity audit failed', error));
+    });
+    return cancelAudit;
   }, [location.pathname, location.search, session]);
 
   return null;
