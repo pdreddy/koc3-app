@@ -7,6 +7,7 @@ import { buildScheduleFor8x2 } from '../utils/roundRobin';
 import { groupInfoForTeamId, normalizeAuctionTeam, sortByGroupOrder } from '../data/auctionTeams';
 import { normalizeEligibilityRules } from '../utils/eligibilityRules';
 import { recordLineupAudit } from '../services/AuditService';
+import { canManageRoles } from '../utils/roles';
 
 
 
@@ -53,7 +54,7 @@ function applyNameRenamesToMatch(match, team, payload, playerRenameMap) {
   return changed ? next : null;
 }
 
-function TeamJsonImporter() {
+function TeamJsonImporter({ canUpdatePasswords = false }) {
   const [msg, setMsg] = useState('');
 
   const saveTeamsFromJson = async (event) => {
@@ -77,7 +78,7 @@ function TeamJsonImporter() {
         const groupInfo = groupInfoForTeamId(normalized.id, index);
         updates[normalized.id] = {
           ...normalized,
-          password: team.password || `KOC${normalized.abbreviation}#3`,
+          ...(canUpdatePasswords ? { password: team.password || `KOC${normalized.abbreviation}#3` } : {}),
           gradient: team.gradient || index + 1,
           group: team.group || groupInfo.group,
           groupOrder: team.groupOrder || groupInfo.groupOrder
@@ -100,7 +101,7 @@ function TeamJsonImporter() {
   );
 }
 
-function TeamEditor({ team, matches = [] }) {
+function TeamEditor({ team, matches = [], canUpdatePasswords = false }) {
   const [name, setName] = useState(team.name);
   const [abbr, setAbbr] = useState(team.abbreviation);
   const [password, setPassword] = useState(team.password || '');
@@ -121,7 +122,7 @@ function TeamEditor({ team, matches = [] }) {
   const save = async () => {
     setSavedMsg('');
     if (!name.trim() || !abbr.trim()) { setSavedMsg('Name and abbreviation are required'); return; }
-    if (!password.trim()) { setSavedMsg('Password required'); return; }
+    if (canUpdatePasswords && !password.trim()) { setSavedMsg('Password required'); return; }
     const normalizedPlayers = players.filter(p => (p.name || '').trim()).map((p, idx) => {
       const utr = Number(p.utr);
       const cleanUtr = p.utr === '' || p.utr == null || !Number.isFinite(utr) ? '' : utr;
@@ -138,7 +139,7 @@ function TeamEditor({ team, matches = [] }) {
       ...team,
       name: name.trim(),
       abbreviation: abbr.trim().toUpperCase(),
-      password: password.trim(),
+      ...(canUpdatePasswords ? { password: password.trim() } : {}),
       group,
       captain,
       players: normalizedPlayers,
@@ -201,21 +202,23 @@ function TeamEditor({ team, matches = [] }) {
           <option value="B">Group B</option>
         </select>
       </div>
-      <div className="field">
-        <div className="field-label">Team Password</div>
-        <div style={{ display: 'flex', gap: '.4rem' }}>
-          <input
-            className="input"
-            type={showPwd ? 'text' : 'password'}
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            data-testid={`admin-team-${team.abbreviation}-password`}
-          />
-          <button type="button" className="btn small ghost" onClick={() => setShowPwd(s => !s)} data-testid={`admin-team-${team.abbreviation}-show-pwd`}>
-            {showPwd ? '🙈' : '👁️'}
-          </button>
+      {canUpdatePasswords && (
+        <div className="field">
+          <div className="field-label">Team Password</div>
+          <div style={{ display: 'flex', gap: '.4rem' }}>
+            <input
+              className="input"
+              type={showPwd ? 'text' : 'password'}
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              data-testid={`admin-team-${team.abbreviation}-password`}
+            />
+            <button type="button" className="btn small ghost" onClick={() => setShowPwd(s => !s)} data-testid={`admin-team-${team.abbreviation}-show-pwd`}>
+              {showPwd ? '🙈' : '👁️'}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="field">
         <div className="field-label">Players ({players.length})</div>
@@ -529,12 +532,15 @@ export default function Admin({ teams, adminConfig, matches, schedule, lineupSub
   const [newAdminPwd, setNewAdminPwd] = useState('');
   const [adminMsg, setAdminMsg] = useState('');
   const [rulesDraft, setRulesDraft] = useState(() => normalizeEligibilityRules(settings.eligibilityRules));
+  const { session } = useAuth();
+  const canUpdatePasswords = canManageRoles(session);
 
   const teamList = Object.values(teams || {}).sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
   const currentRules = useMemo(() => normalizeEligibilityRules(settings.eligibilityRules), [settings.eligibilityRules]);
   React.useEffect(() => { setRulesDraft(currentRules); }, [currentRules]);
 
   const saveAdminPwd = async () => {
+    if (!canUpdatePasswords) { setAdminMsg('Only super admins can update passwords.'); return; }
     if (!newAdminPwd.trim()) { setAdminMsg('Password cannot be empty.'); return; }
     try {
       await update(ref(db, PATHS.admin), { password: newAdminPwd.trim() });
@@ -571,7 +577,7 @@ export default function Admin({ teams, adminConfig, matches, schedule, lineupSub
     <main className="container">
       <div className="page-title">
         <h1>Admin Dashboard</h1>
-        <p>Manage teams, passwords, and matches</p>
+        <p>Manage teams, schedule, lineups, settings, and matches</p>
       </div>
 
       <div className="tabs">
@@ -579,13 +585,13 @@ export default function Admin({ teams, adminConfig, matches, schedule, lineupSub
         <button className={`tab ${tab === 'schedule' ? 'active' : ''}`} onClick={() => setTab('schedule')} data-testid="admin-tab-schedule">Schedule</button>
         <button className={`tab ${tab === 'lineups' ? 'active' : ''}`} onClick={() => setTab('lineups')} data-testid="admin-tab-lineups">Lineups</button>
         <button className={`tab ${tab === 'settings' ? 'active' : ''}`} onClick={() => setTab('settings')} data-testid="admin-tab-settings">Settings</button>
-        <button className={`tab ${tab === 'passwords' ? 'active' : ''}`} onClick={() => setTab('passwords')} data-testid="admin-tab-passwords">Passwords</button>
+        {canUpdatePasswords && <button className={`tab ${tab === 'passwords' ? 'active' : ''}`} onClick={() => setTab('passwords')} data-testid="admin-tab-passwords">Passwords</button>}
       </div>
 
       {tab === 'teams' && (
         <>
-          <TeamJsonImporter />
-          {teamList.map(t => <TeamEditor key={t.id} team={t} matches={matches} />)}
+          {canUpdatePasswords && <TeamJsonImporter canUpdatePasswords={canUpdatePasswords} />}
+          {teamList.map(t => <TeamEditor key={t.id} team={t} matches={matches} canUpdatePasswords={canUpdatePasswords} />)}
         </>
       )}
 
@@ -593,7 +599,7 @@ export default function Admin({ teams, adminConfig, matches, schedule, lineupSub
 
       {tab === 'lineups' && <AdminLineupManager teams={teams} schedule={schedule} lineupSubmissions={lineupSubmissions} revealedLineups={revealedLineups} />}
 
-      {tab === 'passwords' && (
+      {canUpdatePasswords && tab === 'passwords' && (
         <div className="card">
           <h2>🔑 Team Passwords</h2>
           <p className="hint" style={{ marginBottom: '.6rem' }}>Share these with each team captain.</p>
@@ -610,19 +616,21 @@ export default function Admin({ teams, adminConfig, matches, schedule, lineupSub
 
       {tab === 'settings' && (
         <>
-          <div className="card">
-            <h2>🔐 Admin Password</h2>
-            {adminMsg && <div className={adminMsg.startsWith('✅') ? 'success-box' : 'error-box'}>{adminMsg}</div>}
-            <div className="field">
-              <div className="field-label">Current</div>
-              <input className="input" value={adminConfig?.password || ''} readOnly data-testid="admin-current-pwd" />
+          {canUpdatePasswords && (
+            <div className="card">
+              <h2>🔐 Admin Password</h2>
+              {adminMsg && <div className={adminMsg.startsWith('✅') ? 'success-box' : 'error-box'}>{adminMsg}</div>}
+              <div className="field">
+                <div className="field-label">Current</div>
+                <input className="input" value={adminConfig?.password || ''} readOnly data-testid="admin-current-pwd" />
+              </div>
+              <div className="field">
+                <div className="field-label">New Password</div>
+                <input className="input" type="password" value={newAdminPwd} onChange={e => setNewAdminPwd(e.target.value)} data-testid="admin-new-pwd" />
+              </div>
+              <button className="btn full" onClick={saveAdminPwd} data-testid="admin-save-pwd-btn">Update Admin Password</button>
             </div>
-            <div className="field">
-              <div className="field-label">New Password</div>
-              <input className="input" type="password" value={newAdminPwd} onChange={e => setNewAdminPwd(e.target.value)} data-testid="admin-new-pwd" />
-            </div>
-            <button className="btn full" onClick={saveAdminPwd} data-testid="admin-save-pwd-btn">Update Admin Password</button>
-          </div>
+          )}
 
 
           <div className="card">
