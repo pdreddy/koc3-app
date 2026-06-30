@@ -430,10 +430,34 @@ function LineResultButtons({ court, teamAbbr, winnerTeamNum, loserTeamNum, onApp
   );
 }
 
+
+function focusNextScoreInput(input) {
+  requestAnimationFrame(() => {
+    const scope = input.closest('.sets-entry-col') || input.closest('.court-card') || document;
+    const inputs = Array.from(scope.querySelectorAll('.set-input input:not(:disabled)'));
+    const currentIndex = inputs.indexOf(input);
+    const next = currentIndex >= 0 ? inputs[currentIndex + 1] : null;
+    if (next) {
+      next.focus();
+      next.select?.();
+    }
+  });
+}
+
+function shouldAdvanceScoreInput(value, digits) {
+  const cleanValue = String(value || '').replace(/\D/g, '');
+  return cleanValue.length >= digits;
+}
+
 function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false }) {
   const a = set.a === '' ? null : Number(set.a);
   const b = set.b === '' ? null : Number(set.b);
   const resultClass = a == null || b == null || a === b ? 'empty' : (a > b ? 'team1-won' : 'team2-won');
+  const scoreDigits = isMatchTieBreak ? 2 : 1;
+  const updateScore = (field, value, input, digits = scoreDigits) => {
+    onChange({ ...set, [field]: value });
+    if (shouldAdvanceScoreInput(value, digits)) focusNextScoreInput(input);
+  };
   return (
     <div className={`set-input ${resultClass} ${isMatchTieBreak ? 'match-tb' : ''}`.trim()}>
       <span className="label">{isMatchTieBreak ? 'Match TB' : `Set ${idx + 1}`}</span>
@@ -445,8 +469,12 @@ function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false }) {
         min="0"
         max={isMatchTieBreak ? "30" : "4"}
         disabled={disabled}
-        onChange={e => onChange({ ...set, a: e.target.value })}
+        onChange={e => updateScore('a', e.target.value, e.target)}
         placeholder="0"
+        pattern="[0-9]*"
+        enterKeyHint="next"
+        autoComplete="off"
+        aria-label={`${isMatchTieBreak ? 'Match tiebreak' : `Set ${idx + 1}`} team 1 score`}
         data-testid={`set-${idx}-a`}
       />
       <span>-</span>
@@ -458,8 +486,12 @@ function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false }) {
         min="0"
         max={isMatchTieBreak ? "30" : "4"}
         disabled={disabled}
-        onChange={e => onChange({ ...set, b: e.target.value })}
+        onChange={e => updateScore('b', e.target.value, e.target)}
         placeholder="0"
+        pattern="[0-9]*"
+        enterKeyHint="next"
+        autoComplete="off"
+        aria-label={`${isMatchTieBreak ? 'Match tiebreak' : `Set ${idx + 1}`} team 2 score`}
         data-testid={`set-${idx}-b`}
       />
       {(!isMatchTieBreak && ((Number(set.a) === 4 && Number(set.b) === 3) || (Number(set.a) === 3 && Number(set.b) === 4))) && (
@@ -472,8 +504,12 @@ function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false }) {
             value={set.tieA}
             min="0"
             disabled={disabled}
-            onChange={e => onChange({ ...set, tieA: e.target.value })}
+            onChange={e => updateScore('tieA', e.target.value, e.target, 2)}
             placeholder="0"
+            pattern="[0-9]*"
+            enterKeyHint="next"
+            autoComplete="off"
+            aria-label={`Set ${idx + 1} tiebreak team 1 score`}
             data-testid={`set-${idx}-tieA`}
           />
           <span>-</span>
@@ -484,8 +520,12 @@ function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false }) {
             value={set.tieB}
             min="0"
             disabled={disabled}
-            onChange={e => onChange({ ...set, tieB: e.target.value })}
+            onChange={e => updateScore('tieB', e.target.value, e.target, 2)}
             placeholder="0"
+            pattern="[0-9]*"
+            enterKeyHint="next"
+            autoComplete="off"
+            aria-label={`Set ${idx + 1} tiebreak team 2 score`}
             data-testid={`set-${idx}-tieB`}
           />
         </>
