@@ -107,16 +107,16 @@ export default function Standings({ teams, matches }) {
     <main className="container standings-page">
       <div className="page-title">
         <h1>Standings</h1>
-        <p>Two groups of 8 · Top 2 from each group qualify for semifinals</p>
+        <p>Two groups of 8 · Top 4 from each group qualify for semifinals</p>
       </div>
       <section className="standings-summary" aria-label="Standings summary">
         <div className="standings-summary-card"><span>Groups</span><strong>2</strong><small>A & B brackets</small></div>
         <div className="standings-summary-card"><span>Teams</span><strong>{groupA.length + groupB.length}</strong><small>Competing teams</small></div>
-        <div className="standings-summary-card"><span>Qualified</span><strong>4</strong><small>Top 2 each group</small></div>
+        <div className="standings-summary-card"><span>Qualified</span><strong>4</strong><small>Top 4 each group</small></div>
       </section>
       <div className="groups-grid standings-grid">
-        <GroupTable label="A" rows={rowsA} qualifyTop={2} />
-        <GroupTable label="B" rows={rowsB} qualifyTop={2} />
+        <GroupTable label="A" rows={rowsA} qualifyTop={4} />
+        <GroupTable label="B" rows={rowsB} qualifyTop={4} />
       </div>
       <p className="hint center standings-sort-note">Sort: Team Points → Sets Won → Singles Wins → Head-to-Head → Games Difference</p>
     </main>
