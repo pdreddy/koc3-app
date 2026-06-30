@@ -428,18 +428,55 @@ function shouldAdvanceScoreInput(value, digits) {
   return cleanValue.length >= digits;
 }
 
-function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false }) {
+function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false, team1Abbr = 'Team A', team2Abbr = 'Team B' }) {
+  const [editing, setEditing] = useState(false);
+  const [quickWinner, setQuickWinner] = useState(null);
   const a = set.a === '' ? null : Number(set.a);
   const b = set.b === '' ? null : Number(set.b);
   const resultClass = a == null || b == null || a === b ? 'empty' : (a > b ? 'team1-won' : 'team2-won');
+  const scoreWinner = a == null || b == null || a === b ? null : (a > b ? 1 : 2);
+  const selectedWinner = quickWinner || scoreWinner;
+  const regularWinner = !isMatchTieBreak && a != null && b != null ? regularSetWinner(a, b) : null;
+  const needsTieBreak = !isMatchTieBreak && ((a === 4 && b === 3) || (a === 3 && b === 4));
+  const tieBreakComplete = !needsTieBreak || (set.tieA !== '' && set.tieB !== '');
+  const matchTieBreakComplete = isMatchTieBreak && a != null && b != null && a !== b;
+  const setComplete = isMatchTieBreak ? matchTieBreakComplete : !!regularWinner && tieBreakComplete;
   const scoreDigits = isMatchTieBreak ? 2 : 1;
   const updateScore = (field, value, input, digits = scoreDigits) => {
+    setEditing(true);
+    setQuickWinner(null);
     onChange({ ...set, [field]: value });
     if (shouldAdvanceScoreInput(value, digits)) focusNextScoreInput(input);
   };
-  const applyFastScore = (team1Score, team2Score) => {
-    onChange({ ...set, a: String(team1Score), b: String(team2Score), tieA: '', tieB: '' });
+  const scrollToNextSet = (element) => {
+    requestAnimationFrame(() => {
+      const currentSet = element?.closest('[data-testid*="-set-"]');
+      const nextSet = currentSet?.nextElementSibling;
+      nextSet?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+      nextSet?.querySelector?.('input:not(:disabled)')?.focus?.();
+    });
   };
+  const applyQuickScore = (winnerTeamNum, loserGames, element) => {
+    const nextSet = winnerTeamNum === 1
+      ? { ...set, a: '4', b: String(loserGames), tieA: '', tieB: '' }
+      : { ...set, a: String(loserGames), b: '4', tieA: '', tieB: '' };
+    onChange(nextSet);
+    setQuickWinner(null);
+    setEditing(false);
+    scrollToNextSet(element);
+  };
+
+  if (setComplete && !editing) {
+    return (
+      <div className={`set-input set-complete-summary ${resultClass}`.trim()}>
+        <span className="label">{isMatchTieBreak ? 'Match TB' : `Set ${idx + 1}`}</span>
+        <strong>{set.a}-{set.b}{needsTieBreak && ` (${set.tieA}-${set.tieB})`}</strong>
+        <span className="tag win">{selectedWinner === 1 ? team1Abbr : team2Abbr} won</span>
+        <button type="button" className="btn small ghost set-edit-btn" onClick={() => setEditing(true)} data-testid={`set-${idx}-edit`}>Edit</button>
+      </div>
+    );
+  }
+
   return (
     <div className={`set-input ${resultClass} ${isMatchTieBreak ? 'match-tb' : ''}`.trim()}>
       <span className="label">{isMatchTieBreak ? 'Match TB' : `Set ${idx + 1}`}</span>
@@ -476,7 +513,20 @@ function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false }) {
         aria-label={`${isMatchTieBreak ? 'Match tiebreak' : `Set ${idx + 1}`} team 2 score`}
         data-testid={`set-${idx}-b`}
       />
-      {(!isMatchTieBreak && ((Number(set.a) === 4 && Number(set.b) === 3) || (Number(set.a) === 3 && Number(set.b) === 4))) && (
+      {!isMatchTieBreak && (
+        <div className="set-winner-picker" aria-label={`Set ${idx + 1} winner`}>
+          <button type="button" className={selectedWinner === 1 ? 'active' : ''} disabled={disabled} onClick={() => setQuickWinner(1)}>{team1Abbr}</button>
+          <button type="button" className={selectedWinner === 2 ? 'active' : ''} disabled={disabled} onClick={() => setQuickWinner(2)}>{team2Abbr}</button>
+        </div>
+      )}
+      {!isMatchTieBreak && (
+        <div className="fast-score-row compact" aria-label={`Set ${idx + 1} fast score entry`}>
+          {[0, 1, 2, 3].map(games => (
+            <button key={games} type="button" disabled={disabled || !selectedWinner} onClick={(event) => applyQuickScore(selectedWinner, games, event.currentTarget)}>{`4-${games}`}</button>
+          ))}
+        </div>
+      )}
+      {needsTieBreak && (
         <>
           <span style={{ fontSize: '.75rem', color: '#92400e' }}>TB</span>
           <input
@@ -511,16 +561,6 @@ function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false }) {
             data-testid={`set-${idx}-tieB`}
           />
         </>
-      )}
-      {!isMatchTieBreak && !disabled && (
-        <div className="fast-score-row" aria-label={`Set ${idx + 1} fast score entry`}>
-          {[0, 1, 2, 3].map(games => (
-            <button key={`t1-${games}`} type="button" onClick={() => applyFastScore(4, games)}>{`4-${games}`}</button>
-          ))}
-          {[0, 1, 2, 3].map(games => (
-            <button key={`t2-${games}`} type="button" onClick={() => applyFastScore(games, 4)}>{`${games}-4`}</button>
-          ))}
-        </div>
       )}
     </div>
   );
@@ -1132,6 +1172,10 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
     });
   }, [courts, editingCollapsedCourts]);
 
+  const enteredCourts = courts.filter(courtHasEntry);
+  const canPreviewSaveScore = enteredCourts.length > 0 && enteredCourts.every(courtScoreReady) && totals.w1 !== totals.w2;
+
+
   const handleSubmit = async () => {
     setError(''); setFieldErrors({}); setSuccess(''); setShareText(''); setPendingRecord(null);
     if (!team1 || !team2) { setError('Please choose both teams.'); return; }
@@ -1469,7 +1513,7 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
           <div className="sets-card-grid">
             {c.sets.slice(0, visibleSetCountForCourt(c, idx)).map((s, i) => (
               <div key={i} data-testid={`court-${idx}-set-${i}-row`}>
-                <SetRow idx={i} set={s} isMatchTieBreak={c.type === 'doubles' && i === 2 && computeCourt({ ...c, sets: c.sets.slice(0, 2) }).s1 === 1 && computeCourt({ ...c, sets: c.sets.slice(0, 2) }).s2 === 1} disabled={i > 0 && c.sets[i - 1].a === '' && c.sets[i - 1].b === ''} onChange={(ns) => updateCourt(idx, { sets: c.sets.map((x, j) => j === i ? ns : x) })} />
+                <SetRow idx={i} set={s} isMatchTieBreak={c.type === 'doubles' && i === 2 && computeCourt({ ...c, sets: c.sets.slice(0, 2) }).s1 === 1 && computeCourt({ ...c, sets: c.sets.slice(0, 2) }).s2 === 1} disabled={i > 0 && c.sets[i - 1].a === '' && c.sets[i - 1].b === ''} team1Abbr={team1.abbreviation} team2Abbr={team2.abbreviation} onChange={(ns) => updateCourt(idx, { sets: c.sets.map((x, j) => j === i ? ns : x) })} />
               </div>
             ))}
           </div>
@@ -1504,7 +1548,8 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
             className="btn success full"
             style={{ marginTop: '.8rem' }}
             onClick={handleSubmit}
-            disabled={saving || scoreBlocked}
+            disabled={saving || scoreBlocked || !canPreviewSaveScore}
+            title={!canPreviewSaveScore ? 'Complete each entered court before saving' : undefined}
             data-testid="submit-score-btn"
           >
             {saving ? 'Saving...' : 'Preview & Confirm Save'}
