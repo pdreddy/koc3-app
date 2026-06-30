@@ -10,6 +10,7 @@ import { recordLineupAudit } from '../services/AuditService';
 import { canDeleteMatch, canEditTeams, canManageSettings } from '../utils/roles';
 import { buildUtrRatingsTable } from '../data/utrRatings';
 import { auctionPlayerRatingUpdates, buildAuctionPlayerRatingsTable } from '../data/auctionPlayers';
+import TeamLogo from '../components/TeamLogo';
 
 function firebaseObjectToList(data, source) {
   if (!data) return [];
@@ -661,9 +662,10 @@ export default function Admin({ teams, adminConfig, matches, schedule, lineupSub
           <h2>🔑 Team Passwords</h2>
           <p className="hint" style={{ marginBottom: '.6rem' }}>Share these with each team captain.</p>
           {teamList.map(t => (
-            <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '.5rem 0', borderBottom: '1px solid var(--ring)' }} data-testid={`admin-pwd-${t.abbreviation}`}>
-              <div>
-                <strong>{t.abbreviation}</strong> · {t.name}
+            <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '.75rem', padding: '.5rem 0', borderBottom: '1px solid var(--ring)' }} data-testid={`admin-pwd-${t.abbreviation}`}>
+              <div className="team-logo-line">
+                <TeamLogo team={t} size={34} />
+                <span className="team-logo-line-text"><strong>{t.abbreviation}</strong><span className="muted">{t.name}</span></span>
               </div>
               <code style={{ background: '#f1f5f9', padding: '.2rem .5rem', borderRadius: 6, fontSize: '.85rem' }}>{t.password}</code>
             </div>
