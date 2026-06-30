@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ROLES, hasRole } from '../utils/roles';
 import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from '../utils/eligibilityRules';
 import { approvedMatches } from '../utils/matchStatus';
-import { resolveMatchTeams } from '../utils/matchTeams';
+import { resolveMatchTeams, lineWinnerSide } from '../utils/matchTeams';
 import { CaptainCapacityCard, buildCaptainCapacityRows } from '../components/CaptainCapacity';
 import TeamLogo from '../components/TeamLogo';
 
@@ -575,12 +575,12 @@ function CompletedMatchDetails({ match, captainTeamId, teams }) {
   let mySets = 0, oppSets = 0, myGames = 0, oppGames = 0;
   const lines = match.lines.map((line, idx) => {
     const g1 = Number(line.g1 || 0), g2 = Number(line.g2 || 0);
-    const t1WonLine = g1 > g2;
+    const winnerSide = lineWinnerSide(line, match);
     const myPlayers = (isCaptainT1 ? line.players?.team1 : line.players?.team2) || [];
     const oppPlayers = (isCaptainT1 ? line.players?.team2 : line.players?.team1) || [];
     const myGamesLine = isCaptainT1 ? g1 : g2;
     const oppGamesLine = isCaptainT1 ? g2 : g1;
-    const iWon = myGamesLine > oppGamesLine;
+    const iWon = winnerSide ? (isCaptainT1 ? winnerSide === 1 : winnerSide === 2) : myGamesLine > oppGamesLine;
     if (iWon) mySets++; else oppSets++;
     myGames += myGamesLine; oppGames += oppGamesLine;
     const label = line.label || LINE_LABELS[line.code] || line.type || `Line ${idx + 1}`;

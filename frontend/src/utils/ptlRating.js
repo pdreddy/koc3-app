@@ -1,4 +1,4 @@
-import { resolveMatchTeams } from './matchTeams';
+import { resolveMatchTeams, lineWinnerSide } from './matchTeams';
 import { isApprovedMatch } from './matchStatus';
 import { findUtrRating } from '../data/utrRatings';
 
@@ -157,8 +157,9 @@ export function buildPtlRatings(teams, matches, ratingRows) {
       if (t1Players.length === 0 || t2Players.length === 0) return;
       const g1 = Number(line.g1) || 0;
       const g2 = Number(line.g2) || 0;
-      if (g1 === g2) return;
-      const team1Won = g1 > g2;
+      const winnerSide = lineWinnerSide(line, match);
+      if (!winnerSide) return;
+      const team1Won = winnerSide === 1;
 
       applyCourtRating(players, t1Players, t2Players, {
         team: team1,
