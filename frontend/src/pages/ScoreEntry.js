@@ -428,6 +428,19 @@ function shouldAdvanceScoreInput(value, digits) {
   return cleanValue.length >= digits;
 }
 
+
+function normalizedTieBreakForSetWinner(setWinner, tieA, tieB) {
+  if (!setWinner || tieA === '' || tieB === '') return null;
+  const ta = Number(tieA);
+  const tb = Number(tieB);
+  if (!Number.isFinite(ta) || !Number.isFinite(tb) || ta === tb) return { team1: ta, team2: tb };
+  const winnerPoints = Math.max(ta, tb);
+  const loserPoints = Math.min(ta, tb);
+  return setWinner === 1
+    ? { team1: winnerPoints, team2: loserPoints }
+    : { team1: loserPoints, team2: winnerPoints };
+}
+
 function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false, team1Abbr = 'Team A', team2Abbr = 'Team B' }) {
   const [editing, setEditing] = useState(false);
   const [quickWinner, setQuickWinner] = useState(null);
@@ -441,6 +454,7 @@ function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false, team1Ab
   const tieBreakComplete = !needsTieBreak || (set.tieA !== '' && set.tieB !== '');
   const matchTieBreakComplete = isMatchTieBreak && a != null && b != null && a !== b;
   const setComplete = isMatchTieBreak ? matchTieBreakComplete : !!regularWinner && tieBreakComplete;
+  const displayTieBreak = needsTieBreak ? normalizedTieBreakForSetWinner(regularWinner, set.tieA, set.tieB) : null;
   const scoreDigits = isMatchTieBreak ? 2 : 1;
   const updateScore = (field, value, input, digits = scoreDigits) => {
     setEditing(true);
@@ -470,7 +484,7 @@ function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false, team1Ab
     return (
       <div className={`set-input set-complete-summary ${resultClass}`.trim()}>
         <span className="label">{isMatchTieBreak ? 'Match TB' : `Set ${idx + 1}`}</span>
-        <strong>{set.a}-{set.b}{needsTieBreak && ` (${set.tieA}-${set.tieB})`}</strong>
+        <strong>{set.a}-{set.b}{displayTieBreak && ` (${displayTieBreak.team1}-${displayTieBreak.team2})`}</strong>
         <span className="tag win">{selectedWinner === 1 ? team1Abbr : team2Abbr} won</span>
         <button type="button" className="btn small ghost set-edit-btn" onClick={() => setEditing(true)} data-testid={`set-${idx}-edit`}>Edit</button>
       </div>
@@ -593,7 +607,7 @@ function computeCourt(c) {
       if ((a === 4 && b === 3) || (a === 3 && b === 4)) {
         const ta = s.tieA === '' ? null : Number(s.tieA);
         const tb = s.tieB === '' ? null : Number(s.tieB);
-        if (ta != null && tb != null) setEntry.tieBreak = { team1: ta, team2: tb };
+        if (ta != null && tb != null) setEntry.tieBreak = normalizedTieBreakForSetWinner(regularSetWinner(a, b), s.tieA, s.tieB);
       }
     }
     sets.push(setEntry);
