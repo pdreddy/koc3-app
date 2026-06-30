@@ -2896,7 +2896,8 @@ html, body { background: var(--page-bg) !important; color: var(--ink) !important
 .rl-sec-head .ln { background: linear-gradient(90deg, var(--border), transparent) !important; }
 
 /* ── Tables ── */
-.table-wrap { border-radius: 14px !important; overflow: hidden !important; border: 1px solid var(--border) !important; }
+.table-wrap { border-radius: 14px !important; overflow-x: auto !important; overflow-y: hidden !important; -webkit-overflow-scrolling: touch !important; border: 1px solid var(--border) !important; }
+table.std { min-width: 480px; }
 table.std thead th { background: var(--bg1) !important; color: #fff !important; font-size: 0.74rem !important; font-weight: 700 !important; letter-spacing: 0.05em !important; }
 table.std tbody td { color: var(--ink) !important; border-bottom-color: var(--border) !important; }
 table.std tbody tr:hover { background: #f0f6ff !important; }
