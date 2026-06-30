@@ -560,6 +560,7 @@ export default function Admin({ teams, adminConfig, matches, schedule, lineupSub
     });
     return () => { unsubLegacy(); unsubFallback(); unsubR(); };
   }, []);
+  const [newSuperAdminPwd, setNewSuperAdminPwd] = useState('');
   const [newAdminPwd, setNewAdminPwd] = useState('');
   const [adminMsg, setAdminMsg] = useState('');
   const [rulesDraft, setRulesDraft] = useState(() => normalizeEligibilityRules(settings.eligibilityRules));
@@ -568,10 +569,22 @@ export default function Admin({ teams, adminConfig, matches, schedule, lineupSub
   const currentRules = useMemo(() => normalizeEligibilityRules(settings.eligibilityRules), [settings.eligibilityRules]);
   React.useEffect(() => { setRulesDraft(currentRules); }, [currentRules]);
 
+  const saveSuperAdminPwd = async () => {
+    if (!newSuperAdminPwd.trim()) { setAdminMsg('Password cannot be empty.'); return; }
+    try {
+      await update(ref(db, PATHS.admin), { superAdminPassword: newSuperAdminPwd.trim() });
+      setAdminMsg('✅ Super Admin password updated');
+      setNewSuperAdminPwd('');
+      setTimeout(() => setAdminMsg(''), 2000);
+    } catch (e) {
+      setAdminMsg('Save failed: ' + e.message);
+    }
+  };
+
   const saveAdminPwd = async () => {
     if (!newAdminPwd.trim()) { setAdminMsg('Password cannot be empty.'); return; }
     try {
-      await update(ref(db, PATHS.admin), { password: newAdminPwd.trim() });
+      await update(ref(db, PATHS.admin), { adminPassword: newAdminPwd.trim() });
       setAdminMsg('✅ Admin password updated');
       setNewAdminPwd('');
       setTimeout(() => setAdminMsg(''), 2000);
@@ -660,16 +673,34 @@ export default function Admin({ teams, adminConfig, matches, schedule, lineupSub
 
       {tab === 'settings' && (
         <>
+          {adminMsg && <div className={`card ${adminMsg.startsWith('✅') ? 'success-box' : 'error-box'}`}>{adminMsg}</div>}
+
+          {isSuperAdmin && (
+            <div className="card">
+              <h2>🔐 Super Admin Password</h2>
+              <p className="hint" style={{ marginBottom: '.6rem' }}>Only Super Admins can sign in with this password.</p>
+              <div className="field">
+                <div className="field-label">Current</div>
+                <input className="input" value={adminConfig?.superAdminPassword || adminConfig?.password || ''} readOnly data-testid="admin-current-superadmin-pwd" />
+              </div>
+              <div className="field">
+                <div className="field-label">New Password</div>
+                <input className="input" type="password" value={newSuperAdminPwd} onChange={e => setNewSuperAdminPwd(e.target.value)} placeholder="New Super Admin password" data-testid="admin-new-superadmin-pwd" />
+              </div>
+              <button className="btn full" onClick={saveSuperAdminPwd} data-testid="admin-save-superadmin-pwd-btn">Update Super Admin Password</button>
+            </div>
+          )}
+
           <div className="card">
-            <h2>🔐 Admin Password</h2>
-            {adminMsg && <div className={adminMsg.startsWith('✅') ? 'success-box' : 'error-box'}>{adminMsg}</div>}
+            <h2>🔑 Admin Password</h2>
+            <p className="hint" style={{ marginBottom: '.6rem' }}>Used by Admin-role users to sign in.</p>
             <div className="field">
               <div className="field-label">Current</div>
-              <input className="input" value={adminConfig?.password || ''} readOnly data-testid="admin-current-pwd" />
+              <input className="input" value={adminConfig?.adminPassword || ''} readOnly data-testid="admin-current-pwd" />
             </div>
             <div className="field">
               <div className="field-label">New Password</div>
-              <input className="input" type="password" value={newAdminPwd} onChange={e => setNewAdminPwd(e.target.value)} data-testid="admin-new-pwd" />
+              <input className="input" type="password" value={newAdminPwd} onChange={e => setNewAdminPwd(e.target.value)} placeholder="New Admin password" data-testid="admin-new-pwd" />
             </div>
             <button className="btn full" onClick={saveAdminPwd} data-testid="admin-save-pwd-btn">Update Admin Password</button>
           </div>

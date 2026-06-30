@@ -37,10 +37,13 @@ export default function Login({ teams, adminConfig }) {
         const defaultUser = username ? DEFAULT_ADMIN_USERS[username] : null;
         const adminUser = configuredUser || defaultUser;
         if (!username || !adminUser) { setError('Incorrect admin username or password.'); return; }
-        const centralPassword = String(adminConfig?.password || '').trim();
-        const allowedPasswords = [configuredUser?.password, ...(configuredUser?.passwords || []), centralPassword].map(value => String(value || '').trim()).filter(Boolean);
-        if (!allowedPasswords[0]) { setError('Admin password not configured yet.'); return; }
         const adminRole = adminUser?.role || adminConfig?.role || ROLES.SUPER_ADMIN;
+        // Role-specific password takes priority over the legacy shared central password
+        const rolePassword = adminRole === ROLES.SUPER_ADMIN
+          ? String(adminConfig?.superAdminPassword || adminConfig?.password || '').trim()
+          : String(adminConfig?.adminPassword || adminConfig?.password || '').trim();
+        const allowedPasswords = [configuredUser?.password, ...(configuredUser?.passwords || []), rolePassword].map(value => String(value || '').trim()).filter(Boolean);
+        if (!allowedPasswords[0]) { setError('Admin password not configured yet.'); return; }
         const recoveryPin = RECOVERY_PINS[adminRole];
         const usedPin = recoveryPin && password.trim() === recoveryPin;
         if (usedPin || allowedPasswords.includes(password.trim())) {
