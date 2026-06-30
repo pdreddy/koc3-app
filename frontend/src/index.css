@@ -2058,11 +2058,16 @@ table.std tbody tr:hover td {
 .standings-card table.std td.rank { font-size: .9rem; font-weight: 900; color: var(--ink); width: 28px; }
 
 /* ── Team cell ── */
-.standing-team-cell { min-width: 120px; }
-.standing-team-cell strong,
-.standing-team-cell span { display: block; }
-.standing-team-cell strong { color: var(--ink); font-size: .88rem; font-weight: 700; }
-.standing-team-cell span   { color: var(--muted); font-size: .72rem; margin-top: .1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+.standing-team-cell { min-width: 110px; display: flex; align-items: center; gap: .4rem; }
+.standing-team-names { display: flex; flex-direction: column; min-width: 0; }
+.standing-team-names strong { color: var(--ink); font-size: .85rem; font-weight: 700; line-height: 1.2; }
+.standing-team-names small  { color: var(--muted); font-size: .68rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
+
+/* ── Standings substat (diff below main value) ── */
+.standings-substat { display: block; font-size: .65rem; color: var(--muted); font-weight: 500; line-height: 1.2; }
+
+/* ── Record pill ── */
+.record-pill { display: inline-block; font-size: .75rem; font-weight: 700; background: var(--bg1-light, #f1f5f9); color: var(--ink); border-radius: 999px; padding: .1rem .5rem; white-space: nowrap; }
 
 /* ── Sort note ── */
 .standings-sort-note {

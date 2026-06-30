@@ -1,7 +1,7 @@
 import React from 'react';
+import TeamLogo from '../components/TeamLogo';
 import { resolveMatchTeams, matchWinnerId } from '../utils/matchTeams';
 import { isApprovedMatch } from '../utils/matchStatus';
-import TeamLogo from '../components/TeamLogo';
 
 function statsForGroup(teamsInGroup, matches, allTeams) {
   const groupIds = new Set(teamsInGroup.map(t => t.id));
@@ -45,6 +45,8 @@ function statsForGroup(teamsInGroup, matches, allTeams) {
     (b.gamesFor - a.gamesFor) ||
     (b.singlesWins - a.singlesWins) ||
     ((headToHead[`${b.id}:${a.id}`] || 0) - (headToHead[`${a.id}:${b.id}`] || 0)) ||
+    (b.setDiff - a.setDiff) ||
+    (b.gameDiff - a.gameDiff) ||
     a.team.localeCompare(b.team)
   );
 }
@@ -66,30 +68,38 @@ function GroupTable({ label, rows, qualifyTop }) {
             <tr>
               <th>#</th>
               <th>Team</th>
-              <th>M</th>
-              <th>W</th>
-              <th>L</th>
-              <th>SW</th>
-              <th>SL</th>
-              <th>SingW</th>
-              <th>G±</th>
-              <th>Pts</th>
+              <th title="Matches played">M</th>
+              <th title="Team points">Pts</th>
+              <th title="Sets won">Sets</th>
+              <th title="Total games won">Games</th>
+              <th title="Singles wins">Singles</th>
+              <th title="Match record">Record</th>
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan="10" className="center muted">No teams in this group</td></tr>}
+            {rows.length === 0 && <tr><td colSpan="8" className="center muted">No teams in this group</td></tr>}
             {rows.map((r, i) => (
               <tr key={r.id} className={i < qualifyTop ? 'q' : ''} data-testid={`standings-${label}-row-${r.abbr}`}>
                 <td className="rank">{i + 1}</td>
-                <td className="standing-team-cell"><TeamLogo team={{ abbreviation: r.abbr, name: r.team, logoUrl: r.logoUrl }} size={24} style={{ marginRight: '.35rem', verticalAlign: 'middle' }} /><strong>{r.abbr}</strong><span>{r.team}</span></td>
+                <td className="standing-team-cell">
+                  <TeamLogo team={{ abbreviation: r.abbr, name: r.team, logoUrl: r.logoUrl }} size={24} />
+                  <div className="standing-team-names">
+                    <strong>{r.abbr}</strong>
+                    <small>{r.team}</small>
+                  </div>
+                </td>
                 <td>{r.matches}</td>
-                <td>{r.wins}</td>
-                <td>{r.losses}</td>
-                <td>{r.setsFor}</td>
-                <td>{r.setsAgainst}</td>
-                <td>{r.singlesWins}</td>
-                <td>{r.gameDiff > 0 ? `+${r.gameDiff}` : r.gameDiff}</td>
                 <td className="pts">{r.points}</td>
+                <td>
+                  <strong>{r.setsFor}</strong>
+                  <small className="standings-substat">{r.setDiff > 0 ? `+${r.setDiff}` : r.setDiff}</small>
+                </td>
+                <td>
+                  <strong>{r.gamesFor}</strong>
+                  <small className="standings-substat">{r.gameDiff > 0 ? `+${r.gameDiff}` : r.gameDiff}</small>
+                </td>
+                <td>{r.singlesWins}</td>
+                <td><span className="record-pill">{r.wins}–{r.losses}</span></td>
               </tr>
             ))}
           </tbody>
