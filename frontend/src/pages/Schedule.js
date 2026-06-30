@@ -312,51 +312,84 @@ export default function Schedule({ teams, schedule, matches = [], lineupSubmissi
                 <span className="tag" style={{ background: 'linear-gradient(135deg,var(--bg1),var(--bg2))', color: '#fff', padding: '.25rem .6rem', fontSize: '.72rem' }}>Week {r.round}</span>
                 <span className="muted" style={{ fontWeight: 700, fontSize: '.82rem' }}>{formatDate(r.date)}</span>
                 {completedCount > 0 && (
-                  <span style={{ fontSize: '.68rem', color: '#10b981', fontWeight: 700 }}>✓ {completedCount}/{visible.length}</span>
+                  <span style={{ fontSize: '.68rem', color: '#10b981', fontWeight: 700 }}>✓ {completedCount}/{visible.length} done</span>
                 )}
+                {filterGroup === 'all' && (() => {
+                  const grpA = visible.filter(m => m.group === 'A');
+                  const grpB = visible.filter(m => m.group === 'B');
+                  const doneA = grpA.filter(m => m.status === 'completed' || (fixtureDetailsById[m.id] || {}).scoreReady).length;
+                  const doneB = grpB.filter(m => m.status === 'completed' || (fixtureDetailsById[m.id] || {}).scoreReady).length;
+                  return (
+                    <div style={{ display: 'flex', gap: '.3rem', flexShrink: 0 }}>
+                      {grpA.length > 0 && <span style={{ fontSize: '.62rem', background: '#dbeafe', color: '#1e3a8a', padding: '.1rem .35rem', borderRadius: 10, fontWeight: 700 }}>A {doneA}/{grpA.length}</span>}
+                      {grpB.length > 0 && <span style={{ fontSize: '.62rem', background: '#fed7aa', color: '#9a3412', padding: '.1rem .35rem', borderRadius: 10, fontWeight: 700 }}>B {doneB}/{grpB.length}</span>}
+                    </div>
+                  );
+                })()}
               </div>
               <span style={{ color: 'var(--muted)', fontSize: '.85rem', flexShrink: 0 }}>{isCollapsed ? '▶' : '▼'}</span>
             </button>
 
-            {!isCollapsed && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '.4rem', padding: '.5rem .85rem .75rem' }}>
-                {visible.map(m => (
-                  <div key={m.id}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', margin: '.1rem 0 .2rem' }}>
-                      <span className="tag" style={{
-                        fontSize: '.65rem',
-                        background: m.group === 'A' ? '#dbeafe' : '#fed7aa',
-                        color: m.group === 'A' ? '#1e3a8a' : '#9a3412'
-                      }}>Group {m.group}</span>
-                      {m.status === 'completed' && <span className="tag win" style={{ fontSize: '.65rem' }}>Played</span>}
-                      {m.status === 'cancelled' && <span className="tag lose" style={{ fontSize: '.65rem' }}>Cancelled</span>}
+            {!isCollapsed && (() => {
+              const groupA = visible.filter(m => m.group === 'A');
+              const groupB = visible.filter(m => m.group === 'B');
+              const renderGroup = (label, items) => {
+                if (items.length === 0) return null;
+                const color = label === 'A' ? '#2563eb' : '#d97706';
+                const bg = label === 'A' ? '#dbeafe' : '#fed7aa';
+                const textColor = label === 'A' ? '#1e3a8a' : '#9a3412';
+                const doneCount = items.filter(m => {
+                  const d = fixtureDetailsById[m.id] || {};
+                  return m.status === 'completed' || d.scoreReady;
+                }).length;
+                return (
+                  <div key={label} style={{ marginBottom: '.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', padding: '.3rem 0', borderBottom: `2px solid ${bg}`, marginBottom: '.4rem' }}>
+                      <span style={{ background: bg, color: textColor, fontWeight: 800, fontSize: '.72rem', padding: '.2rem .55rem', borderRadius: 20 }}>Group {label}</span>
+                      {doneCount > 0 && <span style={{ fontSize: '.68rem', color: '#10b981', fontWeight: 700 }}>✓ {doneCount}/{items.length} done</span>}
                     </div>
-                    {(() => {
-                      const details = fixtureDetailsById[m.id] || {};
-                      return (
-                        <MatchRow
-                          m={m}
-                          t1={teams[m.team1Id]}
-                          t2={teams[m.team2Id]}
-                          isCompleted={m.status === 'completed' || details.scoreReady}
-                          lineupReady={!!details.lineupReady}
-                          scoreReady={!!details.scoreReady}
-                          lineupOpen={!!openLineups[m.id]}
-                          scoreOpen={!!openScores[m.id]}
-                          onToggleLineup={() => setOpenLineups(prev => ({ ...prev, [m.id]: !prev[m.id] }))}
-                          onToggleScore={() => setOpenScores(prev => ({ ...prev, [m.id]: !prev[m.id] }))}
-                          submissions={details.submissions || {}}
-                          reveal={details.reveal}
-                          match={details.scoreMatch}
-                          teams={teams}
-                          showPublicDetails={showPublicDetails}
-                        />
-                      );
-                    })()}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '.4rem' }}>
+                      {items.map(m => {
+                        const details = fixtureDetailsById[m.id] || {};
+                        return (
+                          <div key={m.id}>
+                            {(m.status === 'completed' || m.status === 'cancelled') && (
+                              <div style={{ display: 'flex', gap: '.3rem', marginBottom: '.2rem' }}>
+                                {m.status === 'completed' && <span className="tag win" style={{ fontSize: '.65rem' }}>Played</span>}
+                                {m.status === 'cancelled' && <span className="tag lose" style={{ fontSize: '.65rem' }}>Cancelled</span>}
+                              </div>
+                            )}
+                            <MatchRow
+                              m={m}
+                              t1={teams[m.team1Id]}
+                              t2={teams[m.team2Id]}
+                              isCompleted={m.status === 'completed' || details.scoreReady}
+                              lineupReady={!!details.lineupReady}
+                              scoreReady={!!details.scoreReady}
+                              lineupOpen={!!openLineups[m.id]}
+                              scoreOpen={!!openScores[m.id]}
+                              onToggleLineup={() => setOpenLineups(prev => ({ ...prev, [m.id]: !prev[m.id] }))}
+                              onToggleScore={() => setOpenScores(prev => ({ ...prev, [m.id]: !prev[m.id] }))}
+                              submissions={details.submissions || {}}
+                              reveal={details.reveal}
+                              match={details.scoreMatch}
+                              teams={teams}
+                              showPublicDetails={showPublicDetails}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
+                );
+              };
+              return (
+                <div style={{ padding: '.5rem .85rem .75rem' }}>
+                  {renderGroup('A', groupA)}
+                  {renderGroup('B', groupB)}
+                </div>
+              );
+            })()}
           </div>
         );
       })}
