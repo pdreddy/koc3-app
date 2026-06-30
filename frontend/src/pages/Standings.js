@@ -39,9 +39,12 @@ function statsForGroup(teamsInGroup, matches, allTeams) {
     setDiff: s.setsFor - s.setsAgainst,
     gameDiff: s.gamesFor - s.gamesAgainst
   })).sort((a, b) =>
-    (b.points - a.points) || (b.setsFor - a.setsFor) || (b.singlesWins - a.singlesWins) ||
+    (b.points - a.points) ||
+    (b.setsFor - a.setsFor) ||
+    (b.gamesFor - a.gamesFor) ||
+    (b.singlesWins - a.singlesWins) ||
     ((headToHead[`${b.id}:${a.id}`] || 0) - (headToHead[`${a.id}:${b.id}`] || 0)) ||
-    (b.gameDiff - a.gameDiff) || a.team.localeCompare(b.team)
+    a.team.localeCompare(b.team)
   );
 }
 
@@ -118,7 +121,7 @@ export default function Standings({ teams, matches }) {
         <GroupTable label="A" rows={rowsA} qualifyTop={4} />
         <GroupTable label="B" rows={rowsB} qualifyTop={4} />
       </div>
-      <p className="hint center standings-sort-note">Sort: Team Points → Sets Won → Singles Wins → Head-to-Head → Games Difference</p>
+      <p className="hint center standings-sort-note">Sort: Team Points → Sets Won → Total Games Won → Singles Won → Head-to-Head</p>
     </main>
   );
 }
