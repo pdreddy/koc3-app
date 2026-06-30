@@ -15,17 +15,18 @@ import { writeAuditLog } from './services/AuditService';
 import BottomNav from './components/BottomNav';
 import AppHeader from './components/Header';
 
-const Home = React.lazy(() => import('./pages/Home'));
-const Teams = React.lazy(() => import('./pages/Teams'));
-const Standings = React.lazy(() => import('./pages/Standings'));
-const History = React.lazy(() => import('./pages/History'));
-const Login = React.lazy(() => import('./pages/Login'));
+import Home from './pages/Home';
+import Teams from './pages/Teams';
+import Standings from './pages/Standings';
+import History from './pages/History';
+import Login from './pages/Login';
+import Rules from './pages/Rules';
+import Schedule from './pages/Schedule';
+import Matchups from './pages/Matchups';
+import More from './pages/More';
+
 const Admin = React.lazy(() => import('./pages/Admin'));
 const ScoreEntry = React.lazy(() => import('./pages/ScoreEntry'));
-const Rules = React.lazy(() => import('./pages/Rules'));
-const Schedule = React.lazy(() => import('./pages/Schedule'));
-const Matchups = React.lazy(() => import('./pages/Matchups'));
-const More = React.lazy(() => import('./pages/More'));
 const AuditLogs = React.lazy(() => import('./pages/AuditLogs'));
 
 function PageLoadingFallback() {
