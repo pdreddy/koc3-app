@@ -941,24 +941,13 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
       const opponentId = fixture.team1Id === myTeam.id ? fixture.team2Id : fixture.team1Id;
       if (team1Id !== myTeam.id) setTeam1Id(myTeam.id);
       if (team2Id !== opponentId) setTeam2Id(opponentId);
-
-      // Warn captain immediately if lines not submitted or score already saved
-      if (session.role === ROLES.CAPTAIN) {
-        const mySubmission = lineupSubmissions?.[targetScheduleId]?.[session.teamId];
-        const isPlayoff = fixture?.matchType === 'playoff' || !fixture?.group;
-        if (!mySubmission?.lockedAt) {
-          setError('⚠️ Your lineup must be submitted and locked before entering a score. Please go back and submit your lines first.');
-        } else if (!isPlayoff && mySubmission?.scoreSavedAt) {
-          setError('⚠️ You have already submitted a score for this match. Only one score submission is allowed per team per round-robin match.');
-        }
-      }
       return;
     }
     if (!myTeam?.id) {
       if (team1Id !== fixture.team1Id) setTeam1Id(fixture.team1Id);
       if (team2Id !== fixture.team2Id) setTeam2Id(fixture.team2Id);
     }
-  }, [targetScheduleId, schedule, myTeam, team1Id, team2Id, setTeam1Id, setTeam2Id, session, lineupSubmissions]);
+  }, [targetScheduleId, schedule, myTeam, team1Id, team2Id, setTeam1Id, setTeam2Id]);
 
   const team1 = teams[team1Id];
   const team2 = teams[team2Id];
@@ -966,10 +955,22 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
   const targetFixture = targetScheduleId ? schedule?.[targetScheduleId] : null;
   const submittedLineupFixtures = useMemo(() => scoreLineupFixtures(schedule, revealedLineups, lineupSubmissions, team1Id, team2Id, teams, matches, eligibilityRules), [schedule, revealedLineups, lineupSubmissions, team1Id, team2Id, teams, matches, eligibilityRules]);
 
+  // Clear form state when teams change (user explicitly picks different teams)
+  const prevTeamPairRef = useRef('');
   useEffect(() => {
-    if (team2 && !teamsShareGroup(team1, team2)) setTeam2Id('');
-    setError(''); setSuccess(''); setShareText(''); setPendingRecord(null);
-  }, [team1Id, team2Id, setTeam2Id]); // eslint-disable-line react-hooks/exhaustive-deps
+    const pair = `${team1Id}|${team2Id}`;
+    if (pair === prevTeamPairRef.current) return;
+    // Don't clear if the change was triggered by auto-loading from a targetScheduleId
+    const fixture = targetScheduleId ? schedule?.[targetScheduleId] : null;
+    const autoSet = fixture && team1Id && team2Id &&
+      ((team1Id === fixture.team1Id && team2Id === fixture.team2Id) ||
+       (myTeam?.id && [fixture.team1Id, fixture.team2Id].includes(team1Id)));
+    if (!autoSet && prevTeamPairRef.current) {
+      setError(''); setSuccess(''); setShareText(''); setPendingRecord(null);
+    }
+    if (team1 && team2 && !teamsShareGroup(team1, team2)) setTeam2Id('');
+    prevTeamPairRef.current = pair;
+  }, [team1Id, team2Id, team1, team2, targetScheduleId, schedule, myTeam, setTeam2Id]);
 
   useEffect(() => {
     const exact = submittedLineupFixtures.find(row => lineupFixtureMatchesTarget(row, targetScheduleId, targetRevealId));
@@ -979,11 +980,10 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
     setCourts(buildLineupCourts(target.team1Names, target.team2Names));
     setLoadedLineupFixture(target);
     recordLineupAudit({ actionType: 'Lineup Loaded For Score Entry', session, scheduleId: target.item.id, teamId: session.teamId || team1Id, metadata: { revealId: target.revealId, revealCode: target.revealCode, source: target.source, viewedAt: Date.now() } }).catch(() => {});
-    setSuccess(`Loaded submitted dashboard lineup for schedule code ${target.revealCode || fixtureCode(target.item)}.`);
-    setError(''); setShareText(''); setPendingRecord(null);
+    setShareText(''); setPendingRecord(null);
     setAutoLoadedRevealId(target.revealId);
 
-    // Immediately warn if score was already saved for this schedule (round-robin only)
+    // Show validation status after lineup loads
     if (session.role === ROLES.CAPTAIN) {
       const schedId = target.item?.id;
       const mySubmission = schedId ? lineupSubmissions?.[schedId]?.[session.teamId] : null;
@@ -992,7 +992,13 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
       if (!isPlayoff && mySubmission?.scoreSavedAt) {
         setError('⚠️ You have already submitted a score for this match. Only one score submission is allowed per team per round-robin match.');
         setSuccess('');
+      } else {
+        setSuccess(`Loaded submitted dashboard lineup for schedule code ${target.revealCode || fixtureCode(target.item)}.`);
+        setError('');
       }
+    } else {
+      setSuccess(`Loaded submitted dashboard lineup for schedule code ${target.revealCode || fixtureCode(target.item)}.`);
+      setError('');
     }
   }, [submittedLineupFixtures, autoLoadedRevealId, session, team1Id, targetScheduleId, targetRevealId, lineupSubmissions, schedule]);
 
@@ -1245,6 +1251,14 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
           mode="form"
           onLoad={(row) => { setCourts(buildLineupCourts(row.team1Names, row.team2Names)); setLoadedLineupFixture(row); recordLineupAudit({ actionType: 'Lineup Loaded For Score Entry', session, scheduleId: row.item.id, teamId: session.teamId || team1Id, metadata: { revealId: row.revealId, revealCode: row.revealCode, viewedAt: Date.now() } }).catch(() => {}); setError(''); setSuccess(`Loaded submitted dashboard lineup for schedule code ${fixtureCode(row.item)}.`); setShareText(''); setPendingRecord(null); }}
         />
+      )}
+
+      {scoreBlocked && !existingMatch && session.role === ROLES.CAPTAIN && (
+        <div className="card" style={{ border: '1.5px solid #f97316', background: '#fff7ed' }} data-testid="score-lines-required">
+          <h2 style={{ marginTop: 0, color: '#c2410c' }}>⚠️ Lineup Required Before Score Entry</h2>
+          <p style={{ color: '#9a3412', margin: 0 }}>Your lineup must be submitted and locked on the Captain Dashboard before you can enter a score for this match.</p>
+          <a className="btn small" href="/home" style={{ marginTop: '.75rem', display: 'inline-block', background: '#f97316', color: '#fff' }}>Go to Captain Dashboard</a>
+        </div>
       )}
 
       {existingMatch && (
