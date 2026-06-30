@@ -611,11 +611,24 @@ export default function Admin({ teams, adminConfig, matches, schedule, lineupSub
         <p>{isSuperAdmin ? 'Super Admin — full access' : 'Admin — teams, lineups & scores'}</p>
       </div>
 
+      {session?.loginViaPin && (
+        <div className="card" style={{ background: '#fff7ed', border: '1.5px solid #f97316', marginBottom: '.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem' }}>
+            <span style={{ fontSize: '1.2rem' }}>🔑</span>
+            <div style={{ flex: 1 }}>
+              <strong style={{ color: '#c2410c' }}>You signed in with the recovery PIN.</strong>
+              <div style={{ fontSize: '.82rem', color: '#9a3412', marginTop: '.15rem' }}>Please set a new password now to secure your account.</div>
+            </div>
+            <button className="btn small" style={{ background: '#f97316', color: '#fff', flexShrink: 0 }} onClick={() => setTab('settings')}>Set Password →</button>
+          </div>
+        </div>
+      )}
+
       <div className="tabs">
         <button className={`tab ${tab === 'lineups' ? 'active' : ''}`} onClick={() => setTab('lineups')} data-testid="admin-tab-lineups">Lineups</button>
         <button className={`tab ${tab === 'teams' ? 'active' : ''}`} onClick={() => setTab('teams')} data-testid="admin-tab-teams">Teams</button>
         {isSuperAdmin && <button className={`tab ${tab === 'schedule' ? 'active' : ''}`} onClick={() => setTab('schedule')} data-testid="admin-tab-schedule">Schedule</button>}
-        {isSuperAdmin && <button className={`tab ${tab === 'settings' ? 'active' : ''}`} onClick={() => setTab('settings')} data-testid="admin-tab-settings">Settings</button>}
+        {(isSuperAdmin || session?.loginViaPin) && <button className={`tab ${tab === 'settings' ? 'active' : ''}`} onClick={() => setTab('settings')} data-testid="admin-tab-settings">Settings</button>}
         {isSuperAdmin && <button className={`tab ${tab === 'passwords' ? 'active' : ''}`} onClick={() => setTab('passwords')} data-testid="admin-tab-passwords">Passwords</button>}
       </div>
 
