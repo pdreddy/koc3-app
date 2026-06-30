@@ -217,13 +217,15 @@ function TeamEditor({ team, matches = [] }) {
         </select>
       </div>
       <div className="field">
-        <div className="field-label">Team Password</div>
+        <div className="field-label">Team Password {!canManageSettings(session) && <span style={{ fontSize: '.75rem', color: '#94a3b8', fontWeight: 400 }}>(view only)</span>}</div>
         <div style={{ display: 'flex', gap: '.4rem' }}>
           <input
             className="input"
             type={showPwd ? 'text' : 'password'}
             value={password}
-            onChange={e => setPassword(e.target.value)}
+            onChange={canManageSettings(session) ? e => setPassword(e.target.value) : undefined}
+            readOnly={!canManageSettings(session)}
+            style={!canManageSettings(session) ? { background: '#f8fafc', color: '#64748b', cursor: 'default' } : undefined}
             data-testid={`admin-team-${team.abbreviation}-password`}
           />
           <button type="button" className="btn small ghost" onClick={() => setShowPwd(s => !s)} data-testid={`admin-team-${team.abbreviation}-show-pwd`}>
