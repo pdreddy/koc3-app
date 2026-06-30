@@ -539,7 +539,7 @@ function computeCourt(c) {
   const sets = [];
   for (let i = 0; i < c.sets.length; i++) {
     const s = c.sets[i];
-    if (s.a === '' && s.b === '') continue;
+    if (s.a === '' || s.b === '') continue;
     const a = Number(s.a) || 0, b = Number(s.b) || 0;
     const firstTwoSplit = c.type === 'doubles' && i === 2 && sets.length >= 2 && regularSetWinner(sets[0].team1, sets[0].team2) !== regularSetWinner(sets[1].team1, sets[1].team2);
     const setEntry = { set: i + 1, team1: a, team2: b };
@@ -584,7 +584,10 @@ function validateCourtShape(court, result, validationErrors) {
   if (result.sets.length > court.sets.length) {
     validationErrors.push(`${court.label}: too many sets entered for ${court.type}`);
   }
+  const firstTwo = computeCourt({ ...court, sets: court.sets.slice(0, 2) });
+  const needsDoublesThird = court.type === 'doubles' && firstTwo.s1 === 1 && firstTwo.s2 === 1;
   court.sets.forEach((set, idx) => {
+    if (court.type === 'doubles' && idx === 2 && !needsDoublesThird) return;
     const hasA = set.a !== '';
     const hasB = set.b !== '';
     if (hasA !== hasB) validationErrors.push(`${court.label}: set ${idx + 1} needs both team scores`);
@@ -1095,10 +1098,13 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
   }, [courts]);
 
   const visibleSetCountForCourt = (court, idx) => {
-    const highestEntered = court.sets.reduce((max, set, setIdx) => (
-      set.a !== '' || set.b !== '' || set.tieA !== '' || set.tieB !== '' ? setIdx + 1 : max
-    ), 0);
-    const defaultCount = court.type === 'singles' ? 3 : court.sets.length;
+    const firstTwo = computeCourt({ ...court, sets: court.sets.slice(0, 2) });
+    const needsDoublesThird = court.type === 'doubles' && firstTwo.s1 === 1 && firstTwo.s2 === 1;
+    const highestEntered = court.sets.reduce((max, set, setIdx) => {
+      if (court.type === 'doubles' && !needsDoublesThird && setIdx >= 2) return max;
+      return set.a !== '' || set.b !== '' || set.tieA !== '' || set.tieB !== '' ? setIdx + 1 : max;
+    }, 0);
+    const defaultCount = court.type === 'singles' ? 3 : (needsDoublesThird ? 3 : 2);
     return Math.min(court.sets.length, Math.max(visibleSetCounts[idx] || defaultCount, highestEntered));
   };
 
