@@ -3619,3 +3619,172 @@ table.std { min-width: 420px !important; }
   color: #fff;
   padding: .24rem .7rem;
 }
+
+/* ── Score entry UTR-style redesign: players first, sets below ── */
+.court-card.classic {
+  background: linear-gradient(135deg, #fffbeb, #fff7ed);
+  border: 1px solid rgba(245,158,11,0.22);
+  border-radius: 22px;
+  padding: 1rem;
+}
+
+.court-card.classic.ready {
+  background: linear-gradient(135deg, #ecfdf5, #f8fafc);
+}
+
+.court-card.classic.warning {
+  background: linear-gradient(135deg, #fff7ed, #fff1f2);
+}
+
+.court-card.classic .court-card-head {
+  border-bottom-color: rgba(148,163,184,0.25);
+  margin-bottom: .85rem;
+}
+
+.score-entry-grid {
+  align-items: stretch;
+  display: grid;
+  gap: .9rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.player-entry-col {
+  background: #f8fafc;
+  border: 1px solid #dbe3ef;
+  border-radius: 18px;
+  box-shadow: 0 10px 20px rgba(15,23,42,0.06);
+  padding: .75rem;
+}
+
+.player-entry-col .field-label {
+  color: #64748b;
+  font-size: .74rem;
+  font-weight: 950;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.player-entry-col .input {
+  background: #fff;
+  border: 2px solid #dbe3ef;
+  border-radius: 14px;
+  font-size: 1rem;
+  min-height: 50px;
+}
+
+.player-entry-col .input:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 4px rgba(59,130,246,0.13);
+}
+
+.sets-entry-col {
+  grid-column: 1 / -1;
+  justify-self: stretch;
+  min-width: 0;
+}
+
+.score-sets-head {
+  align-items: center;
+  display: flex;
+  gap: .75rem;
+  justify-content: center;
+  margin: .2rem 0 .8rem;
+  text-align: center;
+}
+
+.score-sets-head .field-label {
+  color: #334155;
+  font-size: .78rem;
+  font-weight: 950;
+  letter-spacing: .1em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.add-sets-btn {
+  border-color: #93c5fd !important;
+  color: #1d4ed8 !important;
+  font-weight: 900 !important;
+  min-height: 34px !important;
+  padding: .25rem .75rem !important;
+}
+
+.sets-card-grid {
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.court-card.classic .set-input,
+.set-input {
+  background: rgba(255,255,255,0.86);
+  border: 2px solid #dbeafe;
+  border-radius: 20px;
+  box-shadow: 0 12px 26px rgba(37,99,235,0.08);
+  grid-template-columns: minmax(48px, .8fr) minmax(64px, 1fr) auto minmax(64px, 1fr);
+  margin: 0;
+  min-height: 112px;
+  padding: .75rem;
+}
+
+.court-card.classic .set-input .label,
+.set-input .label {
+  color: #475569;
+  font-size: .78rem;
+  font-weight: 950;
+}
+
+.court-card.classic .set-input input,
+.set-input input {
+  background: #fff;
+  border: 2px solid #dbe3ef;
+  border-radius: 16px;
+  box-shadow: 0 6px 16px rgba(15,23,42,0.08);
+  color: #0f172a;
+  font-size: 1.55rem;
+  height: 72px;
+  min-height: 72px;
+  width: 72px;
+}
+
+.court-card.classic .set-input.team1-won input:first-of-type,
+.set-input.team1-won input:first-of-type,
+.court-card.classic .set-input.team2-won input:last-of-type,
+.set-input.team2-won input:last-of-type {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.court-card.classic .set-input.team1-won input:last-of-type,
+.set-input.team1-won input:last-of-type,
+.court-card.classic .set-input.team2-won input:first-of-type,
+.set-input.team2-won input:first-of-type {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.court-card.classic .set-input.empty input,
+.set-input.empty input {
+  color: #94a3b8;
+}
+
+@media (max-width: 760px) {
+  .score-entry-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sets-entry-col {
+    grid-column: auto;
+  }
+
+  .sets-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .score-sets-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

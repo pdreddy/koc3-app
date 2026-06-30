@@ -431,8 +431,11 @@ function LineResultButtons({ court, teamAbbr, winnerTeamNum, loserTeamNum, onApp
 }
 
 function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false }) {
+  const a = set.a === '' ? null : Number(set.a);
+  const b = set.b === '' ? null : Number(set.b);
+  const resultClass = a == null || b == null || a === b ? 'empty' : (a > b ? 'team1-won' : 'team2-won');
   return (
-    <div className="set-input">
+    <div className={`set-input ${resultClass} ${isMatchTieBreak ? 'match-tb' : ''}`.trim()}>
       <span className="label">{isMatchTieBreak ? 'Match TB' : `Set ${idx + 1}`}</span>
       <input
         className="input"
@@ -936,6 +939,7 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
   const [selectedScheduleId, setSelectedScheduleId] = useState('');
   const [autoLoadedRevealId, setAutoLoadedRevealId] = useState('');
   const [loadedLineupFixture, setLoadedLineupFixture] = useState(null);
+  const [visibleSetCounts, setVisibleSetCounts] = useState({});
 
   useEffect(() => {
     if (myTeam?.id && !team1Id) setTeam1Id(myTeam.id);
@@ -1049,6 +1053,18 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
     });
     return { totalG1, totalG2, totalS1, totalS2, w1, w2 };
   }, [courts]);
+
+  const visibleSetCountForCourt = (court, idx) => {
+    const highestEntered = court.sets.reduce((max, set, setIdx) => (
+      set.a !== '' || set.b !== '' || set.tieA !== '' || set.tieB !== '' ? setIdx + 1 : max
+    ), 0);
+    const defaultCount = court.type === 'singles' ? 3 : court.sets.length;
+    return Math.min(court.sets.length, Math.max(visibleSetCounts[idx] || defaultCount, highestEntered));
+  };
+
+  const showMoreSets = (idx) => {
+    setVisibleSetCounts(counts => ({ ...counts, [idx]: Math.min(5, (counts[idx] || 3) + 2) }));
+  };
 
   const handleSubmit = async () => {
     setError(''); setSuccess(''); setShareText(''); setPendingRecord(null);
@@ -1182,6 +1198,7 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
       setSuccess(`✅ Saved and synchronized ratings, standings, histories, and dashboard:  ${pendingRecord.t1} vs ${pendingRecord.t2} — Winner: ${pendingRecord.win}`);
       setShareText(formatMatchShareText(savedRecord));
       setPendingRecord(null);
+      setVisibleSetCounts({});
       setCourts(COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
     } catch (e) {
       setError('Save failed: ' + e.message);
@@ -1344,12 +1361,19 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
           </div>
 
           <div className="sets-entry-col">
-          <div className="field-label">Sets ({team1.abbreviation} – {team2.abbreviation})</div>
-          {c.sets.map((s, i) => (
-            <div key={i} data-testid={`court-${idx}-set-${i}-row`}>
-              <SetRow idx={i} set={s} isMatchTieBreak={c.type === 'doubles' && i === 2 && computeCourt({ ...c, sets: c.sets.slice(0, 2) }).s1 === 1 && computeCourt({ ...c, sets: c.sets.slice(0, 2) }).s2 === 1} disabled={i > 0 && c.sets[i - 1].a === '' && c.sets[i - 1].b === ''} onChange={(ns) => updateCourt(idx, { sets: c.sets.map((x, j) => j === i ? ns : x) })} />
-            </div>
-          ))}
+          <div className="score-sets-head">
+            <div className="field-label">Sets ({team1.abbreviation} – {team2.abbreviation})</div>
+            {c.type === 'singles' && visibleSetCountForCourt(c, idx) < c.sets.length && (
+              <button type="button" className="btn small ghost add-sets-btn" onClick={() => showMoreSets(idx)} data-testid={`court-${idx}-add-sets`}>+ Add sets 4–5</button>
+            )}
+          </div>
+          <div className="sets-card-grid">
+            {c.sets.slice(0, visibleSetCountForCourt(c, idx)).map((s, i) => (
+              <div key={i} data-testid={`court-${idx}-set-${i}-row`}>
+                <SetRow idx={i} set={s} isMatchTieBreak={c.type === 'doubles' && i === 2 && computeCourt({ ...c, sets: c.sets.slice(0, 2) }).s1 === 1 && computeCourt({ ...c, sets: c.sets.slice(0, 2) }).s2 === 1} disabled={i > 0 && c.sets[i - 1].a === '' && c.sets[i - 1].b === ''} onChange={(ns) => updateCourt(idx, { sets: c.sets.map((x, j) => j === i ? ns : x) })} />
+              </div>
+            ))}
+          </div>
           </div>
           </div>
         </div>
