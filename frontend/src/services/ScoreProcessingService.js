@@ -55,9 +55,14 @@ function computeStandings(teams, matches) {
     headToHead[`${team2.id}:${team1.id}`] = (headToHead[`${team2.id}:${team1.id}`] || 0) + (winId === team2.id ? 1 : 0);
   }
   const sorted = Object.values(rows).sort((a, b) =>
-    (b.points - a.points) || (b.setsWon - a.setsWon) || (b.singlesWins - a.singlesWins) ||
+    (b.points - a.points) ||
+    (b.setsWon - a.setsWon) ||
+    (b.gamesWon - a.gamesWon) ||
+    (b.singlesWins - a.singlesWins) ||
     ((headToHead[`${b.teamId}:${a.teamId}`] || 0) - (headToHead[`${a.teamId}:${b.teamId}`] || 0)) ||
-    ((b.gamesWon - b.gamesLost) - (a.gamesWon - a.gamesLost)) || a.team.localeCompare(b.team)
+    ((b.setsWon - b.setsLost) - (a.setsWon - a.setsLost)) ||
+    ((b.gamesWon - b.gamesLost) - (a.gamesWon - a.gamesLost)) ||
+    a.team.localeCompare(b.team)
   );
   sorted.forEach((r, i) => { r.position = i + 1; r.setDiff = r.setsWon - r.setsLost; r.gameDiff = r.gamesWon - r.gamesLost; });
   return sorted;

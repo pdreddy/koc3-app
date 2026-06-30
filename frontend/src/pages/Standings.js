@@ -1,4 +1,5 @@
 import React from 'react';
+import TeamLogo from '../components/TeamLogo';
 import { resolveMatchTeams, matchWinnerId } from '../utils/matchTeams';
 import { isApprovedMatch } from '../utils/matchStatus';
 
@@ -39,9 +40,14 @@ function statsForGroup(teamsInGroup, matches, allTeams) {
     setDiff: s.setsFor - s.setsAgainst,
     gameDiff: s.gamesFor - s.gamesAgainst
   })).sort((a, b) =>
-    (b.points - a.points) || (b.setsFor - a.setsFor) || (b.singlesWins - a.singlesWins) ||
+    (b.points - a.points) ||
+    (b.setsFor - a.setsFor) ||
+    (b.gamesFor - a.gamesFor) ||
+    (b.singlesWins - a.singlesWins) ||
     ((headToHead[`${b.id}:${a.id}`] || 0) - (headToHead[`${a.id}:${b.id}`] || 0)) ||
-    (b.gameDiff - a.gameDiff) || a.team.localeCompare(b.team)
+    (b.setDiff - a.setDiff) ||
+    (b.gameDiff - a.gameDiff) ||
+    a.team.localeCompare(b.team)
   );
 }
 
@@ -62,30 +68,26 @@ function GroupTable({ label, rows, qualifyTop }) {
             <tr>
               <th>#</th>
               <th>Team</th>
-              <th>M</th>
-              <th>W</th>
-              <th>L</th>
-              <th>SW</th>
-              <th>SL</th>
-              <th>SingW</th>
-              <th>G±</th>
-              <th>Pts</th>
+              <th title="Matches played">M</th>
+              <th title="Team points">Pts</th>
+              <th title="Sets won">Sets</th>
+              <th title="Total games won">Games</th>
+              <th title="Singles wins">Singles</th>
+              <th title="Match record">Record</th>
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan="10" className="center muted">No teams in this group</td></tr>}
+            {rows.length === 0 && <tr><td colSpan="8" className="center muted">No teams in this group</td></tr>}
             {rows.map((r, i) => (
               <tr key={r.id} className={i < qualifyTop ? 'q' : ''} data-testid={`standings-${label}-row-${r.abbr}`}>
-                <td className="rank">{i + 1}</td>
-                <td className="standing-team-cell"><strong>{r.abbr}</strong><span>{r.team}</span></td>
+                <td className="rank"><span>{i + 1}</span></td>
+                <td className="standing-team-cell"><TeamLogo team={{ id: r.id, name: r.team, abbreviation: r.abbr }} size="sm" /><span><strong>{r.abbr}</strong><small>{r.team}</small></span></td>
                 <td>{r.matches}</td>
-                <td>{r.wins}</td>
-                <td>{r.losses}</td>
-                <td>{r.setsFor}</td>
-                <td>{r.setsAgainst}</td>
-                <td>{r.singlesWins}</td>
-                <td>{r.gameDiff > 0 ? `+${r.gameDiff}` : r.gameDiff}</td>
                 <td className="pts">{r.points}</td>
+                <td><strong>{r.setsFor}</strong><small className="standings-substat">{r.setDiff > 0 ? `+${r.setDiff}` : r.setDiff}</small></td>
+                <td><strong>{r.gamesFor}</strong><small className="standings-substat">{r.gameDiff > 0 ? `+${r.gameDiff}` : r.gameDiff}</small></td>
+                <td>{r.singlesWins}</td>
+                <td><span className="record-pill">{r.wins}-{r.losses}</span></td>
               </tr>
             ))}
           </tbody>
@@ -118,7 +120,7 @@ export default function Standings({ teams, matches }) {
         <GroupTable label="A" rows={rowsA} qualifyTop={2} />
         <GroupTable label="B" rows={rowsB} qualifyTop={2} />
       </div>
-      <p className="hint center standings-sort-note">Sort: Team Points → Sets Won → Singles Wins → Head-to-Head → Games Difference</p>
+      <p className="hint center standings-sort-note">Sort: Team Points → Sets Won → Total Games Won → Singles Won → Head-to-Head</p>
     </main>
   );
 }

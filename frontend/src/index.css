@@ -2786,3 +2786,124 @@ body {
   .schedule-match-main { align-items: flex-start; }
   .schedule-team-line { font-size: .78rem; }
 }
+
+/* ===== Thin standings redesign and official tie-break order ===== */
+.standings-card table.std {
+  border-collapse: separate;
+  border-spacing: 0 .42rem;
+  background: linear-gradient(180deg, rgba(248,250,252,.95), rgba(239,246,255,.8));
+  padding: .25rem .65rem .75rem;
+}
+
+.standings-card table.std thead th {
+  background: transparent;
+  color: #64748b;
+  padding: .45rem .5rem .25rem;
+  font-size: .66rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.standings-card table.std tbody tr {
+  background: rgba(255,255,255,.94);
+  box-shadow: 0 8px 20px rgba(15,23,42,.06);
+}
+
+.standings-card table.std tbody tr.q {
+  background: linear-gradient(90deg, rgba(236,253,245,.98), rgba(255,255,255,.96));
+  box-shadow: 0 10px 24px rgba(22,101,52,.09);
+}
+
+.standings-card table.std tbody td {
+  border: 0;
+  padding: .58rem .5rem;
+  font-size: .84rem;
+  vertical-align: middle;
+}
+
+.standings-card table.std tbody td:first-child {
+  border-radius: 16px 0 0 16px;
+}
+
+.standings-card table.std tbody td:last-child {
+  border-radius: 0 16px 16px 0;
+}
+
+.standings-card .rank span {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #0f172a;
+  font-weight: 950;
+}
+
+.standings-card tr.q .rank span {
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  color: #fff;
+}
+
+.standing-team-cell {
+  min-width: 190px;
+  display: flex;
+  align-items: center;
+  gap: .48rem;
+}
+
+.standing-team-cell > span {
+  display: grid;
+  min-width: 0;
+}
+
+.standing-team-cell strong {
+  color: #0f172a;
+  font-size: .86rem;
+  line-height: 1.05;
+}
+
+.standing-team-cell small,
+.standings-substat {
+  display: block;
+  color: #64748b;
+  font-size: .68rem;
+  font-weight: 750;
+  line-height: 1.1;
+}
+
+.standings-card .pts {
+  color: #1d4ed8;
+  font-size: .98rem;
+  font-weight: 950;
+}
+
+.record-pill {
+  display: inline-flex;
+  justify-content: center;
+  min-width: 42px;
+  padding: .2rem .45rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: .74rem;
+  font-weight: 900;
+}
+
+@media (max-width: 720px) {
+  .standings-card table.std {
+    padding-inline: .35rem;
+  }
+  .standing-team-cell {
+    min-width: 150px;
+  }
+  .standings-card table.std tbody td,
+  .standings-card table.std thead th {
+    padding-inline: .35rem;
+  }
+  .standings-card table.std th:nth-child(8),
+  .standings-card table.std td:nth-child(8) {
+    display: none;
+  }
+}
