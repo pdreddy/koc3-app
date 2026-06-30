@@ -462,6 +462,11 @@ function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false, team1Ab
     onChange({ ...set, [field]: value });
     if (shouldAdvanceScoreInput(value, digits)) focusNextScoreInput(input);
   };
+  const swapScoreSides = () => {
+    setEditing(true);
+    setQuickWinner(null);
+    onChange({ ...set, a: set.b, b: set.a, tieA: set.tieB, tieB: set.tieA });
+  };
   const scrollToNextSet = (element) => {
     requestAnimationFrame(() => {
       const currentSet = element?.closest('[data-testid*="-set-"]');
@@ -527,6 +532,17 @@ function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false, team1Ab
         aria-label={`${isMatchTieBreak ? 'Match tiebreak' : `Set ${idx + 1}`} team 2 score`}
         data-testid={`set-${idx}-b`}
       />
+      <button
+        type="button"
+        className="set-swap-btn"
+        disabled={disabled || (set.a === '' && set.b === '' && set.tieA === '' && set.tieB === '')}
+        onClick={swapScoreSides}
+        aria-label={`${isMatchTieBreak ? 'Match tiebreak' : `Set ${idx + 1}`} swap team scores`}
+        title="Swap score sides"
+        data-testid={`set-${idx}-swap`}
+      >
+        ⇄
+      </button>
       {!isMatchTieBreak && (
         <div className="set-winner-picker" aria-label={`Set ${idx + 1} winner`}>
           <button type="button" className={selectedWinner === 1 ? 'active' : ''} disabled={disabled} onClick={() => setQuickWinner(1)}>{team1Abbr}</button>
