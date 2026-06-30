@@ -155,7 +155,7 @@ function formatSetsForShare(sets = []) {
   return sets.map(set => {
     let score = `${set.team1}-${set.team2}`;
     if (set.tieBreak) score += `(${set.tieBreak.team1}-${set.tieBreak.team2})`;
-    if (set.matchTieBreak) score += `(${set.matchTieBreak.team1}-${set.matchTieBreak.team2})`;
+    if (typeof set.matchTieBreak === 'object') score += `(${set.matchTieBreak.team1}-${set.matchTieBreak.team2})`;
     return score;
   }).join(', ');
 }
@@ -500,9 +500,16 @@ function computeCourt(c) {
     const firstTwoSplit = c.type === 'doubles' && i === 2 && sets.length >= 2 && regularSetWinner(sets[0].team1, sets[0].team2) !== regularSetWinner(sets[1].team1, sets[1].team2);
     const setEntry = { set: i + 1, team1: a, team2: b };
     if (firstTwoSplit) {
-      setEntry.matchTieBreak = true;
-      if (a > b) s1++;
-      else if (b > a) s2++;
+      setEntry.matchTieBreak = { team1: a, team2: b };
+      if (a > b) {
+        setEntry.team1 = 1;
+        setEntry.team2 = 0;
+        s1++;
+      } else if (b > a) {
+        setEntry.team1 = 0;
+        setEntry.team2 = 1;
+        s2++;
+      }
     } else {
       g1 += a; g2 += b;
       if (a > b) s1++;
@@ -1730,6 +1737,7 @@ Final: KC won 3-2`;
                 const setsDisplay = r.sets.map(s => {
                   let str = `${s.team1}-${s.team2}`;
                   if (s.tieBreak) str += `(${s.tieBreak.team1}-${s.tieBreak.team2})`;
+                  if (typeof s.matchTieBreak === 'object') str += `(${s.matchTieBreak.team1}-${s.matchTieBreak.team2})`;
                   return str;
                 }).join(', ');
                 return (
