@@ -457,19 +457,28 @@ const CaptainFixtureCard = React.memo(function CaptainFixtureCard({ item, teams,
   };
 
   return (
-    <article className="captain-fixture-card" data-testid={`captain-fixture-${item.id}`}>
+    <article className={`captain-fixture-card${completed ? ' cfc-completed' : ''}`} data-testid={`captain-fixture-${item.id}`}>
       <div className="captain-fixture-main">
-        <span className="rl-ic" aria-hidden="true">📅</span>
-        <div style={{ flex: 1 }}>
-          <div className="rl-lbl">Round {item.round || '—'} · {formatDate(item.date)} · {item.time || 'TBD'}</div>
-          <div className="rl-val">{team1?.name || 'TBD'} <strong>vs</strong> {team2?.name || 'TBD'} · Group {item.group || team1?.group || team2?.group || '—'}</div>
-          <div className="dashboard-status-row"><span className={status.className}>{status.label}</span><span>Opponent Submission Status: {opponentSubmission?.submittedAt ? 'Submitted' : 'Waiting...'}</span>{opponentSubmission?.submittedAt && <span>Submitted At {timeLabel(opponentSubmission.submittedAt)}</span>}</div>
+        <span className="cfc-cal-icon" aria-hidden="true">📅</span>
+        <div className="cfc-info">
+          <div className="cfc-round">Round {item.round || '—'} · {formatDate(item.date)} · {item.time || 'TBD'}</div>
+          <div className="cfc-teams">{team1?.name || 'TBD'} <strong>vs</strong> {team2?.name || 'TBD'} <span className="cfc-group">· Group {item.group || team1?.group || team2?.group || '—'}</span></div>
+          <div className="cfc-status-row">
+            <span className={status.className}>{status.label}</span>
+            <span className="cfc-opp-status">
+              Opponent: {opponentSubmission?.submittedAt
+                ? <strong style={{ color: '#15803d' }}>Submitted {timeLabel(opponentSubmission.submittedAt)}</strong>
+                : <span style={{ color: '#94a3b8' }}>Waiting...</span>}
+            </span>
+          </div>
         </div>
         <div className="captain-fixture-actions">
-          {!completed && !locked && <button type="button" className="btn small" onClick={() => setExpanded(v => !v)} data-testid={`submit-lines-${item.id}`}>{expanded ? 'Hide Lines' : 'Submit Lines'}</button>}
+          {!completed && !locked && <button type="button" className="btn small cfc-btn-lines" onClick={() => setExpanded(v => !v)} data-testid={`submit-lines-${item.id}`}>{expanded ? 'Hide Lines' : 'Submit Lines'}</button>}
           {locked && <button type="button" className="btn small ghost" onClick={() => setExpanded(v => !v)}>{expanded ? 'Hide' : 'View Status'}</button>}
-          {revealed && !completed ? <Link className="btn small success" to={scoreEntryHref(item, revealedLineup, lineupSubmission)} data-testid={`submit-score-${item.id}`}>Submit Score</Link> : <button type="button" className="btn small ghost" disabled data-testid={`submit-score-${item.id}`}>Submit Score</button>}
-          <button type="button" className="btn small ghost" onClick={() => setShowOpponentCapacity(v => !v)} data-testid={`toggle-opponent-capacity-${item.id}`}>{showOpponentCapacity ? 'Hide Opponent Capacity' : 'Show Opponent Capacity'}</button>
+          {revealed && !completed
+            ? <Link className="btn small cfc-btn-score" to={scoreEntryHref(item, revealedLineup, lineupSubmission)} data-testid={`submit-score-${item.id}`}>Submit Score</Link>
+            : <button type="button" className="btn small ghost cfc-btn-score-disabled" disabled data-testid={`submit-score-${item.id}`}>Submit Score</button>}
+          <button type="button" className="btn small cfc-btn-capacity" onClick={() => setShowOpponentCapacity(v => !v)} data-testid={`toggle-opponent-capacity-${item.id}`}>{showOpponentCapacity ? 'Hide Opponent Capacity' : 'Show Opponent Capacity'}</button>
         </div>
       </div>
       {showOpponentCapacity && <OpponentCapacityPreview opponent={opponent} teams={teams} matches={matches} eligibilityRules={eligibilityRules} lineupSubmissions={{ [item.id]: { [opponent?.id]: opponentSubmission } }} />}
