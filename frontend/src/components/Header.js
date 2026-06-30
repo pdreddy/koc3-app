@@ -30,7 +30,7 @@ export default function AppHeader() {
   return (
     <header className="app-header" data-testid="app-header">
       <Link to="/" className="brand" data-testid="header-home" aria-label="KOC3 home" onClick={event => preventCurrentPageNavigation(event, '/')} aria-disabled={isHome ? 'true' : undefined}>
-        <img src="/koc-shield.svg" alt="" className="header-logo-img" aria-hidden="true" />
+        <img src="/logos/koc-logo.svg" alt="" className="header-logo-img" aria-hidden="true" />
         <span className="brand-copy">
           <strong>KOC3</strong>
           <small>Tennis League</small>
