@@ -137,7 +137,7 @@ function MatchRow({ m, t1, t2, isCompleted, lineupReady, scoreReady, lineupOpen,
 
 export default function Schedule({ teams, schedule, matches = [], lineupSubmissions = {}, revealedLineups = {} }) {
   const { session } = useAuth();
-  const showPublicDetails = hasRole(session, [ROLES.GUEST]);
+  const showPublicDetails = true; // reveal lineups + view score available to all roles
   const [filterTeam, setFilterTeam] = useState('all');
   const [filterGroup, setFilterGroup] = useState('all');
   const [openLineups, setOpenLineups] = useState({});
