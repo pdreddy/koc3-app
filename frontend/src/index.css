@@ -2358,3 +2358,43 @@ body {
   .bottom-nav { width: calc(100% - .8rem); }
   .app-shell { padding-bottom: 96px; }
 }
+
+/* ===== Cross-browser render performance polish ===== */
+@supports (content-visibility: auto) {
+  .teams-list > .team-card,
+  .captain-fixture-list > .captain-fixture-card,
+  .more-sections > .more-section,
+  .more-shortcut-grid > .more-shortcut,
+  .rl-grid > .rl-card,
+  .match-hist,
+  .standings-card,
+  .lineup-builder-card,
+  .quick-entry-card {
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 260px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .001ms !important;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .app-header,
+  .bottom-nav {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .card,
+  .match-hist,
+  .team-card,
+  .captain-fixture-card {
+    box-shadow: 0 8px 22px rgba(30, 58, 138, .09);
+  }
+}
