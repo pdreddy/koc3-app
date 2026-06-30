@@ -941,13 +941,24 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
       const opponentId = fixture.team1Id === myTeam.id ? fixture.team2Id : fixture.team1Id;
       if (team1Id !== myTeam.id) setTeam1Id(myTeam.id);
       if (team2Id !== opponentId) setTeam2Id(opponentId);
+
+      // Warn captain immediately if lines not submitted or score already saved
+      if (session.role === ROLES.CAPTAIN) {
+        const mySubmission = lineupSubmissions?.[targetScheduleId]?.[session.teamId];
+        const isPlayoff = fixture?.matchType === 'playoff' || !fixture?.group;
+        if (!mySubmission?.lockedAt) {
+          setError('⚠️ Your lineup must be submitted and locked before entering a score. Please go back and submit your lines first.');
+        } else if (!isPlayoff && mySubmission?.scoreSavedAt) {
+          setError('⚠️ You have already submitted a score for this match. Only one score submission is allowed per team per round-robin match.');
+        }
+      }
       return;
     }
     if (!myTeam?.id) {
       if (team1Id !== fixture.team1Id) setTeam1Id(fixture.team1Id);
       if (team2Id !== fixture.team2Id) setTeam2Id(fixture.team2Id);
     }
-  }, [targetScheduleId, schedule, myTeam, team1Id, team2Id, setTeam1Id, setTeam2Id]);
+  }, [targetScheduleId, schedule, myTeam, team1Id, team2Id, setTeam1Id, setTeam2Id, session, lineupSubmissions]);
 
   const team1 = teams[team1Id];
   const team2 = teams[team2Id];
@@ -970,7 +981,19 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
     setSuccess(`Loaded submitted dashboard lineup for schedule code ${target.revealCode || fixtureCode(target.item)}.`);
     setError(''); setShareText(''); setPendingRecord(null);
     setAutoLoadedRevealId(target.revealId);
-  }, [submittedLineupFixtures, autoLoadedRevealId, session, team1Id, targetScheduleId, targetRevealId]);
+
+    // Immediately warn if score was already saved for this schedule (round-robin only)
+    if (session.role === ROLES.CAPTAIN) {
+      const schedId = target.item?.id;
+      const mySubmission = schedId ? lineupSubmissions?.[schedId]?.[session.teamId] : null;
+      const fixture = schedId ? schedule?.[schedId] : null;
+      const isPlayoff = fixture?.matchType === 'playoff' || !fixture?.group;
+      if (!isPlayoff && mySubmission?.scoreSavedAt) {
+        setError('⚠️ You have already submitted a score for this match. Only one score submission is allowed per team per round-robin match.');
+        setSuccess('');
+      }
+    }
+  }, [submittedLineupFixtures, autoLoadedRevealId, session, team1Id, targetScheduleId, targetRevealId, lineupSubmissions, schedule]);
 
   const updateCourt = (idx, patch) => {
     setPendingRecord(null);
