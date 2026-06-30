@@ -58,7 +58,7 @@ function GroupTable({ label, rows, qualifyTop }) {
       <div className="standings-card-head">
         <div>
           <span className="standings-kicker">Group {label}</span>
-          <h2>{leader?.abbr || `Group ${label}`} <span className="muted">· {rows.length} teams</span></h2>
+          <h2>{leader?.team || `Group ${label}`} <span className="muted">· {rows.length} teams</span></h2>
         </div>
         <span className="standings-qualifier">Top {qualifyTop} qualify</span>
       </div>
@@ -80,7 +80,7 @@ function GroupTable({ label, rows, qualifyTop }) {
             {rows.length === 0 && <tr><td colSpan="8" className="center muted">No teams in this group</td></tr>}
             {rows.map((r, i) => (
               <tr key={r.id} className={i < qualifyTop ? 'q' : ''} data-testid={`standings-${label}-row-${r.abbr}`}>
-                <td className="rank">{i + 1}</td>
+                <td className="rank"><span>{i + 1}</span></td>
                 <td className="standing-team-cell">
                   <TeamLogo team={{ abbreviation: r.abbr, name: r.team, logoUrl: r.logoUrl }} size={24} />
                   <div className="standing-team-names">
@@ -99,7 +99,7 @@ function GroupTable({ label, rows, qualifyTop }) {
                   <small className="standings-substat">{r.gameDiff > 0 ? `+${r.gameDiff}` : r.gameDiff}</small>
                 </td>
                 <td>{r.singlesWins}</td>
-                <td><span className="record-pill">{r.wins}–{r.losses}</span></td>
+                <td><span className="record-pill">{r.wins}-{r.losses}</span></td>
               </tr>
             ))}
           </tbody>

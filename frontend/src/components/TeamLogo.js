@@ -9,49 +9,44 @@ import { getTeamLogoUrl } from '../utils/teamLogos';
  *   abbreviation – shortcut when no team object
  *   name       – display name for alt text
  *   size       – diameter in px (default 48)
- *   style      – extra inline styles on the img/div
+ *   style      – extra inline styles on the outer logo shell
+ *   className  – extra class names on the outer logo shell
  */
-export default function TeamLogo({ team, abbreviation, name, size = 48, style = {} }) {
+export default function TeamLogo({ team, abbreviation, name, size = 48, style = {}, className = '' }) {
   const abbr = team?.abbreviation || abbreviation || '';
   const displayName = team?.name || name || abbr || '?';
   const [imgError, setImgError] = useState(false);
 
   const url = (!imgError && (team?.logoUrl || getTeamLogoUrl(abbr))) || null;
+  const pixelSize = typeof size === 'number' ? size : 48;
+  const initials = (abbr || displayName[0] || '?').slice(0, 5);
 
-  const base = {
-    width: size,
-    height: size,
-    borderRadius: '50%',
-    flexShrink: 0,
+  const shellStyle = {
+    '--team-logo-size': `${pixelSize}px`,
+    width: pixelSize,
+    height: pixelSize,
     ...style,
   };
 
-  if (url) {
-    return (
-      <img
-        src={url}
-        alt={displayName}
-        width={size}
-        height={size}
-        style={{ ...base, objectFit: 'contain', background: 'rgba(0,0,0,0.2)' }}
-        onError={() => setImgError(true)}
-      />
-    );
-  }
-
   return (
-    <div style={{
-      ...base,
-      background: 'rgba(255,255,255,0.15)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontWeight: 900,
-      fontSize: Math.round(size * 0.34),
-      color: '#fff',
-      letterSpacing: '-1px',
-    }}>
-      {abbr || displayName[0]}
-    </div>
+    <span
+      className={`team-logo ${url ? 'has-image' : 'fallback'} ${className}`.trim()}
+      style={shellStyle}
+      title={displayName}
+      aria-label={displayName}
+      role="img"
+    >
+      {url ? (
+        <img
+          src={url}
+          alt=""
+          width={pixelSize}
+          height={pixelSize}
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <span className="team-logo-initials" aria-hidden="true">{initials}</span>
+      )}
+    </span>
   );
 }

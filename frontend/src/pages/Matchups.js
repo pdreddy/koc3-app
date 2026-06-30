@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { resolveMatchTeams } from '../utils/matchTeams';
+import { resolveMatchTeams, lineWinnerSide } from '../utils/matchTeams';
 import { isApprovedMatch } from '../utils/matchStatus';
 
 // Compute player statistics from matches
@@ -28,7 +28,8 @@ function computeStats(matches, teams) {
       const t2 = line.players?.team2 || [];
       const g1 = line.g1 || 0;
       const g2 = line.g2 || 0;
-      const t1won = g1 > g2;
+      const winnerSide = lineWinnerSide(line, match);
+      const t1won = winnerSide ? winnerSide === 1 : g1 > g2;
 
       [...t1, ...t2].forEach(p => {
         if (!players[p]) {
