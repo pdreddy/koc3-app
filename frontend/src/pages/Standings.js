@@ -63,7 +63,7 @@ function GroupTable({ label, rows, qualifyTop }) {
       <div className="standings-card-head">
         <div>
           <span className="standings-kicker">Group {label}</span>
-          <h2>{leader?.team || `Group ${label}`} <span className="muted">· {rows.length} teams</span></h2>
+          <h2>{leader?.abbr || `Group ${label}`} <span className="muted">· {rows.length} teams</span></h2>
         </div>
         <span className="standings-qualifier">Top {qualifyTop} qualify</span>
       </div>
