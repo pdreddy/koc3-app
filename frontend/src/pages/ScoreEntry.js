@@ -1001,6 +1001,19 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
     setCourts(cs => cs.map((c, i) => i === idx ? { ...c, ...patch } : c));
   };
 
+  // Determine if save should be blocked for captain (lines not submitted, or score already saved for RR match)
+  const scoreBlocked = useMemo(() => {
+    if (session.role !== ROLES.CAPTAIN) return false;
+    const schedId = loadedLineupFixture?.item?.id || targetScheduleId;
+    if (!schedId) return false;
+    const mySubmission = lineupSubmissions?.[schedId]?.[session.teamId];
+    if (!mySubmission?.lockedAt) return true;
+    const fixture = schedule?.[schedId];
+    const isPlayoff = fixture?.matchType === 'playoff' || !fixture?.group;
+    if (!isPlayoff && mySubmission?.scoreSavedAt) return true;
+    return false;
+  }, [session, loadedLineupFixture, targetScheduleId, lineupSubmissions, schedule]);
+
   const totals = useMemo(() => {
     let totalG1 = 0, totalG2 = 0, totalS1 = 0, totalS2 = 0, w1 = 0, w2 = 0;
     courts.forEach(c => {
@@ -1301,7 +1314,7 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
             className="btn success full"
             style={{ marginTop: '.8rem' }}
             onClick={handleSubmit}
-            disabled={saving}
+            disabled={saving || scoreBlocked}
             data-testid="submit-score-btn"
           >
             {saving ? 'Saving...' : 'Preview & Confirm Save'}
