@@ -2653,19 +2653,25 @@ button, .btn, a, select, input, textarea {
 }
 * { -webkit-overflow-scrolling: touch; }
 
-/* ── Navigation progress bar — bright and visible ── */
+/* ── Navigation progress bar — centered on screen ── */
 .nav-progress {
   position: fixed !important;
-  top: 0 !important; left: 0 !important; right: 0 !important;
-  height: 3px !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  width: 220px !important;
+  height: 6px !important;
+  border-radius: 999px !important;
   z-index: 9999 !important;
   pointer-events: none !important;
-  background: rgba(37,99,235,0.12) !important;
+  background: rgba(37,99,235,0.15) !important;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.10) !important;
+  right: unset !important;
 }
 .nav-progress-bar {
   height: 100% !important;
+  border-radius: 999px !important;
   background: linear-gradient(90deg, #2563eb, #38bdf8, #f59e0b) !important;
-  box-shadow: 0 0 10px rgba(37,99,235,0.70) !important;
-  border-radius: 0 3px 3px 0 !important;
+  box-shadow: 0 0 12px rgba(37,99,235,0.65) !important;
 }
 .nav-progress-ball { display: none !important; }
