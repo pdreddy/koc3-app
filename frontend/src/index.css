@@ -5,33 +5,48 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  /* ── Core palette ── */
-  --bg1: #1d6ef7;           /* vivid primary blue */
-  --bg2: #1558d6;           /* deeper blue */
+  /* ── Core brand palette ── */
+  --bg1: #2563eb;           /* primary blue */
+  --bg2: #1d4ed8;           /* deep blue */
   --bg3: #f59e0b;           /* gold accent */
 
-  --ink:    #111827;        /* near-black — main text */
-  --ink2:   #374151;        /* secondary text */
-  --muted:  #6b7280;        /* muted text — darker than before */
-  --muted2: #9ca3af;        /* very muted */
-  --card:   #ffffff;
-  --page-bg:#f0f3f8;        /* off-white page background so cards pop */
-  --surface: #f8fafc;
-  --ring:   rgba(29,110,247,0.18);
-  --border: #e5e9f0;        /* visible card border */
-  --accent: #38bdf8;
+  /* ── Alias — kept so existing Rules/Teams CSS doesn't break ── */
+  --primary-blue:       #2563eb;
+  --primary-blue-dark:  #1e40af;
+  --text-dark:          #111827;
+  --border-light:       rgba(59,130,246,0.14);
+  --light-blue-bg:      #eff6ff;
+  --white:              #ffffff;
+  --accent:             #38bdf8;
 
+  /* ── Typography ── */
+  --ink:    #111827;        /* near-black main text */
+  --ink2:   #374151;        /* secondary text */
+  --muted:  #6b7280;        /* muted — readable on white */
+  --muted2: #9ca3af;
+  --card:   #ffffff;
+
+  /* ── Layout ── */
+  --page-bg: #f0f4fb;       /* off-white so white cards pop */
+  --surface:  #f8fafc;
+  --ring:    rgba(37,99,235,0.16);
+  --border:  #dde3ee;       /* visible card border */
+
+  /* ── Semantic ── */
   --success: #16a34a;
   --danger:  #dc2626;
   --warn:    #d97706;
-
-  --gold:      #f59e0b;
+  --gold:    #f59e0b;
   --gold-dark: #d97706;
 
-  --shadow-card: 0 1px 4px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.06);
-  --shadow-lift: 0 4px 20px rgba(0,0,0,0.12), 0 1px 6px rgba(0,0,0,0.07);
-  --glow-blue:   0 0 0 3px rgba(29,110,247,0.20);
+  /* ── Shadows ── */
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.05);
+  --shadow-lift: 0 6px 24px rgba(0,0,0,0.11), 0 1px 4px rgba(0,0,0,0.06);
+  --glow-blue:   0 0 0 3px rgba(37,99,235,0.20);
   --glow-gold:   0 0 0 3px rgba(245,158,11,0.22);
+
+  /* ── Extended (kept for backwards compat) ── */
+  --navy: #1e3a5f; --navy-mid: #1e3a5f; --navy-card: #1e3a5f;
 }
 
 html, body, #root { min-height: 100vh; min-height: 100dvh; overflow-x: hidden; }
@@ -2654,25 +2669,209 @@ button, .btn, a, select, input, textarea {
 }
 * { -webkit-overflow-scrolling: touch; }
 
-/* ── Navigation progress bar — centered on screen ── */
+/* ── Navigation progress bar — top of screen (industry standard) ── */
 .nav-progress {
   position: fixed !important;
-  top: 50% !important;
-  left: 50% !important;
-  transform: translate(-50%, -50%) !important;
-  width: 200px !important;
-  height: 5px !important;
-  border-radius: 999px !important;
+  top: 0 !important; left: 0 !important; right: 0 !important;
+  height: 3px !important;
   z-index: 9999 !important;
   pointer-events: none !important;
-  background: var(--border) !important;
-  box-shadow: 0 2px 20px rgba(0,0,0,0.12) !important;
-  right: unset !important;
+  background: transparent !important;
+  transform: none !important; width: auto !important;
 }
 .nav-progress-bar {
   height: 100% !important;
-  border-radius: 999px !important;
-  background: linear-gradient(90deg, var(--bg1), #38bdf8, var(--gold)) !important;
-  box-shadow: 0 0 10px rgba(29,110,247,0.55) !important;
+  background: linear-gradient(90deg, var(--bg1) 0%, #38bdf8 50%, var(--gold) 100%) !important;
+  box-shadow: 0 0 8px rgba(37,99,235,0.60) !important;
+  border-radius: 0 !important;
 }
 .nav-progress-ball { display: none !important; }
+
+/* ================================================================
+   PREMIUM POLISH LAYER — safe overrides, no functionality changes
+   ================================================================ */
+
+/* ── Body / shell ── */
+html, body { background: var(--page-bg) !important; color: var(--ink) !important; }
+#root, .app-shell { background: var(--page-bg) !important; }
+
+/* ── Header ── */
+.app-header {
+  background: #fff !important;
+  border-bottom: 1px solid var(--border) !important;
+  box-shadow: 0 1px 8px rgba(0,0,0,0.06) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.app-header .brand strong {
+  background: linear-gradient(135deg, var(--bg1) 0%, #1e40af 100%) !important;
+  -webkit-background-clip: text !important; background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  font-size: 1rem !important; font-weight: 900 !important;
+}
+.app-header .brand span.logo {
+  background: linear-gradient(135deg, var(--bg1), var(--bg2)) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 2px 8px rgba(37,99,235,0.30) !important;
+}
+.app-header .user-pill {
+  background: linear-gradient(135deg, var(--bg1), var(--bg2)) !important;
+  color: #fff !important; font-weight: 700 !important;
+}
+
+/* ── Page title ── */
+.page-title {
+  background: #fff !important;
+  border: 1px solid var(--border) !important;
+  border-left: 4px solid var(--bg3) !important;
+  border-radius: 14px !important;
+  box-shadow: var(--shadow-card) !important;
+  padding: 1rem 1.2rem !important;
+  margin-bottom: 1rem !important;
+}
+.page-title h1 { color: var(--ink) !important; font-weight: 800 !important; font-size: clamp(1.2rem, 4vw, 1.8rem) !important; }
+.page-title p   { color: var(--muted) !important; font-size: 0.87rem !important; margin-top: 0.2rem !important; }
+
+/* ── Cards ── */
+.card {
+  background: #fff !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 14px !important;
+  box-shadow: var(--shadow-card) !important;
+}
+.card:hover { box-shadow: var(--shadow-lift) !important; }
+.card h2 { color: var(--ink) !important; font-weight: 700 !important; }
+
+/* ── Home navigation grid cards ── */
+.home-nav-card.rl-item, .rl-item.home-nav-card {
+  background: #fff !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 14px !important;
+  padding: 1rem 1.1rem !important;
+  box-shadow: var(--shadow-card) !important;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease !important;
+  border-top: none !important;
+  text-decoration: none !important;
+}
+.home-nav-card.rl-item:hover, .rl-item.home-nav-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: var(--shadow-lift) !important;
+  border-color: rgba(37,99,235,0.35) !important;
+}
+.home-nav-card .rl-ic { font-size: 1.6rem !important; }
+.home-nav-card .rl-lbl { font-size: 0.97rem !important; font-weight: 800 !important; color: var(--ink) !important; }
+.home-nav-card .rl-val { font-size: 0.82rem !important; color: var(--muted) !important; margin-top: 0.15rem !important; }
+
+/* ── Teams — player rows ── */
+.team-card { border-radius: 16px !important; overflow: hidden !important; border: 1px solid var(--border) !important; box-shadow: var(--shadow-card) !important; }
+.team-header { padding: 1rem 1.1rem !important; }
+.team-header h2 { font-size: 1rem !important; font-weight: 900 !important; letter-spacing: -0.01em !important; }
+.team-body { padding: 0.5rem 0.6rem !important; }
+.player-row { padding: 0.55rem 0.65rem !important; border-bottom: 1px solid #f1f5f9 !important; }
+.player-row:last-child { border-bottom: none !important; }
+.player-row.captain { background: #fef9ee !important; border-radius: 8px !important; border-bottom: none !important; margin-bottom: 2px !important; }
+.player-name { font-weight: 500 !important; color: var(--ink) !important; }
+.player-badge { background: var(--bg1) !important; width: 26px !important; height: 26px !important; border-radius: 50% !important; font-size: 0.78rem !important; }
+.player-utr { background: #eff6ff !important; color: var(--bg1) !important; border-radius: 999px !important; font-size: 0.72rem !important; font-weight: 700 !important; padding: 0.12rem 0.5rem !important; }
+
+/* ── Rules page ── */
+.rules-page-shell .page-title { border-left-width: 6px !important; border-left-color: var(--bg1) !important; }
+.rules-page-shell .page-title h1 { color: var(--ink) !important; }
+.rl-sec-head h2 { color: var(--bg1) !important; }
+.rl-card { background: #fff !important; border-color: var(--border) !important; box-shadow: var(--shadow-card) !important; border-radius: 16px !important; }
+.rl-card::before { background: linear-gradient(180deg, var(--bg1), var(--accent)) !important; }
+.rl-card h3 { color: var(--ink) !important; }
+.rl-num { color: var(--bg1) !important; }
+.rl-chip { background: #eff6ff !important; border-color: rgba(37,99,235,0.18) !important; }
+.rl-lbl { color: var(--ink) !important; font-weight: 700 !important; }
+.rl-val { color: var(--muted) !important; }
+.rl-item { border-top-color: var(--border) !important; }
+.rl-step { background: #fff !important; border-color: var(--border) !important; box-shadow: var(--shadow-card) !important; border-radius: 14px !important; }
+.rl-step b { background: var(--bg1) !important; }
+.rl-step strong { color: var(--ink) !important; }
+.rl-playoffs { background: #fff !important; border-color: var(--border) !important; box-shadow: var(--shadow-card) !important; border-radius: 16px !important; }
+.rl-playoffs::before { background: linear-gradient(180deg, var(--gold), var(--bg1)) !important; }
+.rl-flag { border-radius: 10px !important; }
+.rl-flag.warn { background: #fffbeb !important; border-color: #fcd34d !important; color: #92400e !important; }
+.rl-flag.ok   { background: #f0fdf4 !important; border-color: #86efac !important; color: #15803d !important; border: 1px solid #86efac !important; }
+.rl-sub { color: var(--bg1) !important; }
+.rl-sec-head .ln { background: linear-gradient(90deg, var(--border), transparent) !important; }
+
+/* ── Tables ── */
+.table-wrap { border-radius: 14px !important; overflow: hidden !important; border: 1px solid var(--border) !important; }
+table.std thead th { background: var(--bg1) !important; color: #fff !important; font-size: 0.74rem !important; font-weight: 700 !important; letter-spacing: 0.05em !important; }
+table.std tbody td { color: var(--ink) !important; border-bottom-color: var(--border) !important; }
+table.std tbody tr:hover { background: #f0f6ff !important; }
+table.std .rank { color: var(--bg1) !important; font-weight: 900 !important; }
+table.std tr.q { background: linear-gradient(90deg, #dcfce7, transparent) !important; }
+
+/* ── Bottom nav ── */
+.bottom-nav { background: #fff !important; border-top: 1.5px solid var(--border) !important; box-shadow: 0 -4px 20px rgba(0,0,0,0.07) !important; }
+.bottom-nav a { color: var(--muted2) !important; font-weight: 600 !important; }
+.bottom-nav a.active { color: var(--bg1) !important; font-weight: 700 !important; }
+.bottom-nav a.active::before { background: var(--bg1) !important; }
+.bottom-nav a .ico { font-size: 1.3rem !important; }
+
+/* ── Score/status tags ── */
+.tag        { background: #e0e7ff !important; color: #3730a3 !important; border-radius: 999px !important; font-weight: 700 !important; }
+.tag.win    { background: #dcfce7 !important; color: #15803d !important; }
+.tag.lose   { background: #fee2e2 !important; color: #b91c1c !important; }
+.tag.tie    { background: #fef3c7 !important; color: #92400e !important; }
+
+/* ── Lineup status chips ── */
+.lineup-status { border-radius: 999px !important; font-weight: 700 !important; }
+.lineup-status.not-submitted { background: #dcfce7 !important; color: #15803d !important; }
+.lineup-status.submitted     { background: #fef3c7 !important; color: #92400e !important; }
+.lineup-status.waiting       { background: #dbeafe !important; color: #1d4ed8 !important; }
+.lineup-status.your-turn     { background: #ffedd5 !important; color: #9a3412 !important; }
+.lineup-status.revealed      { background: #ede9fe !important; color: #5b21b6 !important; }
+.lineup-status.completed     { background: #f1f5f9 !important; color: #475569 !important; }
+
+/* ── Inputs / selects ── */
+input:not([type=checkbox]):not([type=radio]), textarea, select {
+  background: #fff !important; border: 1.5px solid var(--border) !important;
+  color: var(--ink) !important; border-radius: 10px !important;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--bg1) !important;
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.15) !important;
+  outline: none !important;
+}
+input::placeholder, textarea::placeholder { color: var(--muted2) !important; }
+
+/* ── Buttons ── */
+.btn { border-radius: 10px !important; font-weight: 700 !important; }
+.btn.ghost { background: #fff !important; color: var(--ink) !important; border: 1.5px solid var(--border) !important; box-shadow: none !important; }
+.btn.ghost:hover { border-color: var(--bg1) !important; color: var(--bg1) !important; }
+
+/* ── Match history cards ── */
+.match-hist { background: #fff !important; border: 1px solid var(--border) !important; border-radius: 12px !important; box-shadow: var(--shadow-card) !important; }
+.match-hist .teams { color: var(--ink) !important; }
+.match-hist .meta small { color: var(--muted) !important; }
+
+/* ── Error / info boxes ── */
+.error-box   { background: #fff1f2 !important; border-color: #fca5a5 !important; color: #b91c1c !important; }
+.success-box { background: #f0fdf4 !important; border-color: #86efac !important; color: #15803d !important; }
+.warn-box    { background: #fffbeb !important; border-color: #fcd34d !important; color: #92400e !important; }
+
+/* ── Tabs ── */
+.tabs .tab { background: #f8fafc !important; border-radius: 10px !important; color: var(--muted) !important; border: 1px solid var(--border) !important; }
+.tabs .tab.active { background: #fff !important; color: var(--bg1) !important; border-color: var(--bg1) !important; font-weight: 800 !important; }
+
+/* ── Standings group label ── */
+.standings-group-label { color: var(--muted) !important; }
+
+/* ── Schedule cards ── */
+.sched-card, .schedule-slot-card { background: #fff !important; border: 1px solid var(--border) !important; border-radius: 14px !important; }
+
+/* ── Login card ── */
+.login-card { background: #fff !important; border: 1px solid var(--border) !important; border-radius: 18px !important; box-shadow: var(--shadow-lift) !important; }
+
+/* ── Page spinner ── */
+.page-spinner { background: var(--page-bg) !important; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #c4c9d8; }
