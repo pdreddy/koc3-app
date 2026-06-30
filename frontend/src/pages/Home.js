@@ -554,6 +554,118 @@ function ScheduleMiniList({ title, description, fixtures, teams, emptyText, test
   );
 }
 
+const LINE_LABELS = { S1: 'Singles', D1: 'Doubles 1', D2: 'Doubles 2', S2: 'Rev Singles', RD1: 'Rev Doubles 1', RD2: 'Rev Doubles 2' };
+
+function CompletedMatchDetails({ match, captainTeamId, teams }) {
+  if (!match?.lines?.length) return <p className="muted" style={{ fontSize: '.85rem', margin: '.5rem 0 0' }}>No match line details available.</p>;
+
+  const { team1, team2 } = resolveMatchTeams(match, teams);
+  const t1Id = match.t1Id || (team1?.id);
+  const isCaptainT1 = t1Id === captainTeamId;
+
+  let mySets = 0, oppSets = 0, myGames = 0, oppGames = 0;
+  const lines = match.lines.map((line, idx) => {
+    const g1 = Number(line.g1 || 0), g2 = Number(line.g2 || 0);
+    const t1WonLine = g1 > g2;
+    const myPlayers = (isCaptainT1 ? line.players?.team1 : line.players?.team2) || [];
+    const oppPlayers = (isCaptainT1 ? line.players?.team2 : line.players?.team1) || [];
+    const myGamesLine = isCaptainT1 ? g1 : g2;
+    const oppGamesLine = isCaptainT1 ? g2 : g1;
+    const iWon = myGamesLine > oppGamesLine;
+    if (iWon) mySets++; else oppSets++;
+    myGames += myGamesLine; oppGames += oppGamesLine;
+    const label = line.label || LINE_LABELS[line.code] || line.type || `Line ${idx + 1}`;
+    return { label, myPlayers, oppPlayers, myGames: myGamesLine, oppGames: oppGamesLine, iWon };
+  });
+
+  const myTeamName = isCaptainT1 ? (team1?.name || 'Your Team') : (team2?.name || 'Your Team');
+  const oppTeamName = isCaptainT1 ? (team2?.name || 'Opponent') : (team1?.name || 'Opponent');
+  const weWon = mySets > oppSets;
+
+  return (
+    <div style={{ marginTop: '.75rem', borderTop: '1px solid #e2e8f0', paddingTop: '.75rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem', marginBottom: '.6rem', flexWrap: 'wrap' }}>
+        <span className={`tag ${weWon ? 'win' : 'lose'}`} style={{ fontSize: '.8rem' }}>{weWon ? 'WIN' : 'LOSS'}</span>
+        <strong style={{ fontSize: '.95rem' }}>{myTeamName} {mySets}–{oppSets} {oppTeamName}</strong>
+        <span className="muted" style={{ fontSize: '.8rem' }}>Games: {myGames}–{oppGames}</span>
+      </div>
+      <div style={{ display: 'grid', gap: '.35rem' }}>
+        {lines.map((line, idx) => (
+          <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '.5rem', padding: '.4rem .5rem', borderRadius: 7, background: line.iWon ? '#f0fdf4' : '#fef2f2', border: `1px solid ${line.iWon ? '#bbf7d0' : '#fecaca'}` }}>
+            <span style={{ fontSize: '.7rem', fontWeight: 700, color: line.iWon ? '#15803d' : '#dc2626', minWidth: 28, paddingTop: '.1rem' }}>{line.iWon ? '✓' : '✗'}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '.75rem', color: '#64748b', fontWeight: 600, marginBottom: '.15rem' }}>{line.label}</div>
+              <div style={{ fontSize: '.82rem' }}>
+                <span style={{ color: '#1e293b' }}>{line.myPlayers.join(' & ') || '—'}</span>
+                <span style={{ color: '#94a3b8', margin: '0 .3rem' }}>vs</span>
+                <span style={{ color: '#475569' }}>{line.oppPlayers.join(' & ') || '—'}</span>
+              </div>
+            </div>
+            <span style={{ fontSize: '.82rem', fontWeight: 700, color: '#374151', whiteSpace: 'nowrap' }}>{line.myGames}–{line.oppGames}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CompletedMatchList({ title, description, fixtures, teams, matches, captainTeamId, emptyText, testid }) {
+  const [expanded, setExpanded] = useState({});
+  const toggle = id => setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
+
+  const findMatch = fixture => {
+    if (!matches?.length) return null;
+    return matches.find(m => {
+      const { team1, team2 } = resolveMatchTeams(m, teams);
+      const ids = [team1?.id, team2?.id, m.t1Id, m.t2Id].filter(Boolean);
+      return ids.includes(fixture.team1Id) && ids.includes(fixture.team2Id);
+    }) || null;
+  };
+
+  return (
+    <section className="card" style={{ marginTop: '1rem' }} data-testid={testid}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '.75rem', alignItems: 'flex-start', marginBottom: '.75rem' }}>
+        <div>
+          <h2 style={{ margin: 0 }}>{title}</h2>
+          {description && <p className="hint" style={{ margin: '.25rem 0 0' }}>{description}</p>}
+        </div>
+        <Link className="btn small ghost" to="/schedule">Full schedule</Link>
+      </div>
+      {fixtures.length === 0 ? <div className="muted center">{emptyText}</div> : (
+        <div style={{ display: 'grid', gap: '.6rem' }}>
+          {fixtures.map(item => {
+            const { team1, team2 } = fixtureTeams(item, teams);
+            const isOpen = !!expanded[item.id];
+            const match = findMatch(item);
+            return (
+              <div key={item.id} data-testid={`home-completed-${item.id}`} style={{ border: '1.5px solid #d1fae5', borderRadius: 10, background: '#f0fdf4', overflow: 'hidden' }}>
+                <button
+                  type="button"
+                  onClick={() => toggle(item.id)}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '.6rem', padding: '.6rem .75rem', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                >
+                  <span style={{ fontSize: '.85rem', color: '#6b7280', flexShrink: 0 }}>{isOpen ? '▼' : '▶'}</span>
+                  <span style={{ fontSize: '.75rem', flexShrink: 0 }}>✅</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '.8rem', color: '#6b7280', fontWeight: 600 }}>Round {item.round || '—'} · {formatDate(item.date)}</div>
+                    <div style={{ fontSize: '.88rem', fontWeight: 700, color: '#1e293b' }}>{team1?.name || 'TBD'} <span style={{ fontWeight: 400, color: '#6b7280' }}>vs</span> {team2?.name || 'TBD'}</div>
+                  </div>
+                  <span className="tag win" style={{ fontSize: '.7rem', flexShrink: 0 }}>Completed</span>
+                </button>
+                {isOpen && (
+                  <div style={{ padding: '0 .75rem .75rem' }}>
+                    <CompletedMatchDetails match={match} captainTeamId={captainTeamId} teams={teams} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
 const PUBLIC_HOME_LINKS = [
   { to: '/teams', icon: '👥', title: 'Teams', desc: 'Rosters, captains, and team groups.' },
   { to: '/schedule', icon: '📅', title: 'Schedule', desc: 'Round fixtures, lineups, and scores when public.' },
@@ -605,9 +717,7 @@ function CaptainScheduleList({ fixtures, completedFixtures, teams, captainTeam, 
           })}
         </div>
       )}
-      <div style={{ marginTop: '1rem' }}>
-        <ScheduleMiniList title="Completed Matches" description="Completed fixtures for your team." fixtures={completedFixtures} teams={teams} emptyText="No completed fixtures yet." testid="captain-completed-schedule-card" showStatus />
-      </div>
+      <CompletedMatchList title="Completed Matches" description="Tap a match to see line-by-line results." fixtures={completedFixtures} teams={teams} matches={matches} captainTeamId={captainTeam?.id} emptyText="No completed fixtures yet." testid="captain-completed-schedule-card" />
     </section>
   );
 }
