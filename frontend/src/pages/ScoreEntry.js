@@ -11,6 +11,7 @@ import { resolveMatchTeams } from '../utils/matchTeams';
 import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from '../utils/eligibilityRules';
 import { parseQuickScore } from '../utils/quickScoreParser';
 import { regularSetWinner, validateLineScore } from '../utils/tennisScoreRules';
+import TeamLogo from '../components/TeamLogo';
 
 // Quick Paste is kept as a legacy/migration parser path only; Score Entry mounts the form workflow by default.
 const QUICK_PASTE_ENABLED = false;
@@ -1359,7 +1360,11 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
         <div className="card">
           <h2>📊 Summary</h2>
           <div data-testid="score-summary">
-            <div><strong>{team1.abbreviation}</strong> {totals.totalG1} - {totals.totalG2} <strong>{team2.abbreviation}</strong></div>
+            <div className="score-summary-teams">
+              <span className="team-logo-line"><TeamLogo team={team1} size={32} /><strong>{team1.abbreviation}</strong></span>
+              <span>{totals.totalG1} - {totals.totalG2}</span>
+              <span className="team-logo-line"><TeamLogo team={team2} size={32} /><strong>{team2.abbreviation}</strong></span>
+            </div>
             <div className="muted">Sets: {totals.totalS1}-{totals.totalS2} · Courts won: {totals.w1}-{totals.w2}</div>
             <div style={{ marginTop: '.5rem' }}>
               {totals.w1 > totals.w2 && <span className="tag win" data-testid="winner-tag">{team1.name} leading</span>}

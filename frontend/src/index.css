@@ -3533,3 +3533,89 @@ table.std { min-width: 420px !important; }
     width: 60px;
   }
 }
+
+/* ── Shared team logo system ── */
+.team-logo {
+  align-items: center;
+  background: radial-gradient(circle at 35% 20%, rgba(255,255,255,0.98), rgba(226,232,240,0.95));
+  border: 2px solid rgba(255,255,255,0.92);
+  border-radius: 50%;
+  box-shadow: 0 10px 24px rgba(15,23,42,0.18), inset 0 0 0 1px rgba(15,23,42,0.08);
+  display: inline-flex;
+  flex-shrink: 0;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  vertical-align: middle;
+}
+
+.team-logo::after {
+  background: linear-gradient(135deg, rgba(255,255,255,0.55), rgba(255,255,255,0));
+  border-radius: inherit;
+  content: '';
+  inset: 3px 3px auto 3px;
+  height: 42%;
+  pointer-events: none;
+  position: absolute;
+}
+
+.team-logo img {
+  display: block;
+  height: 82%;
+  object-fit: contain;
+  position: relative;
+  width: 82%;
+  z-index: 1;
+}
+
+.team-logo.fallback {
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+}
+
+.team-logo-initials {
+  color: #fff;
+  font-size: calc(var(--team-logo-size, 48px) * 0.30);
+  font-weight: 950;
+  letter-spacing: -0.06em;
+  line-height: 1;
+  position: relative;
+  text-shadow: 0 2px 8px rgba(15,23,42,0.32);
+  z-index: 1;
+}
+
+.team-logo-line {
+  align-items: center;
+  display: flex;
+  gap: .5rem;
+  min-width: 0;
+}
+
+.team-logo-line-text {
+  display: grid;
+  gap: .05rem;
+  min-width: 0;
+}
+
+.team-logo-line-text strong,
+.team-logo-line-text span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.score-summary-teams {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem;
+  font-size: 1.1rem;
+  font-weight: 900;
+  margin-bottom: .25rem;
+}
+
+.score-summary-teams > span:nth-child(2) {
+  background: #0f172a;
+  border-radius: 999px;
+  color: #fff;
+  padding: .24rem .7rem;
+}

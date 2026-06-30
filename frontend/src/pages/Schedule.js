@@ -3,6 +3,7 @@ import { approvedMatches } from '../utils/matchStatus';
 import { matchTeamNames, matchWinnerId } from '../utils/matchTeams';
 import { useAuth } from '../contexts/AuthContext';
 import { ROLES, hasRole } from '../utils/roles';
+import TeamLogo from '../components/TeamLogo';
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -113,10 +114,16 @@ function MatchRow({ m, t1, t2, isCompleted, lineupReady, scoreReady, lineupOpen,
           <div>{weekdayShort(m.date)}</div>
           <div style={{ color: 'var(--ink)', fontSize: '.7rem', marginTop: 1 }}>{m.time}</div>
         </div>
-        <div style={{ flex: 1, fontSize: '.82rem', lineHeight: 1.3 }}>
-          <div style={{ fontWeight: 800 }}>{t1 ? `${t1.name}` : '?'} <span className="muted" style={{ fontWeight: 600, fontSize: '.72rem' }}>({t1?.abbreviation || '?'})</span></div>
-          <div className="muted" style={{ fontWeight: 800, fontSize: '.7rem', margin: '.05rem 0' }}>vs</div>
-          <div style={{ fontWeight: 800 }}>{t2 ? `${t2.name}` : '?'} <span className="muted" style={{ fontWeight: 600, fontSize: '.72rem' }}>({t2?.abbreviation || '?'})</span></div>
+        <div style={{ flex: 1, fontSize: '.82rem', lineHeight: 1.3, minWidth: 0 }}>
+          <div className="team-logo-line" style={{ fontWeight: 800 }}>
+            <TeamLogo team={t1} size={30} />
+            <span className="team-logo-line-text"><strong>{t1 ? `${t1.name}` : '?'}</strong><span className="muted" style={{ fontWeight: 600, fontSize: '.72rem' }}>{t1?.abbreviation || '?'}</span></span>
+          </div>
+          <div className="muted" style={{ fontWeight: 800, fontSize: '.7rem', margin: '.18rem 0 .18rem 2.4rem' }}>vs</div>
+          <div className="team-logo-line" style={{ fontWeight: 800 }}>
+            <TeamLogo team={t2} size={30} />
+            <span className="team-logo-line-text"><strong>{t2 ? `${t2.name}` : '?'}</strong><span className="muted" style={{ fontWeight: 600, fontSize: '.72rem' }}>{t2?.abbreviation || '?'}</span></span>
+          </div>
         </div>
         {isCompleted && <span className="tag win" style={{ fontSize: '.65rem' }}>✓</span>}
       </div>
