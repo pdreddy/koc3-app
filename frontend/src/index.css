@@ -3009,10 +3009,20 @@ input::placeholder, textarea::placeholder { color: var(--muted2) !important; }
 
 /* Header logo image */
 .header-logo-img {
-  width: 32px !important;
-  height: 38px !important;
+  width: 28px !important;
+  height: 34px !important;
   object-fit: contain !important;
   flex-shrink: 0 !important;
+  display: block !important;
+}
+
+/* Mobile header: hide logo image + subtitle to prevent overlap */
+@media (max-width: 640px) {
+  .header-logo-img { display: none !important; }
+  .brand-copy small { display: none !important; }
+  .app-header { padding: 0.6rem 0.75rem !important; }
+  .app-header .brand strong { font-size: 1rem !important; }
+  .top-nav a { padding: 0.4rem 0.6rem !important; font-size: 0.78rem !important; }
 }
 
 /* TOP NAV LINKS — high contrast on white header */
