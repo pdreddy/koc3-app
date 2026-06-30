@@ -3407,3 +3407,129 @@ table.std { min-width: 420px !important; }
   .captain-fixture-actions { width: 100% !important; display: grid !important; grid-template-columns: 1fr 1fr !important; gap: .4rem !important; }
   .captain-fixture-actions .btn { width: 100% !important; text-align: center !important; justify-content: center !important; }
 }
+
+/* ── Score entry: large tennis score boxes ── */
+.sets-entry-col {
+  min-width: min(100%, 300px);
+}
+
+.sets-entry-col > .field-label {
+  color: #0f172a;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.55rem;
+  text-transform: uppercase;
+}
+
+.court-card.classic .set-input,
+.set-input {
+  align-items: center;
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+  border: 1px solid rgba(37, 99, 235, 0.14);
+  border-radius: 18px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  display: grid;
+  gap: 0.45rem;
+  grid-template-columns: minmax(54px, 0.8fr) minmax(64px, 1fr) auto minmax(64px, 1fr);
+  margin-bottom: 0.65rem;
+  padding: 0.55rem;
+}
+
+.court-card.classic .set-input:focus-within,
+.set-input:focus-within {
+  border-color: rgba(37, 99, 235, 0.45);
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.14), 0 0 0 3px rgba(37, 99, 235, 0.10);
+}
+
+.court-card.classic .set-input .label,
+.set-input .label {
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1.1;
+  text-align: center;
+  width: auto;
+}
+
+.court-card.classic .set-input input,
+.set-input input {
+  appearance: textfield;
+  background: #0f172a;
+  border: 2px solid #1e293b;
+  border-radius: 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 8px 18px rgba(15, 23, 42, 0.18);
+  color: #ffffff;
+  font-size: 1.45rem;
+  font-weight: 900;
+  height: 72px;
+  min-height: 72px;
+  padding: 0;
+  text-align: center;
+  width: 72px;
+}
+
+.court-card.classic .set-input input::-webkit-outer-spin-button,
+.court-card.classic .set-input input::-webkit-inner-spin-button,
+.set-input input::-webkit-outer-spin-button,
+.set-input input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.court-card.classic .set-input input:focus,
+.set-input input:focus {
+  background: #1d4ed8;
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.22), 0 10px 20px rgba(29, 78, 216, 0.22);
+  outline: none;
+}
+
+.court-card.classic .set-input input:disabled,
+.set-input input:disabled {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+  box-shadow: none;
+  color: #64748b;
+}
+
+.court-card.classic .set-input > span:not(.label),
+.set-input > span:not(.label) {
+  color: #334155;
+  font-size: 1.25rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.court-card.classic .set-input > span[style],
+.set-input > span[style] {
+  background: #fef3c7;
+  border-radius: 999px;
+  color: #92400e !important;
+  font-size: 0.72rem !important;
+  font-weight: 900;
+  padding: 0.25rem 0.45rem;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .sets-entry-col {
+    justify-self: stretch;
+    min-width: 0;
+  }
+
+  .court-card.classic .set-input,
+  .set-input {
+    grid-template-columns: minmax(48px, 0.75fr) minmax(56px, 1fr) auto minmax(56px, 1fr);
+    padding: 0.5rem;
+  }
+
+  .court-card.classic .set-input input,
+  .set-input input {
+    border-radius: 14px;
+    font-size: 1.3rem;
+    height: 60px;
+    min-height: 60px;
+    width: 60px;
+  }
+}
