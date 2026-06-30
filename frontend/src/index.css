@@ -3235,3 +3235,105 @@ input::placeholder, textarea::placeholder { color: var(--muted2) !important; }
   /* Show mini logos above form on mobile */
   .lx-form-header { justify-content: flex-start; }
 }
+
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE FIX LAYER — cross-device / all-browser
+   Fixes: table min-width, quick-layout, home-nav grid,
+          standings cell, lineup-loader, login padding,
+          header overflow, bottom-nav labels
+   ══════════════════════════════════════════════════════════ */
+
+/* ── 1. Table min-width: lower so 320px–420px phones can scroll ── */
+table.std { min-width: 420px !important; }
+@media (max-width: 760px) {
+  table.std, .ptl-table { min-width: 420px !important; }
+  .standings-card table.std { min-width: 380px !important; }
+}
+
+/* ── 2. quick-layout sidebar: collapse to 1 col on phones ── */
+@media (max-width: 700px) {
+  .quick-layout { grid-template-columns: 1fr !important; }
+}
+
+/* ── 3. dashboard section head flex-basis: don't force 360px on small screens ── */
+@media (max-width: 600px) {
+  .dashboard-section-head > div:first-child,
+  .captain-fixture-main > div:first-child { flex: 1 1 0 !important; min-width: 0 !important; }
+}
+
+/* ── 4. Home nav grid: 2 columns even on 320px phones ── */
+/* (inline style on the grid div; override via a parent) */
+@media (max-width: 440px) {
+  [data-testid="public-home-navigation"] > div > div { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* ── 5. Standings team cell: shrink on phones ── */
+@media (max-width: 600px) {
+  .standing-team-cell { min-width: 80px !important; }
+  .standing-team-cell span { max-width: 80px !important; }
+}
+
+/* ── 6. Login form: reduce padding on very small phones ── */
+@media (max-width: 380px) {
+  .lx-form-wrap { padding: 1.4rem 1rem !important; }
+  .lx-form-panel { padding: 1rem 0.65rem !important; }
+  .lx-form-title { font-size: 1rem !important; }
+}
+
+/* ── 7. Header: prevent nav pill from overflowing on narrow screens ── */
+.app-header { overflow: hidden !important; }
+.top-nav { flex-shrink: 1 !important; min-width: 0 !important; overflow: hidden !important; }
+.header-actions { flex-shrink: 0 !important; display: flex !important; align-items: center !important; gap: 0.4rem !important; }
+.app-header .brand { flex-shrink: 0 !important; }
+@media (max-width: 640px) {
+  .top-nav { display: none !important; }
+}
+@media (min-width: 641px) and (max-width: 860px) {
+  .top-nav a { padding: 0.3rem 0.45rem !important; font-size: 0.72rem !important; }
+  .app-header .user-pill { display: none !important; }
+  .app-header .btn.small.ghost { font-size: 0.72rem !important; padding: 0.28rem 0.5rem !important; }
+}
+@media (min-width: 861px) and (max-width: 1100px) {
+  .top-nav a { padding: 0.38rem 0.65rem !important; font-size: 0.78rem !important; }
+  .app-header .user-pill { font-size: 0.7rem !important; padding: 0.28rem 0.6rem !important; }
+}
+
+/* ── 8. Bottom nav: prevent label clipping ── */
+.bottom-nav a span { font-size: 0.62rem !important; white-space: nowrap !important; overflow: visible !important; text-overflow: clip !important; }
+@media (max-width: 380px) {
+  .bottom-nav a span { display: none !important; }
+  .bottom-nav a .ico { font-size: 1.5rem !important; }
+  .bottom-nav a { min-height: 52px !important; }
+}
+
+/* ── 9. Card container: ensure no horizontal overflow anywhere ── */
+.container, main.container { overflow-x: hidden !important; }
+.card { overflow-x: visible !important; }
+
+/* ── 10. Tabs: wrap on small screens so they don't overflow ── */
+@media (max-width: 480px) {
+  .tabs { flex-wrap: wrap !important; gap: .3rem !important; }
+  .tabs .tab { flex: 1 1 auto !important; min-width: 70px !important; text-align: center !important; font-size: .72rem !important; padding: .45rem .5rem !important; }
+}
+
+/* ── 11. Lineup loader row: ensure single col on phones ── */
+@media (max-width: 600px) {
+  .lineup-loader-row { grid-template-columns: 1fr !important; }
+}
+
+/* ── 12. Rules grid / flow: single col on very small phones ── */
+@media (max-width: 380px) {
+  .rl-grid { grid-template-columns: 1fr !important; }
+  .rl-flow, .rl-flow-four { grid-template-columns: 1fr !important; }
+}
+
+/* ── 13. Score entry: single col on phones for clarity ── */
+@media (max-width: 480px) {
+  .score-entry-grid { grid-template-columns: 1fr !important; }
+  .sets-entry-col { grid-column: auto !important; }
+}
+
+/* ── 14. General: all flex rows wrap by default on tiny phones ── */
+@media (max-width: 360px) {
+  .row { flex-wrap: wrap !important; }
+}

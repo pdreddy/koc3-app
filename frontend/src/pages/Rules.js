@@ -5,8 +5,8 @@ const ruleCards = [
     num: '01', icon: '🏃', title: 'Player Participation (Round-Robin)',
     items: [
       ['👤', 'Regular Season', 'Each player must play a minimum of 3 matches and a maximum of 6 matches in the regular season.'],
-      ['🎾', 'Singles Cap', 'Each player can play a maximum of 2 singles matches.'],
-      ['🤝', 'Same Doubles Pair', 'The same doubles pair can partner together a maximum of 3 times — 3 match days or 6 matches.']
+      ['🎾', 'Singles Cap', 'Each player can play a maximum of 2 singles match days.'],
+      ['🤝', 'Same Doubles Pair', 'The same doubles pair can partner together a maximum of 3 match days.']
     ]
   },
   {
