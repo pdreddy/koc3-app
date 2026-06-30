@@ -135,6 +135,11 @@ function MatchRow({ m, t1, t2, isCompleted, lineupReady, scoreReady, lineupOpen,
   );
 }
 
+function todayIso() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export default function Schedule({ teams, schedule, matches = [], lineupSubmissions = {}, revealedLineups = {} }) {
   const { session } = useAuth();
   const showPublicDetails = true; // reveal lineups + view score available to all roles
@@ -142,6 +147,7 @@ export default function Schedule({ teams, schedule, matches = [], lineupSubmissi
   const [filterGroup, setFilterGroup] = useState('all');
   const [openLineups, setOpenLineups] = useState({});
   const [openScores, setOpenScores] = useState({});
+  const [collapsedRounds, setCollapsedRounds] = useState({});
 
   const scheduleItems = useMemo(() => Object.values(schedule || {}), [schedule]);
   const bufferItems = useMemo(() => scheduleItems.filter(item => item?.type === 'buffer'), [scheduleItems]);
@@ -277,50 +283,80 @@ export default function Schedule({ teams, schedule, matches = [], lineupSubmissi
         }).sort((a, b) => (a.group.localeCompare(b.group)) || a.time.localeCompare(b.time));
         if (visible.length === 0) return null;
 
-        return (
-          <div className="card" key={`${r.round}-${r.date}`} data-testid={`schedule-round-${r.round}`}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.55rem', paddingBottom: '.4rem', borderBottom: '2px solid var(--ring)' }}>
-              <span className="tag" style={{ background: 'linear-gradient(135deg,var(--bg1),var(--bg2))', color: '#fff', padding: '.25rem .6rem', fontSize: '.72rem' }}>Round {r.round}</span>
-              <span className="muted" style={{ fontWeight: 700, fontSize: '.82rem' }}>{formatDate(r.date)}</span>
-            </div>
+        const roundKey = `${r.round}-${r.date}`;
+        const isPast = r.date < todayIso();
+        // Default: past rounds collapsed, current/future open
+        const isCollapsed = roundKey in collapsedRounds ? collapsedRounds[roundKey] : isPast;
+        const toggleRound = () => setCollapsedRounds(prev => ({ ...prev, [roundKey]: !isCollapsed }));
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '.4rem' }}>
-              {visible.map(m => (
-                <div key={m.id}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', margin: '.1rem 0 .2rem' }}>
-                    <span className="tag" style={{
-                      fontSize: '.65rem',
-                      background: m.group === 'A' ? '#dbeafe' : '#fed7aa',
-                      color: m.group === 'A' ? '#1e3a8a' : '#9a3412'
-                    }}>Group {m.group}</span>
-                    {m.status === 'completed' && <span className="tag win" style={{ fontSize: '.65rem' }}>Played</span>}
-                    {m.status === 'cancelled' && <span className="tag lose" style={{ fontSize: '.65rem' }}>Cancelled</span>}
+        const completedCount = visible.filter(m => {
+          const details = fixtureDetailsById[m.id] || {};
+          return m.status === 'completed' || details.scoreReady;
+        }).length;
+
+        return (
+          <div className="card" key={roundKey} data-testid={`schedule-round-${r.round}`} style={{ padding: 0, overflow: 'hidden' }}>
+            {/* Collapsible header */}
+            <button
+              type="button"
+              onClick={toggleRound}
+              style={{
+                width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '.65rem .85rem', background: 'none', border: 'none', cursor: 'pointer',
+                borderBottom: isCollapsed ? 'none' : '2px solid var(--ring)',
+                textAlign: 'left', gap: '.5rem'
+              }}
+              aria-expanded={!isCollapsed}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
+                <span className="tag" style={{ background: 'linear-gradient(135deg,var(--bg1),var(--bg2))', color: '#fff', padding: '.25rem .6rem', fontSize: '.72rem' }}>Week {r.round}</span>
+                <span className="muted" style={{ fontWeight: 700, fontSize: '.82rem' }}>{formatDate(r.date)}</span>
+                {completedCount > 0 && (
+                  <span style={{ fontSize: '.68rem', color: '#10b981', fontWeight: 700 }}>✓ {completedCount}/{visible.length}</span>
+                )}
+              </div>
+              <span style={{ color: 'var(--muted)', fontSize: '.85rem', flexShrink: 0 }}>{isCollapsed ? '▶' : '▼'}</span>
+            </button>
+
+            {!isCollapsed && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '.4rem', padding: '.5rem .85rem .75rem' }}>
+                {visible.map(m => (
+                  <div key={m.id}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', margin: '.1rem 0 .2rem' }}>
+                      <span className="tag" style={{
+                        fontSize: '.65rem',
+                        background: m.group === 'A' ? '#dbeafe' : '#fed7aa',
+                        color: m.group === 'A' ? '#1e3a8a' : '#9a3412'
+                      }}>Group {m.group}</span>
+                      {m.status === 'completed' && <span className="tag win" style={{ fontSize: '.65rem' }}>Played</span>}
+                      {m.status === 'cancelled' && <span className="tag lose" style={{ fontSize: '.65rem' }}>Cancelled</span>}
+                    </div>
+                    {(() => {
+                      const details = fixtureDetailsById[m.id] || {};
+                      return (
+                        <MatchRow
+                          m={m}
+                          t1={teams[m.team1Id]}
+                          t2={teams[m.team2Id]}
+                          isCompleted={m.status === 'completed' || details.scoreReady}
+                          lineupReady={!!details.lineupReady}
+                          scoreReady={!!details.scoreReady}
+                          lineupOpen={!!openLineups[m.id]}
+                          scoreOpen={!!openScores[m.id]}
+                          onToggleLineup={() => setOpenLineups(prev => ({ ...prev, [m.id]: !prev[m.id] }))}
+                          onToggleScore={() => setOpenScores(prev => ({ ...prev, [m.id]: !prev[m.id] }))}
+                          submissions={details.submissions || {}}
+                          reveal={details.reveal}
+                          match={details.scoreMatch}
+                          teams={teams}
+                          showPublicDetails={showPublicDetails}
+                        />
+                      );
+                    })()}
                   </div>
-                  {(() => {
-                    const details = fixtureDetailsById[m.id] || {};
-                    return (
-                      <MatchRow
-                        m={m}
-                        t1={teams[m.team1Id]}
-                        t2={teams[m.team2Id]}
-                        isCompleted={m.status === 'completed' || details.scoreReady}
-                        lineupReady={!!details.lineupReady}
-                        scoreReady={!!details.scoreReady}
-                        lineupOpen={!!openLineups[m.id]}
-                        scoreOpen={!!openScores[m.id]}
-                        onToggleLineup={() => setOpenLineups(prev => ({ ...prev, [m.id]: !prev[m.id] }))}
-                        onToggleScore={() => setOpenScores(prev => ({ ...prev, [m.id]: !prev[m.id] }))}
-                        submissions={details.submissions || {}}
-                        reveal={details.reveal}
-                        match={details.scoreMatch}
-                        teams={teams}
-                        showPublicDetails={showPublicDetails}
-                      />
-                    );
-                  })()}
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         );
       })}
