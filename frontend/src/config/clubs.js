@@ -12,7 +12,9 @@ export const CLUBS = {
     status: 'active',
     branding: {
       logoUrl: '/logos/koc-logo.svg',
+      tagline: 'Tennis League',
       themeColor: '#2563eb',
+      documentTitle: 'KOC3 / PPRC Tennis',
     },
   },
 };

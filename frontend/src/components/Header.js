@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useClub } from '../contexts/ClubContext';
 import { ROLES, hasRole, canViewAudit } from '../utils/roles';
 import { samePath } from '../utils/navigation';
 import { writeAuditLog } from '../services/AuditService';
@@ -17,6 +18,7 @@ const PRIMARY_LINKS = [
 
 export default function AppHeader() {
   const { session, logout } = useAuth();
+  const { club } = useClub();
   const location = useLocation();
   const isHome = samePath(location.pathname, '/');
   const preventCurrentPageNavigation = (event, targetPath) => {
@@ -29,11 +31,11 @@ export default function AppHeader() {
   };
   return (
     <header className="app-header" data-testid="app-header">
-      <Link to="/" className="brand" data-testid="header-home" aria-label="KOC3 home" onClick={event => preventCurrentPageNavigation(event, '/')} aria-disabled={isHome ? 'true' : undefined}>
-        <img src="/logos/koc-logo.svg" alt="" className="header-logo-img" aria-hidden="true" />
+      <Link to="/" className="brand" data-testid="header-home" aria-label={`${club.shortName} home`} onClick={event => preventCurrentPageNavigation(event, '/')} aria-disabled={isHome ? 'true' : undefined}>
+        <img src={club.branding.logoUrl} alt="" className="header-logo-img" aria-hidden="true" />
         <span className="brand-copy">
-          <strong>KOC3</strong>
-          <small>Tennis League</small>
+          <strong>{club.shortName}</strong>
+          <small>{club.branding.tagline}</small>
         </span>
       </Link>
 
