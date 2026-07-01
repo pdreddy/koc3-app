@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { Invite, Player, Role, Team, TournamentPermission } from '@/types';
 import { normalizeEmail } from '@/types';
 import { writeAuditLog } from '@/services/auditService';
+import { downloadCsv } from '@/services/csvExport';
 
 const ASSIGNABLE_ROLES: Exclude<Role, 'SUPER_ADMIN' | 'GUEST' | 'PUBLIC' | 'TOURNAMENT_ADMIN'>[] = [
   'ORGANIZER', 'CAPTAIN', 'VICE_CAPTAIN', 'PLAYER',
@@ -134,9 +135,26 @@ function TeamRolesContent() {
   const upsertInvite = (invite: Invite) => setInvites((prev) => [...prev.filter((i) => i.id !== invite.id), invite]);
   const removeInvite = (id: string) => setInvites((prev) => prev.filter((i) => i.id !== id));
 
+  const handleExportRoster = () => {
+    const header = ['Team', 'Group', 'Player', 'Email', 'Phone', 'UTR', 'Captain', 'Vice Captain'];
+    const dataRows = teams.flatMap((team) =>
+      team.playerIds.map((pid) => {
+        const p = players[pid];
+        return [
+          team.name, team.group ?? '', p?.displayName ?? pid, p?.email ?? '', p?.phone ?? '',
+          p?.utrRating ?? '', p?.isCaptain ? 'Yes' : '', p?.isViceCaptain ? 'Yes' : '',
+        ];
+      })
+    );
+    downloadCsv(`${tournament.slug}-roster.csv`, [header, ...dataRows]);
+  };
+
   return (
     <Stack spacing={4}>
-      <Typography variant="h4">Team Roles</Typography>
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Typography variant="h4">Team Roles</Typography>
+        <Button size="small" variant="outlined" onClick={handleExportRoster}>Export Roster CSV</Button>
+      </Stack>
       <Alert severity="info">
         Inviting someone sends them no email yet — just registers the role for when they sign
         in (or sign up) with that exact email address, at <code>{window.location.origin}/admin/signup</code>.

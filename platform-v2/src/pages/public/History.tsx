@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import {
-  Accordion, AccordionDetails, AccordionSummary, Chip, Container, Stack, Table, TableBody,
-  TableCell, TableHead, TableRow, Typography,
+  Accordion, AccordionDetails, AccordionSummary, Button, Chip, Container, Stack, Table,
+  TableBody, TableCell, TableHead, TableRow, Typography,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { VisibilityGate } from '@/components/layout/VisibilityGate';
 import { useTournament } from '@/contexts/TournamentContext';
 import type { Match, Player, Team } from '@/types';
+import { downloadCsv } from '@/services/csvExport';
 
 function setScoreLabel(set: { team1: number; team2: number; tiebreak?: { team1: number; team2: number }; matchTiebreak?: { team1: number; team2: number } }): string {
   if (set.matchTiebreak) return `[${set.matchTiebreak.team1}-${set.matchTiebreak.team2}]`;
@@ -15,7 +16,7 @@ function setScoreLabel(set: { team1: number; team2: number; tiebreak?: { team1: 
 }
 
 function HistoryContent() {
-  const { repo, loading: tournamentLoading } = useTournament();
+  const { tournament, repo, loading: tournamentLoading } = useTournament();
   const [matches, setMatches] = useState<Match[]>([]);
   const [teams, setTeams] = useState<Record<string, Team>>({});
   const [players, setPlayers] = useState<Record<string, Player>>({});
@@ -38,8 +39,25 @@ function HistoryContent() {
   if (loading) return <Typography color="text.secondary">Loading history…</Typography>;
   if (matches.length === 0) return <Typography color="text.secondary">No completed matches yet.</Typography>;
 
+  const handleExport = () => {
+    const header = ['Date', 'Team 1', 'Team 2', 'Winner', 'Line', 'Team 1 Players', 'Team 2 Players', 'Sets'];
+    const dataRows = matches.flatMap((match) => {
+      const team1 = teams[match.team1Id];
+      const team2 = teams[match.team2Id];
+      const winner = teams[match.winnerTeamId ?? ''];
+      const date = match.playedAt ? new Date(match.playedAt).toLocaleDateString() : '';
+      return match.lines.map((line) => [
+        date, team1?.name ?? match.team1Id, team2?.name ?? match.team2Id, winner?.name ?? '',
+        line.label, line.team1PlayerIds.map(playerName).join(' / '), line.team2PlayerIds.map(playerName).join(' / '),
+        line.sets.map(setScoreLabel).join(', '),
+      ]);
+    });
+    downloadCsv(`${tournament?.slug ?? 'tournament'}-history.csv`, [header, ...dataRows]);
+  };
+
   return (
     <Stack spacing={1}>
+      <Button size="small" variant="outlined" sx={{ alignSelf: 'flex-start', mb: 1 }} onClick={handleExport}>Export CSV</Button>
       {matches.map((match) => {
         const team1 = teams[match.team1Id];
         const team2 = teams[match.team2Id];

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Container, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { Button, Container, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { VisibilityGate } from '@/components/layout/VisibilityGate';
 import { useTournament } from '@/contexts/TournamentContext';
 import type { Match, Team } from '@/types';
-import { computeStandings, groupStandings } from '@/services/standingsEngine';
+import { computeStandings, groupStandings, type StandingsRow } from '@/services/standingsEngine';
+import { downloadCsv } from '@/services/csvExport';
 
 function StandingsContent() {
   const { tournament, repo } = useTournament();
@@ -32,8 +33,19 @@ function StandingsContent() {
   const byGroup = groupStandings(rows);
   const qualifyTop = tournament.config.playoffs.enabled ? tournament.config.playoffs.qualifyPerGroup : 0;
 
+  const handleExport = () => {
+    const header = ['Group', 'Position', 'Team', 'Played', 'Wins', 'Losses', 'Points', 'Sets Won', 'Sets Lost', 'Games Won', 'Games Lost'];
+    const dataRows = Object.entries(byGroup).flatMap(([group, groupRows]: [string, StandingsRow[]]) =>
+      groupRows.map((row, idx) => [
+        group, idx + 1, row.team.name, row.played, row.wins, row.losses, row.points, row.setsWon, row.setsLost, row.gamesWon, row.gamesLost,
+      ])
+    );
+    downloadCsv(`${tournament.slug}-standings.csv`, [header, ...dataRows]);
+  };
+
   return (
     <Stack spacing={4}>
+      <Button size="small" variant="outlined" sx={{ alignSelf: 'flex-start' }} onClick={handleExport}>Export CSV</Button>
       {Object.entries(byGroup).map(([group, groupRows]) => (
         <Stack key={group} spacing={1.5}>
           <Typography variant="h6">Group {group}</Typography>
