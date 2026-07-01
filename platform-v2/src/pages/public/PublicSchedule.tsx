@@ -5,13 +5,15 @@ import { useTournament } from '@/contexts/TournamentContext';
 import type { ScheduleEntry, Team } from '@/types';
 
 function ScheduleContent() {
-  const { repo, loading: tournamentLoading } = useTournament();
+  const { tournament, repo } = useTournament();
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [teams, setTeams] = useState<Record<string, Team>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (tournamentLoading) return;
+    // Guard on `tournament` itself, not just the loading flag — see the note in
+    // pages/public/PublicTeams.tsx.
+    if (!tournament) return;
     let cancelled = false;
     Promise.all([repo<ScheduleEntry>('schedules').list(), repo<Team>('teams').list()]).then(([schedules, teamList]) => {
       if (cancelled) return;
@@ -20,7 +22,7 @@ function ScheduleContent() {
       setLoading(false);
     });
     return () => { cancelled = true; };
-  }, [repo, tournamentLoading]);
+  }, [tournament, repo]);
 
   if (loading) return <Typography color="text.secondary">Loading schedule…</Typography>;
   if (entries.length === 0) return <Typography color="text.secondary">No schedule published yet.</Typography>;

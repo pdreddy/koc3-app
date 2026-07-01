@@ -20,11 +20,15 @@ function GenerateTeamsContent() {
   const [result, setResult] = useState<string | null>(null);
 
   useEffect(() => {
+    // repo() throws until the tournament has finished loading (TournamentContext) — this
+    // effect fires on mount before that's guaranteed to be true, so it must wait rather
+    // than call repo() unconditionally.
+    if (!tournament) return;
     repo<Player>('players').list().then((p) => {
       setPlayers(p.filter((player) => !player.teamId));
       setLoading(false);
     });
-  }, [repo]);
+  }, [tournament, repo]);
 
   useEffect(() => {
     if (tournament) setTeamCount(tournament.config.structure.teamCount);

@@ -6,13 +6,15 @@ import type { Match, Team } from '@/types';
 import { computeStandings, groupStandings } from '@/services/standingsEngine';
 
 function StandingsContent() {
-  const { tournament, repo, loading: tournamentLoading } = useTournament();
+  const { tournament, repo } = useTournament();
   const [teams, setTeams] = useState<Team[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (tournamentLoading) return;
+    // Guard on `tournament` itself, not just the loading flag — see the note in
+    // pages/public/PublicTeams.tsx.
+    if (!tournament) return;
     let cancelled = false;
     Promise.all([repo<Team>('teams').list(), repo<Match>('matches').list()]).then(([t, m]) => {
       if (cancelled) return;
@@ -21,7 +23,7 @@ function StandingsContent() {
       setLoading(false);
     });
     return () => { cancelled = true; };
-  }, [repo, tournamentLoading]);
+  }, [tournament, repo]);
 
   if (loading || !tournament) return <Typography color="text.secondary">Loading standings…</Typography>;
   if (teams.length === 0) return <Typography color="text.secondary">No teams yet.</Typography>;

@@ -5,18 +5,21 @@ import { useTournament } from '@/contexts/TournamentContext';
 import type { Team } from '@/types';
 
 function TeamsContent() {
-  const { repo, loading: tournamentLoading } = useTournament();
+  const { tournament, repo } = useTournament();
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (tournamentLoading) return;
+    // Guard on `tournament` itself, not just the loading flag — loading becomes false in
+    // the error case too (e.g. tournament not found), when tournament is still null and
+    // repo() would throw.
+    if (!tournament) return;
     const unsubscribe = repo<Team>('teams').subscribeAll((items) => {
       setTeams(items);
       setLoading(false);
     });
     return unsubscribe;
-  }, [repo, tournamentLoading]);
+  }, [tournament, repo]);
 
   if (loading) return <Typography color="text.secondary">Loading teams…</Typography>;
   if (teams.length === 0) return <Typography color="text.secondary">No teams yet.</Typography>;

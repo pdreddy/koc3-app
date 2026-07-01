@@ -6,7 +6,7 @@ import type { ScheduleEntry, Team } from '@/types';
 import { generateSchedule } from '@/services/scheduleGenerator';
 
 function GenerateScheduleContent() {
-  const { repo } = useTournament();
+  const { tournament, repo } = useTournament();
   const navigate = useNavigate();
   const { tournamentId } = useParams<{ tournamentId: string }>();
 
@@ -18,8 +18,11 @@ function GenerateScheduleContent() {
   const [result, setResult] = useState<string | null>(null);
 
   useEffect(() => {
+    // repo() throws until the tournament has finished loading — see the matching fix/note
+    // in GenerateTeams.tsx.
+    if (!tournament) return;
     repo<Team>('teams').list().then((t) => { setTeams(t); setLoading(false); });
-  }, [repo]);
+  }, [tournament, repo]);
 
   const byGroup = teams.reduce<Record<string, Team[]>>((acc, t) => {
     const key = t.group ?? 'A';
