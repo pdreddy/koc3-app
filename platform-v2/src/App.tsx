@@ -17,6 +17,7 @@ import TeamRoles from '@/pages/admin/TeamRoles';
 import AuditLogs from '@/pages/admin/AuditLogs';
 import ContentManager from '@/pages/admin/ContentManager';
 import ApproveScores from '@/pages/admin/ApproveScores';
+import AnalyticsDashboard from '@/pages/admin/AnalyticsDashboard';
 import Announcements from '@/pages/public/Announcements';
 import Sponsors from '@/pages/public/Sponsors';
 import Gallery from '@/pages/public/Gallery';
@@ -66,6 +67,7 @@ export default function App() {
       <Route path="/admin/tournaments/:tournamentId/audit" element={<RequireAuth><AuditLogs /></RequireAuth>} />
       <Route path="/admin/tournaments/:tournamentId/content" element={<RequireAuth><ContentManager /></RequireAuth>} />
       <Route path="/admin/tournaments/:tournamentId/approve-scores" element={<RequireAuth><ApproveScores /></RequireAuth>} />
+      <Route path="/admin/tournaments/:tournamentId/analytics" element={<RequireAuth><AnalyticsDashboard /></RequireAuth>} />
 
       <Route path="/t/:slug" element={<PublicTournamentLayout />}>
         <Route index element={<PublicHome />} />

@@ -102,6 +102,11 @@ end-to-end. Treat this as "should work, being verified," not "verified."
   per-user Firestore inbox — see `types/notification.ts` for why) triggered by score
   submission/approval/rejection, playoff bracket generation, and new announcements. Bell
   icon with an unread badge (tracked client-side in localStorage) in the public site header.
+- **Analytics dashboard** (`/admin/tournaments/{id}/analytics`, admin-only): summary stat
+  cards (teams/players/approved matches/pending approvals/schedule completion %), a
+  CSS-only match-activity-by-week bar chart (no charting library pulled in), per-group
+  standings leaders, and a top-5 players-by-wins leaderboard — all computed client-side
+  from data the admin already has read access to, no separate aggregation/rollup.
 - **PWA**: installable manifest + icons (placeholder solid-color squares — there's no
   shared app-shell logo since branding is per-tournament, not per-app), a minimal
   hand-written service worker (network-first, offline app-shell fallback, production-only),
@@ -113,7 +118,6 @@ end-to-end. Treat this as "should work, being verified," not "verified."
   single-elimination bracket + an optional third-place match exist.
 - Real push/email notifications — the in-app notification inbox is broadcast-based (role/
   team audience, not per-recipient), with no email/push delivery layer.
-- Analytics dashboard.
 - Manual/drag-drop team assignment, group generation as its own separate step (currently
   folded into team generation — see `teamGenerator.ts`'s `groupLabelFor`).
 - Full manual/browser testing — this is in progress now; expect rough edges.

@@ -68,6 +68,9 @@ function TournamentDetailInner() {
         <Button variant="outlined" component={RouterLink} to={`/admin/tournaments/${tournament.id}/approve-scores`}>
           Approve Scores
         </Button>
+        <Button variant="outlined" component={RouterLink} to={`/admin/tournaments/${tournament.id}/analytics`}>
+          Analytics
+        </Button>
       </Stack>
 
       <Divider />
