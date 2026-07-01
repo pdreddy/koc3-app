@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { resolveMatchTeams } from '../utils/matchTeams';
+import { resolveMatchTeams, lineWinnerSide } from '../utils/matchTeams';
+import { isApprovedMatch } from '../utils/matchStatus';
 
 // Compute player statistics from matches
 function computeStats(matches, teams) {
@@ -15,6 +16,7 @@ function computeStats(matches, teams) {
   });
 
   matches.forEach((match) => {
+    if (!isApprovedMatch(match)) return;
     if (!match.lines) return;
     const matchId = match.id;
     const { team1: m1, team2: m2 } = resolveMatchTeams(match, teams);
@@ -26,7 +28,8 @@ function computeStats(matches, teams) {
       const t2 = line.players?.team2 || [];
       const g1 = line.g1 || 0;
       const g2 = line.g2 || 0;
-      const t1won = g1 > g2;
+      const winnerSide = lineWinnerSide(line, match);
+      const t1won = winnerSide ? winnerSide === 1 : g1 > g2;
 
       [...t1, ...t2].forEach(p => {
         if (!players[p]) {
@@ -75,7 +78,7 @@ function PlayerStatsTable({ players }) {
         matchesPlayed: d.matchesPlayed.size,
         totalCourts, courtsWon: d.courtsWon, courtsLost: d.courtsLost,
         singles: d.singlesCount, doubles: d.doublesCount,
-        pct, maxed: d.matchesPlayed.size >= 6
+        pct, maxed: d.matchesPlayed.size >= 6, singlesMaxed: d.singlesCount >= 2
       };
     }).sort((a, b) => b.matchesPlayed - a.matchesPlayed || b.totalCourts - a.totalCourts);
   }, [players]);
@@ -144,7 +147,7 @@ function SinglesCapTable({ players }) {
       singlesCount: d.singlesCount,
       doublesCount: d.doublesCount,
       totalCourts: d.courtsWon + d.courtsLost,
-      singlesMaxed: d.singlesCount >= 3,
+      singlesMaxed: d.singlesCount >= 2,
       matchesMaxed: d.matchesPlayed.size >= 6
     })).sort((a, b) => {
       if (a.singlesMaxed && !b.singlesMaxed) return -1;
@@ -173,7 +176,7 @@ function SinglesCapTable({ players }) {
                 <th>Player</th>
                 <th>Team</th>
                 <th>MD</th>
-                <th>S/3</th>
+                <th>S/2</th>
                 <th>D</th>
                 <th>Crts</th>
                 <th>Status</th>
@@ -182,14 +185,14 @@ function SinglesCapTable({ players }) {
             <tbody>
               {filtered.length === 0 && <tr><td colSpan="7" className="center muted">No player data yet</td></tr>}
               {filtered.map(r => {
-                const status = r.singlesMaxed ? 'MAXED' : `${3 - r.singlesCount} left`;
-                const color = r.singlesMaxed ? 'lose' : r.singlesCount >= 2 ? 'tie' : 'win';
+                const status = r.singlesMaxed ? 'MAXED' : `${2 - r.singlesCount} left`;
+                const color = r.singlesMaxed ? 'lose' : r.singlesCount >= 1 ? 'tie' : 'win';
                 return (
                   <tr key={r.name} className={r.singlesMaxed || r.matchesMaxed ? 'q' : ''} data-testid={`matchups-singles-${r.name}`}>
                     <td><strong>{r.name}</strong></td>
                     <td><span className="tag" style={{ fontSize: '.7rem' }}>{r.team}</span></td>
                     <td>{r.matchesPlayed}</td>
-                    <td><strong>{r.singlesCount}</strong>/3</td>
+                    <td><strong>{r.singlesCount}</strong>/2</td>
                     <td>{r.doublesCount}</td>
                     <td>{r.totalCourts}</td>
                     <td><span className={`tag ${color}`}>{status}</span></td>
@@ -199,7 +202,7 @@ function SinglesCapTable({ players }) {
             </tbody>
           </table>
         </div>
-        <p className="hint">Cap: 3 singles match days per player.</p>
+        <p className="hint">Cap: 2 singles match days per player.</p>
       </div>
     </>
   );
@@ -273,7 +276,7 @@ export default function Matchups({ matches, teams }) {
     <main className="container">
       <div className="page-title">
         <h1>🎾 Player Matchups</h1>
-        <p>Caps: 6 match days · 3 singles · 3 doubles per pair</p>
+        <p>Caps: 6 match days · 2 singles · 3 doubles per pair</p>
       </div>
 
       <div className="tabs">

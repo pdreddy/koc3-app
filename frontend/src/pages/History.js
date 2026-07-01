@@ -2,16 +2,24 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { ref, remove } from 'firebase/database';
 import { db, PATHS } from '../firebase';
+import { ScoreProcessingService } from '../services/ScoreProcessingService';
+import { writeAuditLog } from '../services/AuditService';
+import { isAdminRole } from '../utils/roles';
 import { matchTeamNames, matchWinnerId } from '../utils/matchTeams';
+import { approvedMatches } from '../utils/matchStatus';
 
-export default function History({ matches, teams }) {
+export default function History({ matches, teams, onMatchDeleted }) {
   const [openId, setOpenId] = useState(null);
   const { session } = useAuth();
+  const visibleMatches = approvedMatches(matches);
 
   const handleDelete = async (m, names) => {
     if (!window.confirm(`Delete match ${names.t1Name} vs ${names.t2Name}?`)) return;
     try {
       await remove(ref(db, `${PATHS.matches}/${m.id}`));
+      onMatchDeleted?.(m.id);
+      await ScoreProcessingService.processMatchResult(null, { session, matchRecord: { ...m, id: m.id } });
+      await writeAuditLog({ actionType: 'Score Delete', session, targetType: 'match', targetId: m.id, oldValue: m });
     } catch (e) {
       alert('Delete failed: ' + e.message);
     }
@@ -21,14 +29,14 @@ export default function History({ matches, teams }) {
     <main className="container">
       <div className="page-title">
         <h1>Match History</h1>
-        <p>{matches.length} match{matches.length === 1 ? '' : 'es'} played</p>
+        <p>{visibleMatches.length} approved match{visibleMatches.length === 1 ? '' : 'es'} played</p>
       </div>
 
-      {matches.length === 0 && (
+      {visibleMatches.length === 0 && (
         <div className="card center muted" data-testid="history-empty">No matches yet. Sign in as a captain to enter scores.</div>
       )}
 
-      {matches.map((m) => {
+      {visibleMatches.map((m) => {
         const names = matchTeamNames(m, teams);
         const winnerId = matchWinnerId(m, teams);
         const winnerName = winnerId === names.team1Id ? names.t1Name : (winnerId === names.team2Id ? names.t2Name : (m.win || 'Unknown'));
@@ -70,7 +78,7 @@ export default function History({ matches, teams }) {
                 )}
               </>
             )}
-            {session.role === 'admin' && (
+            {isAdminRole(session) && (
               <button
                 className="btn small danger"
                 style={{ marginTop: '.5rem', marginLeft: '.4rem' }}

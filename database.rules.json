@@ -1,0 +1,62 @@
+{
+  "rules": {
+    "clubs": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "leagueConfigs": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "koc_s3": {
+      ".read": false,
+      ".write": false,
+      "teams": { ".read": "auth != null", ".write": "auth != null" },
+      "matches": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".indexOn": ["ts", "week", "t1Id", "t2Id"]
+      },
+      "playerRatings": { ".read": "auth != null", ".write": "auth != null" },
+      "admin": { ".read": "auth != null", ".write": "auth != null" },
+      "adminUsers": { ".read": "auth != null", ".write": "auth != null" },
+      "schedule": { ".read": "auth != null", ".write": "auth != null" },
+      "settings": { ".read": "auth != null", ".write": "auth != null" },
+      "standings": { ".read": "auth != null", ".write": "auth != null" },
+      "auditLogs": { ".read": "auth != null", ".write": "auth != null" },
+      "lineupSubmissionMeta": {
+        ".read": "auth != null",
+        "$scheduleId": {
+          "$teamId": {
+            ".read": "auth != null",
+            ".write": "auth != null"
+          }
+        }
+      },
+      "lineupSubmissions": {
+        "$scheduleId": {
+          ".read": "auth != null && (root.child('koc_s3/lineupSubmissionMeta').child($scheduleId).child(root.child('koc_s3/schedule').child($scheduleId).child('team1Id').val()).child('lockedAt').exists() && root.child('koc_s3/lineupSubmissionMeta').child($scheduleId).child(root.child('koc_s3/schedule').child($scheduleId).child('team2Id').val()).child('lockedAt').exists())",
+          "$teamId": {
+            ".read": "auth != null",
+            ".write": "auth != null"
+          }
+        }
+      },
+      "revealedLineups": {
+        ".read": "auth != null",
+        "$revealId": {
+          ".read": "auth != null && data.child('revealedAt').exists()",
+          ".write": "auth != null && auth.token.server === true"
+        }
+      },
+      "lineupUnlocks": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      },
+      "lineupDeletes": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}

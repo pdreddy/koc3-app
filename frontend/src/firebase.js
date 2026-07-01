@@ -1,20 +1,31 @@
-import { initializeApp } from 'firebase/app';
+import { getApps, initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDbO0eP52i4t3V94bEiDcl7WoKbSrrM9VA",
-  authDomain: "koc2-20fb8.firebaseapp.com",
-  databaseURL: "https://koc2-20fb8-default-rtdb.firebaseio.com",
-  projectId: "koc2-20fb8",
-  storageBucket: "koc2-20fb8.firebasestorage.app",
-  messagingSenderId: "317734341461",
-  appId: "1:317734341461:web:1bcad5a1792fac0e46bddc"
-};
+import { firebaseAppName, firebaseConfig } from './firebaseConfig';
+import { PATHS } from './firebasePaths';
 
-export const app = initializeApp(firebaseConfig);
+function normalizeDatabaseUrl(rawUrl) {
+  const trimmed = String(rawUrl || '').trim();
+  if (!trimmed) return '';
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    return new URL(withProtocol).toString();
+  } catch {
+    throw new Error(`Firebase databaseURL is invalid: "${rawUrl}". Use VITE_FIREBASE_DATABASE_URL with a full URL like https://your-project-default-rtdb.firebaseio.com`);
+  }
+}
+
+if (!firebaseConfig.projectId || !firebaseConfig.databaseURL) {
+  throw new Error('Firebase configuration is missing projectId or databaseURL. Check VITE_FIREBASE_PROJECT_ID and VITE_FIREBASE_DATABASE_URL.');
+}
+
+const databaseURL = normalizeDatabaseUrl(firebaseConfig.databaseURL);
+
+
+export const app = getApps().find(existingApp => existingApp.name === firebaseAppName) || initializeApp(firebaseConfig, firebaseAppName);
 export const auth = getAuth(app);
-export const db = getDatabase(app);
+export const db = getDatabase(app, databaseURL);
 
 let authPromise = null;
 export function ensureAuth() {
@@ -26,11 +37,4 @@ export function ensureAuth() {
   return authPromise;
 }
 
-// Firebase RTDB paths
-export const PATHS = {
-  teams: 'koc_s2/teams',         // 16 teams
-  matches: 'koc_s2/matches',     // S2 match results
-  admin: 'koc_s2/admin',         // { password }
-  schedule: 'koc_s2/schedule',   // S2 fixtures
-  season1: 'KOC2DBPONEW'         // Season 1 archive (read-only)
-};
+export { PATHS };

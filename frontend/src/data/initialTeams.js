@@ -1,59 +1,89 @@
-// Initial seed data: 9 real teams + 7 placeholder teams (admin can rename/edit later)
-const realTeams = [
-  { name: 'Rally Royals', abbreviation: 'RR', captain: 'Yogesh', roster: ['Srinivaasan Arumugam Sampath','Charan Macharla','Kalam Shaik','Sandeep Gengineri','Chandrakant Dharme','Vasu Gandhi'] },
-  { name: "Karna's Crusaders", abbreviation: 'KC', captain: 'Srikanth', roster: ['Vibhor Sharma','Malla Cheerke','Anshul Goyal','Srinidhi Kulkarni','Lloyd Kumar','Dinkar Bhardwaj'] },
-  { name: 'Spin Kings', abbreviation: 'SK', captain: 'Uma V', roster: ['Madhu','Noufal Mohamed','Kanak Periasamy','Fayaz','KP Krishna','Rajasekhar Mangalampally'] },
-  { name: 'KOC Challengers', abbreviation: 'KOCC', captain: 'Narayan Prasad', roster: ['Nivas Nazeer','Ravi Sengodan','Damu Palavali','Sarat Edara','Vidya Sagar Reddy','Sudhakar Nallapati'] },
-  { name: 'Rally Squad', abbreviation: 'RS', captain: 'Manish Jangid', roster: ['Srinivas Y','Trinadh Cheepilla','Biju Koshy','Jitender Kumar','Ritesh Kumar','Dinesh Timmareddy'] },
-  { name: 'Agni Aces', abbreviation: 'AA', captain: 'Vinod Aripaka', roster: ['Gopi Guru','Venu Servepalli','Nazeer Mohammed','Naveenkumar Mohanram','Nizam Karimudeen','Ratnesh Sinha'] },
-  { name: 'Chill Titans', abbreviation: 'CT', captain: 'Satish Orugunta', roster: ['Gokul R','Prashanth Tiramareddi','Jaweed','Ram Kantheti','Durga','Hari Mothukuri'] },
-  { name: 'Mega Lions', abbreviation: 'ML', captain: 'Anil Kunda', roster: ['Mirza H','Raj Chejerla','Mohan Koripuri','Venky Dh','Rajasekhar Karru','Nagarjuna Saladi'] },
-  { name: 'Court Conquerors', abbreviation: 'CC', captain: 'Rajasekhar Chintha', roster: ['Venis V','Jilani Pathan','Bhaskar Boddireddy','Ali Mohamed','Sridhar K','Krishna Vennapusa'] }
-];
+import { AUCTION_TEAMS, buildAuctionTeams, groupInfoForTeamId, normalizeAuctionPlayer } from './auctionTeams';
 
-const placeholderTeams = [
-  { name: 'Team 10', abbreviation: 'T10' },
-  { name: 'Team 11', abbreviation: 'T11' },
-  { name: 'Team 12', abbreviation: 'T12' },
-  { name: 'Team 13', abbreviation: 'T13' },
-  { name: 'Team 14', abbreviation: 'T14' },
-  { name: 'Team 15', abbreviation: 'T15' },
-  { name: 'Team 16', abbreviation: 'T16' }
-];
+const canonicalTeams = AUCTION_TEAMS.map(team => ({
+  ...team,
+  roster: team.players.map((player, index) => normalizeAuctionPlayer(player, index).name)
+}));
+
+const RR_CANONICAL_TEAM = canonicalTeams.find(team => team.abbreviation === 'RR');
+
+export function canonicalizeTeamDisplay(team = {}) {
+  if (team.abbreviation === 'RR' && RR_CANONICAL_TEAM) return { ...team, name: RR_CANONICAL_TEAM.name };
+  return team;
+}
+
+export function canonicalizeTeamsData(teamsData = {}) {
+  return Object.fromEntries(Object.entries(teamsData || {}).map(([id, team]) => [id, canonicalizeTeamDisplay(team)]));
+}
+
+function shouldApplyCanonicalTeamName(team, canonicalTeam) {
+  if (!team.name) return true;
+  if (canonicalTeam.abbreviation === 'RR' && team.abbreviation === 'RR') return team.name !== canonicalTeam.name;
+  return false;
+}
+
+
+
+export function teamIdFromNumber(id) {
+  return `team${id}`;
+}
 
 export function buildInitialTeams() {
-  const teams = {};
-  realTeams.forEach((t, idx) => {
-    const id = `team${idx + 1}`;
-    teams[id] = {
-      id,
-      name: t.name,
-      abbreviation: t.abbreviation,
-      password: `KOC${t.abbreviation}#2`,
-      gradient: idx + 1,
-      group: idx < 8 ? 'A' : 'B',
-      players: [
-        { name: t.captain, isCaptain: true },
-        ...t.roster.map(n => ({ name: n, isCaptain: false }))
-      ]
-    };
-  });
-  placeholderTeams.forEach((t, idx) => {
-    const id = `team${idx + 10}`;
-    teams[id] = {
-      id,
-      name: t.name,
-      abbreviation: t.abbreviation,
-      password: `KOC${t.abbreviation}#2`,
-      gradient: idx + 10,
-      group: 'B',
-      players: [
-        { name: 'Captain', isCaptain: true },
-        ...Array.from({ length: 6 }, (_, i) => ({ name: `Player ${i + 2}`, isCaptain: false }))
-      ]
-    };
-  });
-  return teams;
+  return buildAuctionTeams();
+}
+
+function canonicalPlayersForExistingTeam(team, t) {
+  return t.players.map((player, index) => normalizeAuctionPlayer(player, index));
+}
+
+export function canonicalTeamIdentityUpdates(teamsData = {}) {
+  return canonicalTeams.reduce((updates, t, idx) => {
+    const id = teamIdFromNumber(t.id);
+    const team = teamsData[id] || {};
+    const nextPlayers = canonicalPlayersForExistingTeam(team, t);
+
+    if (shouldApplyCanonicalTeamName(team, t)) updates[`${id}/name`] = t.name;
+    if (!team.abbreviation) updates[`${id}/abbreviation`] = t.abbreviation;
+    if (!team.gradient) updates[`${id}/gradient`] = idx + 1;
+    const groupInfo = groupInfoForTeamId(id, idx);
+    if (!team.group) updates[`${id}/group`] = groupInfo.group;
+    if (!team.groupOrder) updates[`${id}/groupOrder`] = groupInfo.groupOrder;
+    if (!team.password) updates[`${id}/password`] = `KOC${t.abbreviation}#3`;
+    if (!team.id) updates[`${id}/id`] = id;
+    if (team.totalSpent == null) updates[`${id}/totalSpent`] = t.totalSpent;
+    if (team.moneyLeft == null) updates[`${id}/moneyLeft`] = t.moneyLeft;
+    if (!Array.isArray(team.players) || team.players.length === 0) updates[`${id}/players`] = nextPlayers;
+    return updates;
+  }, {});
 }
 
 export const DEFAULT_ADMIN_PASSWORD = 'KOCPO#ADMIN';
+
+export const ADMIN_USERNAME_ALIASES = {
+  damureddi: 'damuredii',
+  vinoda: 'vionda',
+  viona: 'vionda'
+};
+
+export function normalizeAdminUsername(username) {
+  const normalized = String(username || '').trim().toLowerCase();
+  return ADMIN_USERNAME_ALIASES[normalized] || normalized;
+}
+
+export const DEFAULT_ADMIN_USERS = {
+  damuredii: {
+    username: 'damuredii',
+    name: 'Damureddi',
+    role: 'SUPER_ADMIN'
+  },
+  vionda: {
+    username: 'vionda',
+    name: 'Vionda',
+    role: 'ADMIN'
+  },
+  umav: {
+    username: 'umav',
+    name: 'Umav',
+    role: 'ADMIN'
+  }
+};

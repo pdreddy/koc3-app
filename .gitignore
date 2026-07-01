@@ -5,3 +5,7 @@ credentials.json
 *.pem
 *.key
 .credentials
+node_modules/
+frontend/node_modules/
+build/
+frontend/build/
