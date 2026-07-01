@@ -8,6 +8,7 @@ import { VisibilityGate } from '@/components/layout/VisibilityGate';
 import { useTournament } from '@/contexts/TournamentContext';
 import type { Match, Player, Team } from '@/types';
 import { downloadCsv } from '@/services/csvExport';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 function setScoreLabel(set: { team1: number; team2: number; tiebreak?: { team1: number; team2: number }; matchTiebreak?: { team1: number; team2: number } }): string {
   if (set.matchTiebreak) return `[${set.matchTiebreak.team1}-${set.matchTiebreak.team2}]`;
@@ -100,7 +101,7 @@ function HistoryContent() {
 export default function History() {
   return (
     <Container sx={{ py: 4 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>Match History</Typography>
+      <PageHeader title="Match History" subtitle="Approved submitted match results." />
       <VisibilityGate pageId="history">
         <HistoryContent />
       </VisibilityGate>

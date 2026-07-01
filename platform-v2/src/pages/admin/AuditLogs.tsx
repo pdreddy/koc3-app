@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import { TournamentProvider, useTournament } from '@/contexts/TournamentContext';
 import type { AuditLog } from '@/types';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 function AuditLogsContent() {
   const { tournament, repo, loading: tournamentLoading } = useTournament();
@@ -56,7 +57,7 @@ export default function AuditLogs() {
   if (!tournamentId) return <Alert severity="error">Missing tournament id</Alert>;
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>Audit Log</Typography>
+      <PageHeader title="Audit Log" subtitle="Every notable action taken on this tournament, self-attributed and immutable." />
       <TournamentProvider tournamentId={tournamentId}>
         <AuditLogsContent />
       </TournamentProvider>

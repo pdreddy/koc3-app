@@ -11,6 +11,7 @@ import type { Invite, Player, Role, Team, TournamentPermission } from '@/types';
 import { normalizeEmail } from '@/types';
 import { writeAuditLog } from '@/services/auditService';
 import { downloadCsv } from '@/services/csvExport';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 const ASSIGNABLE_ROLES: Exclude<Role, 'SUPER_ADMIN' | 'GUEST' | 'PUBLIC' | 'TOURNAMENT_ADMIN'>[] = [
   'ORGANIZER', 'CAPTAIN', 'VICE_CAPTAIN', 'PLAYER',
@@ -151,10 +152,11 @@ function TeamRolesContent() {
 
   return (
     <Stack spacing={4}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Typography variant="h4">Team Roles</Typography>
-        <Button size="small" variant="outlined" onClick={handleExportRoster}>Export Roster CSV</Button>
-      </Stack>
+      <PageHeader
+        title="Team Roles"
+        subtitle="Invite captains, vice-captains, players, and organizers by email."
+        action={<Button size="small" variant="outlined" onClick={handleExportRoster}>Export Roster CSV</Button>}
+      />
       <Alert severity="info">
         Inviting someone sends them no email yet — just registers the role for when they sign
         in (or sign up) with that exact email address, at <code>{window.location.origin}/admin/signup</code>.

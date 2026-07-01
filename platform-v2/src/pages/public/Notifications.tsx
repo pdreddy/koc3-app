@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Card, CardActionArea, CardContent, Container, Stack, Typography } from '@mui/material';
+import { CardActionArea, CardContent, Container, Stack, Typography } from '@mui/material';
 import { VisibilityGate } from '@/components/layout/VisibilityGate';
 import { useTournament } from '@/contexts/TournamentContext';
 import { useNotifications } from '@/hooks/useNotifications';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { GradientCard } from '@/components/layout/GradientCard';
 
 function NotificationsContent() {
   const { tournament } = useTournament();
@@ -19,13 +21,13 @@ function NotificationsContent() {
     <Stack spacing={1}>
       {notifications.map((n) => {
         const card = (
-          <Card variant="outlined">
+          <GradientCard>
             <CardContent>
               <Typography variant="subtitle1">{n.title}</Typography>
               <Typography variant="body2" color="text.secondary">{n.body}</Typography>
               <Typography variant="caption" color="text.secondary">{new Date(n.createdAt).toLocaleString()}</Typography>
             </CardContent>
-          </Card>
+          </GradientCard>
         );
         return n.link ? (
           <CardActionArea key={n.id} component={RouterLink} to={n.link} sx={{ borderRadius: 1 }}>
@@ -42,7 +44,7 @@ function NotificationsContent() {
 export default function Notifications() {
   return (
     <Container sx={{ py: 4 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>Notifications</Typography>
+      <PageHeader title="Notifications" subtitle="Score approvals, playoff updates, and announcements." />
       <VisibilityGate pageId="notifications">
         <NotificationsContent />
       </VisibilityGate>

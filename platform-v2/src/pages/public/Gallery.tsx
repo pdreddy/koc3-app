@@ -3,6 +3,7 @@ import { Container, ImageList, ImageListItem, ImageListItemBar, Typography } fro
 import { VisibilityGate } from '@/components/layout/VisibilityGate';
 import { useTournament } from '@/contexts/TournamentContext';
 import type { GalleryImage } from '@/types';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 function GalleryContent() {
   const { repo, loading: tournamentLoading } = useTournament();
@@ -35,7 +36,7 @@ function GalleryContent() {
 export default function Gallery() {
   return (
     <Container sx={{ py: 4 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>Gallery</Typography>
+      <PageHeader title="Gallery" subtitle="Photos from the tournament." />
       <VisibilityGate pageId="gallery">
         <GalleryContent />
       </VisibilityGate>

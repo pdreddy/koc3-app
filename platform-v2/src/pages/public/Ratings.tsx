@@ -4,6 +4,7 @@ import { VisibilityGate } from '@/components/layout/VisibilityGate';
 import { useTournament } from '@/contexts/TournamentContext';
 import type { Match, Player } from '@/types';
 import { computePlayerStats, computeSimpleRating } from '@/services/playerStatsEngine';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 function RatingsContent() {
   const { repo, loading: tournamentLoading } = useTournament();
@@ -56,7 +57,7 @@ function RatingsContent() {
 export default function Ratings() {
   return (
     <Container sx={{ py: 4 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>Player Ratings</Typography>
+      <PageHeader title="Player Ratings" subtitle="A simplified win-percentage-derived ranking." />
       <VisibilityGate pageId="ratings">
         <RatingsContent />
       </VisibilityGate>

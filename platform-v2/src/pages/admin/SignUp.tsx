@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Alert, Box, Button, Container, Link, Paper, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Link, Stack, TextField, Typography } from '@mui/material';
 import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { AuthCard } from '@/components/layout/AuthCard';
 
 // Self-service account creation — this is what lets a team captain (or any player) create
 // their own login instead of needing one hand-created in the Firebase console. Creating an
@@ -42,24 +43,21 @@ export default function SignUp() {
     : '/admin/login';
 
   return (
-    <Container maxWidth="xs" sx={{ py: 8 }}>
-      <Paper variant="outlined" sx={{ p: 4 }}>
-        <Typography variant="h5" sx={{ mb: 3 }}>Create Account</Typography>
-        <Box component="form" onSubmit={handleSubmit}>
-          <Stack spacing={2}>
-            {error && <Alert severity="error">{error}</Alert>}
-            <TextField label="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-            <TextField label="Password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} helperText="At least 6 characters" />
-            <TextField label="Confirm Password" type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
-            <Button type="submit" variant="contained" disabled={submitting}>
-              {submitting ? 'Creating…' : 'Create Account'}
-            </Button>
-            <Typography variant="body2">
-              Already have an account? <Link component={RouterLink} to={signInHref}>Sign in</Link>
-            </Typography>
-          </Stack>
-        </Box>
-      </Paper>
-    </Container>
+    <AuthCard title="Create Account" subtitle="Self-service sign-up — roles are granted separately by an admin's invite">
+      <Box component="form" onSubmit={handleSubmit}>
+        <Stack spacing={2}>
+          {error && <Alert severity="error">{error}</Alert>}
+          <TextField label="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <TextField label="Password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} helperText="At least 6 characters" />
+          <TextField label="Confirm Password" type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+          <Button type="submit" variant="contained" size="large" disabled={submitting} sx={{ borderRadius: 999 }}>
+            {submitting ? 'Creating…' : 'Create Account →'}
+          </Button>
+          <Typography variant="body2" textAlign="center">
+            Already have an account? <Link component={RouterLink} to={signInHref}>Sign in</Link>
+          </Typography>
+        </Stack>
+      </Box>
+    </AuthCard>
   );
 }

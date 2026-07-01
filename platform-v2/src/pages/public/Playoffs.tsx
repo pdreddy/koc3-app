@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Container, Paper, Stack, Typography } from '@mui/material';
+import { Container, Stack, Typography } from '@mui/material';
 import { VisibilityGate } from '@/components/layout/VisibilityGate';
 import { useTournament } from '@/contexts/TournamentContext';
 import type { PlayoffMatch, PlayoffRoundType, Team } from '@/types';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { GradientCard } from '@/components/layout/GradientCard';
 
 const ROUND_LABELS: Record<PlayoffRoundType, string> = {
   QUARTERFINAL: 'Quarterfinal',
@@ -29,10 +31,10 @@ function BracketMatchCard({ match, teams }: { match: PlayoffMatch; teams: Record
   const team1Name = match.team1Id ? teams[match.team1Id]?.name ?? match.team1Id : 'TBD';
   const team2Name = match.team2Id ? teams[match.team2Id]?.name ?? match.team2Id : 'TBD';
   return (
-    <Paper variant="outlined" sx={{ p: 1.5, minWidth: 200 }}>
+    <GradientCard sx={{ p: 1.5, minWidth: 200 }}>
       <TeamLine name={team1Name} seed={match.team1Seed} isWinner={match.winnerTeamId === match.team1Id} isBye={!match.team1Id} />
       <TeamLine name={team2Name} seed={match.team2Seed} isWinner={match.winnerTeamId === match.team2Id} isBye={!match.team2Id} />
-    </Paper>
+    </GradientCard>
   );
 }
 
@@ -59,7 +61,6 @@ function PlayoffsContent() {
 
   return (
     <Stack spacing={4}>
-      <Typography variant="h4">Playoffs</Typography>
       <Stack direction="row" spacing={4} sx={{ overflowX: 'auto', pb: 2 }}>
         {roundsPresent.map((round) => {
           const roundMatches = matches.filter((m) => m.round === round).sort((a, b) => a.slot - b.slot);
@@ -86,6 +87,7 @@ function PlayoffsContent() {
 export default function Playoffs() {
   return (
     <Container sx={{ py: 4 }}>
+      <PageHeader title="Playoffs" subtitle="Knockout bracket seeded from group standings." />
       <VisibilityGate pageId="playoffs">
         <PlayoffsContent />
       </VisibilityGate>

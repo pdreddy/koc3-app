@@ -4,6 +4,7 @@ import { Alert, Button, Container, Stack, TextField, Typography } from '@mui/mat
 import { TournamentProvider, useTournament } from '@/contexts/TournamentContext';
 import type { ScheduleEntry, Team } from '@/types';
 import { generateSchedule } from '@/services/scheduleGenerator';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 function GenerateScheduleContent() {
   const { tournament, repo } = useTournament();
@@ -50,7 +51,7 @@ function GenerateScheduleContent() {
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h4">Generate Schedule</Typography>
+      <PageHeader title="Generate Schedule" subtitle="Round-robin fixtures per group, one round per week." />
       {loading ? (
         <Typography color="text.secondary">Loading teams…</Typography>
       ) : teams.length === 0 ? (

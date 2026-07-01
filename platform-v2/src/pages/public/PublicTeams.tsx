@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Avatar, Card, CardContent, Container, Grid, Stack, Typography } from '@mui/material';
+import { Avatar, CardContent, Container, Grid, Stack, Typography } from '@mui/material';
 import { VisibilityGate } from '@/components/layout/VisibilityGate';
 import { useTournament } from '@/contexts/TournamentContext';
 import type { Team } from '@/types';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { GradientCard } from '@/components/layout/GradientCard';
 
 function TeamsContent() {
   const { tournament, repo } = useTournament();
@@ -38,8 +40,8 @@ function TeamsContent() {
           <Grid container spacing={2}>
             {groupTeams.map((team) => (
               <Grid item xs={12} sm={6} md={4} key={team.id}>
-                <Card variant="outlined">
-                  <CardContent>
+                <GradientCard>
+                  <CardContent sx={{ pt: 2.5 }}>
                     <Stack direction="row" spacing={1.5} alignItems="center">
                       <Avatar src={team.logoUrl ?? undefined}>{team.abbreviation?.slice(0, 2)}</Avatar>
                       <div>
@@ -48,7 +50,7 @@ function TeamsContent() {
                       </div>
                     </Stack>
                   </CardContent>
-                </Card>
+                </GradientCard>
               </Grid>
             ))}
           </Grid>
@@ -61,6 +63,7 @@ function TeamsContent() {
 export default function PublicTeams() {
   return (
     <Container sx={{ py: 4 }}>
+      <PageHeader title="Teams" subtitle="Rosters, captains, and team groups." />
       <VisibilityGate pageId="teams">
         <TeamsContent />
       </VisibilityGate>

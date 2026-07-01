@@ -1,22 +1,24 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
-  Alert, Box, Card, CardContent, Container, Grid, Stack, Table, TableBody, TableCell,
+  Alert, Box, CardContent, Container, Grid, Stack, Table, TableBody, TableCell,
   TableHead, TableRow, Typography,
 } from '@mui/material';
 import { TournamentProvider, useTournament } from '@/contexts/TournamentContext';
 import type { Match, Player, ScheduleEntry, Team } from '@/types';
 import { computeStandings, groupStandings } from '@/services/standingsEngine';
 import { computePlayerStats } from '@/services/playerStatsEngine';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { GradientCard } from '@/components/layout/GradientCard';
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <Card variant="outlined">
+    <GradientCard>
       <CardContent>
         <Typography variant="h4">{value}</Typography>
         <Typography variant="body2" color="text.secondary">{label}</Typography>
       </CardContent>
-    </Card>
+    </GradientCard>
   );
 }
 
@@ -88,7 +90,7 @@ function AnalyticsDashboardContent() {
 
   return (
     <Stack spacing={4}>
-      <Typography variant="h4">Analytics</Typography>
+      <PageHeader title="Analytics" subtitle="Summary stats computed from this tournament's data." />
 
       <Grid container spacing={2}>
         <Grid item xs={6} sm={3}><StatCard label="Teams" value={teams.length} /></Grid>

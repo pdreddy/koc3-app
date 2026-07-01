@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Alert, Box, Button, Container, Step, StepLabel, Stepper, Typography,
+  Alert, Box, Button, Container, Step, StepLabel, Stepper,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useConfigDraft } from '@/hooks/useConfigDraft';
@@ -9,6 +9,7 @@ import Step2Type from './Step2Type';
 import Step3Structure from './Step3Structure';
 import { TournamentService } from '@/services/TournamentService';
 import { useAuth } from '@/contexts/AuthContext';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 // Steps 4-10 from the spec (player config, match types, scoring, standings, playoffs,
 // registration, visibility) are intentionally not in this first slice — buildDefaultTournamentConfig()
@@ -50,7 +51,7 @@ export default function CreateTournamentWizard() {
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>Create Tournament</Typography>
+      <PageHeader title="Create Tournament" subtitle="Steps 4-10 get sensible defaults — edit them afterward in Settings." />
       <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
         {STEPS.map((label) => (
           <Step key={label}><StepLabel>{label}</StepLabel></Step>

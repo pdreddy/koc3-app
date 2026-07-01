@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Card, CardContent, Container, Stack, Typography } from '@mui/material';
+import { CardContent, Container, Stack, Typography } from '@mui/material';
 import { VisibilityGate } from '@/components/layout/VisibilityGate';
 import { useTournament } from '@/contexts/TournamentContext';
 import type { Announcement } from '@/types';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { GradientCard } from '@/components/layout/GradientCard';
 
 function AnnouncementsContent() {
   const { repo, loading: tournamentLoading } = useTournament();
@@ -23,13 +25,13 @@ function AnnouncementsContent() {
   return (
     <Stack spacing={2}>
       {items.map((a) => (
-        <Card key={a.id} variant="outlined">
+        <GradientCard key={a.id}>
           <CardContent>
             <Typography variant="h6">{a.title}</Typography>
             <Typography variant="body2" color="text.secondary">{new Date(a.publishedAt).toLocaleDateString()}</Typography>
             <Typography sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>{a.body}</Typography>
           </CardContent>
-        </Card>
+        </GradientCard>
       ))}
     </Stack>
   );
@@ -38,7 +40,7 @@ function AnnouncementsContent() {
 export default function Announcements() {
   return (
     <Container sx={{ py: 4 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>Announcements</Typography>
+      <PageHeader title="Announcements" subtitle="Updates from the tournament organizers." />
       <VisibilityGate pageId="announcements">
         <AnnouncementsContent />
       </VisibilityGate>

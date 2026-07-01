@@ -10,6 +10,7 @@ import type { LineupSubmission, Player, ScheduleEntry, Team } from '@/types';
 import { lineupDocId } from '@/types';
 import { buildLineSpecs } from '@/services/matchLines';
 import { writeAuditLog } from '@/services/auditService';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 function LineupContent() {
   const { tournament, repo } = useTournament();
@@ -101,10 +102,10 @@ function LineupContent() {
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h4">Submit Lineup</Typography>
-      <Typography variant="body2" color="text.secondary">
-        Your lineup stays hidden from your opponent until you both lock — and theirs stays hidden from you until then too.
-      </Typography>
+      <PageHeader
+        title="Submit Lineup"
+        subtitle="Your lineup stays hidden from your opponent until you both lock — and theirs stays hidden from you until then too."
+      />
 
       {entries.length === 0 && <Typography color="text.secondary">No upcoming scheduled matches.</Typography>}
       {entries.length > 0 && (

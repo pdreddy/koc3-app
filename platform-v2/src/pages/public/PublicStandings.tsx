@@ -5,6 +5,7 @@ import { useTournament } from '@/contexts/TournamentContext';
 import type { Match, Team } from '@/types';
 import { computeStandings, groupStandings, type StandingsRow } from '@/services/standingsEngine';
 import { downloadCsv } from '@/services/csvExport';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 function StandingsContent() {
   const { tournament, repo } = useTournament();
@@ -86,6 +87,7 @@ function StandingsContent() {
 export default function PublicStandings() {
   return (
     <Container sx={{ py: 4 }}>
+      <PageHeader title="Standings" subtitle="Group tables and qualification positions." />
       <VisibilityGate pageId="standings">
         <StandingsContent />
       </VisibilityGate>

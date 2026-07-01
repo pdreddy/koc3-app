@@ -6,6 +6,7 @@ import {
 import { TournamentProvider, useTournament } from '@/contexts/TournamentContext';
 import type { Player, Team } from '@/types';
 import { generateTeams, type TeamGenerationMethod } from '@/services/teamGenerator';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 function GenerateTeamsContent() {
   const { tournament, repo } = useTournament();
@@ -74,7 +75,7 @@ function GenerateTeamsContent() {
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h4">Generate Teams</Typography>
+      <PageHeader title="Generate Teams" subtitle="Split imported players into balanced teams and groups." />
       {loading ? (
         <Typography color="text.secondary">Loading players…</Typography>
       ) : (

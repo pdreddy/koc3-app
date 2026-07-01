@@ -3,6 +3,7 @@ import { Avatar, Container, Grid, Link, Stack, Typography } from '@mui/material'
 import { VisibilityGate } from '@/components/layout/VisibilityGate';
 import { useTournament } from '@/contexts/TournamentContext';
 import type { Sponsor } from '@/types';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 const TIER_ORDER: Sponsor['tier'][] = ['TITLE', 'GOLD', 'SILVER', 'BRONZE', 'PARTNER'];
 
@@ -50,7 +51,7 @@ function SponsorsContent() {
 export default function Sponsors() {
   return (
     <Container sx={{ py: 4 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>Sponsors</Typography>
+      <PageHeader title="Sponsors" subtitle="Thank you to everyone supporting this tournament." />
       <VisibilityGate pageId="sponsors">
         <SponsorsContent />
       </VisibilityGate>

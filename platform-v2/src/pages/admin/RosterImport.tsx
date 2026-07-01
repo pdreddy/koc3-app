@@ -9,6 +9,7 @@ import type { Player, PlayerImportRow } from '@/types';
 import {
   detectDuplicates, guessColumnMapping, mapRowToPlayer, parseCsv, parseJson,
 } from '@/services/rosterImport';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 const PLAYER_FIELD_OPTIONS: { value: keyof Player | ''; label: string }[] = [
   { value: '', label: '(ignore this column)' },
@@ -70,7 +71,7 @@ function RosterImportContent() {
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h4">Import Players</Typography>
+      <PageHeader title="Import Players" subtitle="Upload a CSV or JSON roster, map columns, and check for duplicates." />
       <Button variant="outlined" component="label">
         Upload CSV or JSON
         <input type="file" hidden accept=".csv,.json" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />

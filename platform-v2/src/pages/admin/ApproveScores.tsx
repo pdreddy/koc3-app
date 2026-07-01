@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
-  Alert, Button, Card, CardContent, Container, Stack, Table, TableBody, TableCell,
+  Alert, Button, CardContent, Container, Stack, Table, TableBody, TableCell,
   TableHead, TableRow, Typography,
 } from '@mui/material';
 import { TournamentProvider, useTournament } from '@/contexts/TournamentContext';
@@ -10,6 +10,8 @@ import type { Match, PlayoffMatch, ScheduleEntry, Team } from '@/types';
 import { writeAuditLog } from '@/services/auditService';
 import { advancePlayoffWinner } from '@/services/playoffBracketGenerator';
 import { notify } from '@/services/notificationService';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { GradientCard } from '@/components/layout/GradientCard';
 
 function setScoreLabel(set: { team1: number; team2: number; tiebreak?: { team1: number; team2: number }; matchTiebreak?: { team1: number; team2: number } }): string {
   if (set.matchTiebreak) return `[${set.matchTiebreak.team1}-${set.matchTiebreak.team2}]`;
@@ -87,7 +89,7 @@ function ApproveScoresContent() {
   return (
     <Stack spacing={2}>
       {pending.map((match) => (
-        <Card key={match.id} variant="outlined">
+        <GradientCard key={match.id}>
           <CardContent>
             <Typography variant="subtitle1">
               {teams[match.team1Id]?.name ?? match.team1Id} vs {teams[match.team2Id]?.name ?? match.team2Id}
@@ -113,7 +115,7 @@ function ApproveScoresContent() {
               <Button variant="outlined" color="error" disabled={busyId === match.id} onClick={() => handleReject(match)}>Reject</Button>
             </Stack>
           </CardContent>
-        </Card>
+        </GradientCard>
       ))}
     </Stack>
   );
@@ -124,7 +126,7 @@ export default function ApproveScores() {
   if (!tournamentId) return <Alert severity="error">Missing tournament id</Alert>;
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>Approve Scores</Typography>
+      <PageHeader title="Approve Scores" subtitle="Review and approve or reject captain-submitted scores." />
       <TournamentProvider tournamentId={tournamentId}>
         <ApproveScoresContent />
       </TournamentProvider>

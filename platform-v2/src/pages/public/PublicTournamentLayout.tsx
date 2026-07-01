@@ -1,6 +1,7 @@
 import { useParams, Outlet, Link as RouterLink, useLocation } from 'react-router-dom';
+import { ThemeProvider } from '@mui/material/styles';
 import {
-  AppBar, Avatar, Badge, Box, Button, Chip, Container, IconButton, Stack, Tab, Tabs, Toolbar,
+  AppBar, Avatar, Badge, Box, Button, Chip, Container, IconButton, Stack, Toolbar,
   Typography, Alert,
 } from '@mui/material';
 import NotificationsIcon from '@mui/icons-material/Notifications';
@@ -10,6 +11,7 @@ import { useTournamentRole } from '@/hooks/useTournamentRole';
 import { useClaimPendingInvite } from '@/hooks/useClaimPendingInvite';
 import { useNotifications } from '@/hooks/useNotifications';
 import { BottomNav } from '@/components/layout/BottomNav';
+import { buildTournamentTheme, GRADIENT_PRIMARY } from '@/theme/theme';
 
 // Primary nav stays short (koc3-app collapses secondary pages into a "More" screen rather
 // than a long tab bar) — History/Matchups/Ratings/Rules live behind More.
@@ -35,7 +37,11 @@ function AccountStatus() {
 
   if (!user) {
     return (
-      <Button size="small" component={RouterLink} to={`/admin/login?redirect=${encodeURIComponent(location.pathname)}`}>
+      <Button
+        size="small" variant="contained" component={RouterLink}
+        to={`/admin/login?redirect=${encodeURIComponent(location.pathname)}`}
+        sx={{ borderRadius: 999, px: 2 }}
+      >
         Sign In
       </Button>
     );
@@ -44,9 +50,13 @@ function AccountStatus() {
   return (
     <Stack direction="row" spacing={1} alignItems="center">
       {!roleLoading && (
-        <Chip size="small" label={role ? ROLE_LABELS[role] ?? role : 'No role yet'} color={role ? 'primary' : 'default'} />
+        <Chip
+          size="small"
+          label={role ? ROLE_LABELS[role] ?? role : 'No role yet'}
+          sx={role ? { backgroundImage: GRADIENT_PRIMARY, color: '#fff' } : undefined}
+        />
       )}
-      <Typography variant="body2" color="text.secondary">{user.email}</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>{user.email}</Typography>
       <Button size="small" onClick={() => signOut()}>Sign Out</Button>
     </Stack>
   );
@@ -65,33 +75,66 @@ function NotificationsBell({ basePath }: { basePath: string }) {
   );
 }
 
+// A rounded "pill group" nav — ported from koc3-app's `.top-nav` (rounded gray-blue pill
+// container, each link itself a smaller pill, active link filled with the primary
+// gradient) — replaces MUI's underlined Tabs, which read as very "default Material" next
+// to the rest of the branded shell.
+function PillNav({ basePath, currentPath }: { basePath: string; currentPath: string }) {
+  return (
+    <Stack
+      direction="row" spacing={0.5}
+      sx={{
+        p: 0.5, borderRadius: 999, bgcolor: 'rgba(241,245,249,0.9)', border: '1px solid rgba(226,232,240,0.9)',
+        display: { xs: 'none', sm: 'flex' }, overflowX: 'auto',
+      }}
+    >
+      {NAV_ITEMS.map((item) => {
+        const isActive = currentPath === item.path;
+        return (
+          <Box
+            key={item.pageId}
+            component={RouterLink}
+            to={`${basePath}/${item.path}`}
+            sx={{
+              px: 1.7, py: 0.8, borderRadius: 999, fontSize: '0.84rem', fontWeight: 700,
+              textDecoration: 'none', whiteSpace: 'nowrap', color: isActive ? '#fff' : 'text.secondary',
+              backgroundImage: isActive ? GRADIENT_PRIMARY : 'none',
+              boxShadow: isActive ? '0 8px 18px rgba(37,99,235,0.22)' : 'none',
+              transition: 'filter 0.12s ease',
+              '&:hover': { filter: isActive ? 'brightness(1.05)' : 'none', color: isActive ? '#fff' : 'text.primary' },
+            }}
+          >
+            {item.label}
+          </Box>
+        );
+      })}
+    </Stack>
+  );
+}
+
 function PublicHeader() {
   const { tournament } = useTournament();
   const location = useLocation();
   if (!tournament) return null;
   const { branding, info } = tournament.config;
   const basePath = `/t/${tournament.slug}`;
-  const currentTab = NAV_ITEMS.find((n) => location.pathname === `${basePath}/${n.path}`.replace(/\/$/, ''))?.path ?? '';
+  const currentPath = NAV_ITEMS.find((n) => location.pathname === `${basePath}/${n.path}`.replace(/\/$/, ''))?.path ?? '';
 
   return (
     <AppBar position="static" color="default" elevation={0} sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
-      <Toolbar>
-        {branding.logoUrl && <Avatar src={branding.logoUrl} sx={{ mr: 1.5 }} variant="rounded" />}
-        <Typography variant="h6" sx={{ flexGrow: 1 }}>{info.name}</Typography>
+      <Toolbar sx={{ gap: 2, flexWrap: 'wrap', py: 1 }}>
+        <Stack direction="row" alignItems="center" spacing={1.2} sx={{ flexGrow: 1 }}>
+          {branding.logoUrl ? (
+            <Avatar src={branding.logoUrl} variant="rounded" />
+          ) : (
+            <Box sx={{ width: 36, height: 36, borderRadius: '10px', backgroundImage: GRADIENT_PRIMARY, flexShrink: 0 }} />
+          )}
+          <Typography variant="h6" sx={{ fontWeight: 800 }}>{info.name}</Typography>
+        </Stack>
+        <PillNav basePath={basePath} currentPath={currentPath} />
         <NotificationsBell basePath={basePath} />
         <AccountStatus />
       </Toolbar>
-      <Tabs value={currentTab} variant="scrollable" scrollButtons="auto" sx={{ display: { xs: 'none', sm: 'flex' } }}>
-        {NAV_ITEMS.map((item) => (
-          <Tab
-            key={item.pageId}
-            value={item.path}
-            label={item.label}
-            component={RouterLink}
-            to={`${basePath}/${item.path}`}
-          />
-        ))}
-      </Tabs>
     </AppBar>
   );
 }
@@ -110,15 +153,19 @@ function PublicTournamentShell() {
   }
 
   const basePath = `/t/${tournament.slug}`;
+  const { branding } = tournament.config;
+
   return (
-    <Box>
-      <PublicHeader />
-      {/* Bottom padding keeps content from being hidden behind the fixed mobile bottom nav. */}
-      <Box sx={{ pb: { xs: 8, sm: 0 } }}>
-        <Outlet />
+    <ThemeProvider theme={buildTournamentTheme(branding.themeColor, branding.accentColor)}>
+      <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+        <PublicHeader />
+        {/* Bottom padding keeps content from being hidden behind the fixed mobile bottom nav. */}
+        <Box sx={{ pb: { xs: 8, sm: 0 } }}>
+          <Outlet />
+        </Box>
+        <BottomNav basePath={basePath} />
       </Box>
-      <BottomNav basePath={basePath} />
-    </Box>
+    </ThemeProvider>
   );
 }
 

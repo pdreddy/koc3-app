@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Alert, Box, Button, Container, Link, Paper, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Link, Stack, TextField, Typography } from '@mui/material';
 import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { AuthCard } from '@/components/layout/AuthCard';
 
 // Route is named /admin/login for historical reasons (it was built as an admin-only
 // screen first) but works for anyone with a Firebase Auth account — captains and players
@@ -36,23 +37,20 @@ export default function AdminLogin() {
     : '/admin/signup';
 
   return (
-    <Container maxWidth="xs" sx={{ py: 8 }}>
-      <Paper variant="outlined" sx={{ p: 4 }}>
-        <Typography variant="h5" sx={{ mb: 3 }}>Sign In</Typography>
-        <Box component="form" onSubmit={handleSubmit}>
-          <Stack spacing={2}>
-            {error && <Alert severity="error">{error}</Alert>}
-            <TextField label="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-            <TextField label="Password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-            <Button type="submit" variant="contained" disabled={submitting}>
-              {submitting ? 'Signing in…' : 'Sign in'}
-            </Button>
-            <Typography variant="body2">
-              New here? <Link component={RouterLink} to={signUpHref}>Create an account</Link>
-            </Typography>
-          </Stack>
-        </Box>
-      </Paper>
-    </Container>
+    <AuthCard title="Sign In" subtitle="Tournament platform admin & captain portal">
+      <Box component="form" onSubmit={handleSubmit}>
+        <Stack spacing={2}>
+          {error && <Alert severity="error">{error}</Alert>}
+          <TextField label="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <TextField label="Password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+          <Button type="submit" variant="contained" size="large" disabled={submitting} sx={{ borderRadius: 999 }}>
+            {submitting ? 'Signing in…' : 'Sign In →'}
+          </Button>
+          <Typography variant="body2" textAlign="center">
+            New here? <Link component={RouterLink} to={signUpHref}>Create an account</Link>
+          </Typography>
+        </Stack>
+      </Box>
+    </AuthCard>
   );
 }

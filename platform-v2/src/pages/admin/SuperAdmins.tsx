@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSuperAdmin } from '@/contexts/SuperAdminContext';
 import { SuperAdminService } from '@/services/superAdminService';
 import type { SuperAdminInvite, SuperAdminRecord } from '@/types';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 // Platform-wide (not per-tournament) management of who holds SUPER_ADMIN — the mirror
 // image of admin/TeamRoles.tsx's invite/revoke flow, but for the one platform-wide
@@ -63,7 +64,7 @@ export default function SuperAdmins() {
 
   return (
     <Container maxWidth="sm" sx={{ py: 4 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>Platform Super Admins</Typography>
+      <PageHeader title="Platform Super Admins" subtitle="Grant or revoke admin access across every tournament on this platform." />
       <Alert severity="info" sx={{ mb: 3 }}>
         A super admin has admin access to every tournament on this platform, not just ones
         they created. Grant this sparingly.

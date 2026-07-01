@@ -8,6 +8,7 @@ import { generatePlayoffBracket } from '@/services/playoffBracketGenerator';
 import { writeAuditLog } from '@/services/auditService';
 import { notify } from '@/services/notificationService';
 import { useAuth } from '@/contexts/AuthContext';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 function GeneratePlayoffsContent() {
   const { tournament, repo } = useTournament();
@@ -69,7 +70,7 @@ function GeneratePlayoffsContent() {
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h4">Generate Playoffs</Typography>
+      <PageHeader title="Generate Playoffs" subtitle="Seed a single-elimination bracket from group standings." />
       {loading ? (
         <Typography color="text.secondary">Loading standings…</Typography>
       ) : qualified.length < 2 ? (

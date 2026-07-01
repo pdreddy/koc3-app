@@ -14,6 +14,7 @@ import { validateLine, lineWinner } from '@/services/scoringEngine';
 import { advancePlayoffWinner } from '@/services/playoffBracketGenerator';
 import { writeAuditLog } from '@/services/auditService';
 import { notify } from '@/services/notificationService';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 // Unifies a group-stage ScheduleEntry and a ready playoffMatches bracket slot into one
 // pickable "what am I entering a score for" target — see targetsFor() below. Playoff
@@ -306,7 +307,7 @@ function ScoreEntryContent() {
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h4">Enter Score</Typography>
+      <PageHeader title="Enter Score" subtitle="Pick a scheduled match or ready playoff slot and enter the result." />
       {targets.length === 0 && <Typography color="text.secondary">No scheduled matches to enter right now.</Typography>}
       {targets.length > 0 && (
         <Select value={selectedEntryId} displayEmpty onChange={(e) => { setSelectedEntryId(e.target.value); setLines({}); setSuccess(false); }}>

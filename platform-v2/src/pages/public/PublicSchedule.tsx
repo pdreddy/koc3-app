@@ -3,6 +3,7 @@ import { Chip, Container, Stack, Table, TableBody, TableCell, TableHead, TableRo
 import { VisibilityGate } from '@/components/layout/VisibilityGate';
 import { useTournament } from '@/contexts/TournamentContext';
 import type { ScheduleEntry, Team } from '@/types';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 function ScheduleContent() {
   const { tournament, repo } = useTournament();
@@ -68,6 +69,7 @@ function ScheduleContent() {
 export default function PublicSchedule() {
   return (
     <Container sx={{ py: 4 }}>
+      <PageHeader title="Schedule" subtitle="Round fixtures, lineups, and scores." />
       <VisibilityGate pageId="schedule">
         <ScheduleContent />
       </VisibilityGate>

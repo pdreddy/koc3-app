@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  Box, Button, Card, CardActions, CardContent, Chip, Container, Grid, IconButton,
+  Box, Button, CardActions, CardContent, Chip, Container, Grid, IconButton,
   Stack, Typography, Menu, MenuItem,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
@@ -10,6 +10,8 @@ import { TournamentService } from '@/services/TournamentService';
 import type { Tournament } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSuperAdmin } from '@/contexts/SuperAdminContext';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { GradientCard } from '@/components/layout/GradientCard';
 
 const STATUS_COLOR: Record<Tournament['status'], 'default' | 'success' | 'warning'> = {
   DRAFT: 'default',
@@ -36,8 +38,8 @@ function TournamentCard({ tournament, onChanged }: { tournament: Tournament; onC
   };
 
   return (
-    <Card variant="outlined">
-      <CardContent>
+    <GradientCard>
+      <CardContent sx={{ pt: 2.5 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
           <Box>
             <Typography variant="h6">{tournament.config.info.name || '(untitled)'}</Typography>
@@ -62,7 +64,7 @@ function TournamentCard({ tournament, onChanged }: { tournament: Tournament; onC
           <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>Delete</MenuItem>
         </Menu>
       </CardActions>
-    </Card>
+    </GradientCard>
   );
 }
 
@@ -84,19 +86,22 @@ export default function TournamentManager() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        <Typography variant="h4">Tournament Manager</Typography>
-        <Stack direction="row" spacing={2}>
-          {isSuperAdmin && (
-            <Button variant="outlined" onClick={() => navigate('/admin/super-admins')}>
-              Super Admins
+      <PageHeader
+        title="Tournament Manager"
+        subtitle="Create, publish, and manage every tournament on this platform."
+        action={
+          <Stack direction="row" spacing={2}>
+            {isSuperAdmin && (
+              <Button variant="outlined" onClick={() => navigate('/admin/super-admins')}>
+                Super Admins
+              </Button>
+            )}
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/admin/tournaments/new')}>
+              Create Tournament
             </Button>
-          )}
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/admin/tournaments/new')}>
-            Create Tournament
-          </Button>
-        </Stack>
-      </Stack>
+          </Stack>
+        }
+      />
 
       {loading && <Typography color="text.secondary">Loading tournaments…</Typography>}
       {!loading && tournaments.length === 0 && (

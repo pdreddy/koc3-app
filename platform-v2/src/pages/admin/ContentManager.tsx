@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
-  Alert, Button, Card, CardContent, Container, IconButton, MenuItem, Select, Stack, Tab,
+  Alert, Button, CardContent, Container, IconButton, MenuItem, Select, Stack, Tab,
   Tabs, TextField, Typography,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -10,6 +10,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { Announcement, GalleryImage, Sponsor } from '@/types';
 import { notify } from '@/services/notificationService';
 import { ImageUploadField } from '@/components/ImageUploadField';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { GradientCard } from '@/components/layout/GradientCard';
 
 function AnnouncementsTab() {
   const { tournament, repo } = useTournament();
@@ -43,7 +45,7 @@ function AnnouncementsTab() {
         <Button variant="outlined" onClick={handleAdd} disabled={!title.trim()} sx={{ alignSelf: 'flex-start' }}>Post Announcement</Button>
       </Stack>
       {items.map((a) => (
-        <Card key={a.id} variant="outlined">
+        <GradientCard key={a.id}>
           <CardContent>
             <Stack direction="row" justifyContent="space-between">
               <Typography variant="subtitle1">{a.title}</Typography>
@@ -52,7 +54,7 @@ function AnnouncementsTab() {
             <Typography variant="body2" color="text.secondary">{new Date(a.publishedAt).toLocaleDateString()}</Typography>
             <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>{a.body}</Typography>
           </CardContent>
-        </Card>
+        </GradientCard>
       ))}
     </Stack>
   );
@@ -171,7 +173,7 @@ export default function ContentManager() {
   if (!tournamentId) return <Alert severity="error">Missing tournament id</Alert>;
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>Content</Typography>
+      <PageHeader title="Content" subtitle="Manage announcements, sponsors, and gallery photos." />
       <TournamentProvider tournamentId={tournamentId}>
         <ContentManagerContent />
       </TournamentProvider>

@@ -4,6 +4,7 @@ import { VisibilityGate } from '@/components/layout/VisibilityGate';
 import { useTournament } from '@/contexts/TournamentContext';
 import type { Match, Player } from '@/types';
 import { computePartnerships, computePlayerStats } from '@/services/playerStatsEngine';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 function MatchupsContent() {
   const { repo, loading: tournamentLoading } = useTournament();
@@ -81,7 +82,7 @@ function MatchupsContent() {
 export default function Matchups() {
   return (
     <Container sx={{ py: 4 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>Matchups</Typography>
+      <PageHeader title="Matchups" subtitle="Player, singles, and doubles matchup stats." />
       <VisibilityGate pageId="matchups">
         <MatchupsContent />
       </VisibilityGate>

@@ -14,6 +14,7 @@ import ScoringEditor from './settings/ScoringEditor';
 import StandingsEditor from './settings/StandingsEditor';
 import { PlayoffsEditor, RegistrationEditor } from './settings/PlayoffsRegistrationEditor';
 import BrandingEditor from './settings/BrandingEditor';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 const TABS = ['Info', 'Type', 'Structure', 'Players', 'Match Types', 'Scoring', 'Standings', 'Playoffs', 'Registration', 'Visibility', 'Branding'];
 
@@ -44,7 +45,7 @@ function TournamentSettingsContent() {
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h4">Tournament Settings</Typography>
+      <PageHeader title="Tournament Settings" subtitle="Revisit every wizard step after creation." />
       <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
         {TABS.map((label) => <Tab key={label} label={label} />)}
       </Tabs>
