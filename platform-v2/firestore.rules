@@ -193,6 +193,18 @@ service cloud.firestore {
           (isCaptainOfTeam(tournamentId, resource.data.teamId) && resource.data.lockedAt == null);
         allow delete: if isTournamentAdmin(tournamentId);
       }
+
+      match /auditLogs/{logId} {
+        // Read: admin-only (this is the whole point of an audit trail). Create: any
+        // signed-in user may write an entry recording THEIR OWN action (performedByUserId
+        // must match the caller) — services/auditService.ts is the only writer, called from
+        // score entry, lineup locking, role invites/claims, and tournament-level actions.
+        // Immutable once written: no update, and delete is admin-only (e.g. to prune).
+        allow read: if isTournamentAdmin(tournamentId);
+        allow create: if isSignedIn() && request.resource.data.performedByUserId == request.auth.uid;
+        allow update: if false;
+        allow delete: if isTournamentAdmin(tournamentId);
+      }
     }
   }
 }

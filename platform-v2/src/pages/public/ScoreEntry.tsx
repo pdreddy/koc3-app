@@ -5,11 +5,13 @@ import {
 } from '@mui/material';
 import { VisibilityGate } from '@/components/layout/VisibilityGate';
 import { useTournament } from '@/contexts/TournamentContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTournamentRole } from '@/hooks/useTournamentRole';
 import type { LineupSubmission, Match, MatchLine, Player, ScheduleEntry, SetScore, Team } from '@/types';
 import { lineupDocId } from '@/types';
 import { buildLineSpecs, type LineSpec } from '@/services/matchLines';
 import { validateLine, lineWinner } from '@/services/scoringEngine';
+import { writeAuditLog } from '@/services/auditService';
 
 interface DraftSet {
   team1: string;
@@ -146,6 +148,7 @@ function LineForm({
 
 function ScoreEntryContent() {
   const { tournament, repo } = useTournament();
+  const { user } = useAuth();
   const { teamId } = useTournamentRole();
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [teams, setTeams] = useState<Record<string, Team>>({});
@@ -234,6 +237,7 @@ function ScoreEntryContent() {
         updatedAt: now,
       });
       await repo<ScheduleEntry>('schedules').update(selectedEntry.id, { status: 'PLAYED', matchId: match.id });
+      if (user) await writeAuditLog(tournament.id, 'SCORE_SAVED', { uid: user.uid, email: user.email }, 'match', match.id, { winnerTeamId });
       setSuccess(true);
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : String(e));

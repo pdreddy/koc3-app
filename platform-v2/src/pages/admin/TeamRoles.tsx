@@ -8,6 +8,7 @@ import { TournamentProvider, useTournament } from '@/contexts/TournamentContext'
 import { useAuth } from '@/contexts/AuthContext';
 import type { Invite, Player, Role, Team } from '@/types';
 import { normalizeEmail } from '@/types';
+import { writeAuditLog } from '@/services/auditService';
 
 const ASSIGNABLE_ROLES: Exclude<Role, 'SUPER_ADMIN' | 'GUEST' | 'PUBLIC' | 'TOURNAMENT_ADMIN'>[] = [
   'ORGANIZER', 'CAPTAIN', 'VICE_CAPTAIN', 'PLAYER',
@@ -41,6 +42,7 @@ function InviteRow({
         claimedAt: null,
       });
       onInvited(invite);
+      await writeAuditLog(tournamentId, 'ROLE_INVITED', { uid: user?.uid ?? 'unknown', email: user?.email ?? null }, 'invite', normalized, { role, teamId });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

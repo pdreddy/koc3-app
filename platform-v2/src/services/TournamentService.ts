@@ -18,6 +18,7 @@ import { identityConverter } from './firestoreConverters';
 import type { Tournament, TournamentConfig } from '@/types';
 import { buildDefaultTournamentConfig } from './defaultTournamentConfig';
 import { TOURNAMENTS_COLLECTION } from './firestorePaths';
+import { writeAuditLog } from './auditService';
 
 const tournamentsCollection = collection(db, TOURNAMENTS_COLLECTION).withConverter(identityConverter<Tournament>());
 
@@ -56,6 +57,7 @@ export const TournamentService = {
   async create(params: {
     name: string;
     createdBy: string;
+    createdByEmail?: string | null;
     config?: Partial<TournamentConfig>;
   }): Promise<Tournament> {
     const now = Date.now();
@@ -97,7 +99,9 @@ export const TournamentService = {
       grantedBy: params.createdBy,
     });
 
-    return { ...draft, id: ref.id };
+    const created = { ...draft, id: ref.id };
+    await writeAuditLog(ref.id, 'TOURNAMENT_CREATED', { uid: params.createdBy, email: params.createdByEmail ?? null }, 'tournament', ref.id, { name: params.name });
+    return created;
   },
 
   // Takes a *complete* TournamentConfig, not a partial — Firestore's updateDoc only does a
@@ -105,35 +109,38 @@ export const TournamentService = {
   // nested config object with X. A Partial<TournamentConfig> here would silently wipe every
   // field the caller didn't include. Callers building an edit form should keep a full draft
   // in memory (see useConfigDraft) and pass the whole thing back on save, not a diff.
-  async updateConfig(id: string, config: TournamentConfig, updatedBy: string): Promise<void> {
+  async updateConfig(id: string, config: TournamentConfig, updatedBy: string, updatedByEmail: string | null = null): Promise<void> {
     await updateDoc(doc(tournamentsCollection, id), {
       config,
       updatedAt: Date.now(),
       updatedBy,
     } as Record<string, unknown>);
+    await writeAuditLog(id, 'CONFIG_UPDATED', { uid: updatedBy, email: updatedByEmail }, 'tournament', id);
   },
 
-  async setStatus(id: string, status: Tournament['status'], updatedBy: string): Promise<void> {
+  async setStatus(id: string, status: Tournament['status'], updatedBy: string, updatedByEmail: string | null = null): Promise<void> {
     await updateDoc(doc(tournamentsCollection, id), {
       status,
       archivedAt: status === 'ARCHIVED' ? Date.now() : null,
       updatedAt: Date.now(),
       updatedBy,
     } as Record<string, unknown>);
+    if (status === 'PUBLISHED') await writeAuditLog(id, 'TOURNAMENT_PUBLISHED', { uid: updatedBy, email: updatedByEmail }, 'tournament', id);
+    if (status === 'ARCHIVED') await writeAuditLog(id, 'TOURNAMENT_ARCHIVED', { uid: updatedBy, email: updatedByEmail }, 'tournament', id);
   },
 
-  async publish(id: string, updatedBy: string): Promise<void> {
-    return this.setStatus(id, 'PUBLISHED', updatedBy);
+  async publish(id: string, updatedBy: string, updatedByEmail: string | null = null): Promise<void> {
+    return this.setStatus(id, 'PUBLISHED', updatedBy, updatedByEmail);
   },
 
-  async archive(id: string, updatedBy: string): Promise<void> {
-    return this.setStatus(id, 'ARCHIVED', updatedBy);
+  async archive(id: string, updatedBy: string, updatedByEmail: string | null = null): Promise<void> {
+    return this.setStatus(id, 'ARCHIVED', updatedBy, updatedByEmail);
   },
 
-  async duplicate(id: string, createdBy: string): Promise<Tournament> {
+  async duplicate(id: string, createdBy: string, createdByEmail: string | null = null): Promise<Tournament> {
     const original = await this.get(id);
     if (!original) throw new Error(`Tournament ${id} not found`);
-    return this.create({ name: `${original.config.info.name} (Copy)`, createdBy, config: original.config });
+    return this.create({ name: `${original.config.info.name} (Copy)`, createdBy, createdByEmail, config: original.config });
   },
 
   /** Deletes the tournament document only. Subcollections (teams/players/matches/...) must

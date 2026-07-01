@@ -11,6 +11,7 @@ import GenerateTeams from '@/pages/admin/GenerateTeams';
 import GenerateSchedule from '@/pages/admin/GenerateSchedule';
 import TournamentSettings from '@/pages/admin/TournamentSettings';
 import TeamRoles from '@/pages/admin/TeamRoles';
+import AuditLogs from '@/pages/admin/AuditLogs';
 import PublicTournamentLayout from '@/pages/public/PublicTournamentLayout';
 import PublicHome from '@/pages/public/PublicHome';
 import PublicSchedule from '@/pages/public/PublicSchedule';
@@ -50,6 +51,7 @@ export default function App() {
       <Route path="/admin/tournaments/:tournamentId/generate-schedule" element={<RequireAuth><GenerateSchedule /></RequireAuth>} />
       <Route path="/admin/tournaments/:tournamentId/edit" element={<RequireAuth><TournamentSettings /></RequireAuth>} />
       <Route path="/admin/tournaments/:tournamentId/roles" element={<RequireAuth><TeamRoles /></RequireAuth>} />
+      <Route path="/admin/tournaments/:tournamentId/audit" element={<RequireAuth><AuditLogs /></RequireAuth>} />
 
       <Route path="/t/:slug" element={<PublicTournamentLayout />}>
         <Route index element={<PublicHome />} />

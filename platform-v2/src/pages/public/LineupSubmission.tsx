@@ -9,6 +9,7 @@ import { useTournamentRole } from '@/hooks/useTournamentRole';
 import type { LineupSubmission, Player, ScheduleEntry, Team } from '@/types';
 import { lineupDocId } from '@/types';
 import { buildLineSpecs } from '@/services/matchLines';
+import { writeAuditLog } from '@/services/auditService';
 
 function LineupContent() {
   const { tournament, repo } = useTournament();
@@ -87,6 +88,7 @@ function LineupContent() {
         updatedAt: now,
       });
       setOwnLineup(saved);
+      if (lock) await writeAuditLog(tournament!.id, 'LINEUP_LOCKED', { uid: user.uid, email: user.email }, 'lineup', saved.id, { scheduleEntryId: selectedEntry.id, teamId });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

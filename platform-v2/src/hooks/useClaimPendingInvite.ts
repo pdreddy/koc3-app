@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTournament } from '@/contexts/TournamentContext';
 import type { Invite, TournamentPermission } from '@/types';
 import { normalizeEmail } from '@/types';
+import { writeAuditLog } from '@/services/auditService';
 
 export type ClaimStatus = 'idle' | 'checking' | 'claimed' | 'none' | 'error';
 
@@ -58,6 +59,7 @@ export function useClaimPendingInvite(): ClaimStatus {
           grantedBy: invite.invitedBy,
         });
         await inviteRepo.update(invite.id, { claimedBy: user.uid, claimedAt: now });
+        await writeAuditLog(tournament.id, 'ROLE_CLAIMED', { uid: user.uid, email: user.email }, 'invite', invite.id, { role: invite.role, teamId: invite.teamId });
         setStatus('claimed');
       } catch {
         setStatus('error');
