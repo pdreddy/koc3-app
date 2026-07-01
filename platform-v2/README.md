@@ -130,8 +130,24 @@ end-to-end. Treat this as "should work, being verified," not "verified."
   afterward — this page lets an admin rename a team, set its abbreviation/logo, and
   designate captain/vice-captain from its roster (writes back to both the Team doc and the
   Player docs' `isCaptain`/`isViceCaptain` flags).
-- **Schedule filters** (`/t/{slug}/schedule`): group and team filter selects, matching
-  koc3-app's Schedule.js — previously a flat, ungrouped-by-filter table.
+- **Schedule filters + public reveal** (`/t/{slug}/schedule`): group and team filter
+  selects, matching koc3-app's Schedule.js. Each fixture also has an inline expandable
+  panel showing the approved score and/or the revealed lineups (once both captains lock) —
+  public to any visitor, not just the teams involved, matching koc3-app's behavior;
+  `firestore.rules`' `lineups` read rule was relaxed to drop its `isSignedIn()` check for
+  the already-revealed case (nothing pending/partial is exposed by this).
+- **Teams rosters** (`/t/{slug}/teams`): expandable per-team roster (captain/vice-captain
+  marked, individual UTR, average team UTR), with Expand All / Collapse All — previously
+  just a card with a player *count*, no roster at all.
+- **Matchups enhancements** (`/t/{slug}/matchups`): a search filter (player or team), a
+  Team column, win% color-coded chips, and a third "Singles Cap" tab showing each player's
+  singles/total match-day usage against the eligibility caps (maxed rows highlighted) —
+  ties the eligibility engine into the public stats view the way koc3-app's Matchups.js did.
+- **Role-aware More page** (`/t/{slug}/more`): signed-in admins/organizers now see an Admin
+  shortcuts section (dashboard, manage teams, approve scores, roles, analytics) and
+  captains see a Captain shortcuts section (dashboard, submit lineup, enter score) above
+  the public links — previously the same flat list regardless of role, plus a Sign Out
+  button that was missing entirely.
 - **PWA**: installable manifest + icons (placeholder solid-color squares — there's no
   shared app-shell logo since branding is per-tournament, not per-app), a minimal
   hand-written service worker (network-first, offline app-shell fallback, production-only),

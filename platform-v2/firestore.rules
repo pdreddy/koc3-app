@@ -260,9 +260,13 @@ service cloud.firestore {
         // Own team's lineup: always readable by that team's captain (and admins). The
         // opponent's lineup: only once both are locked (opponentLineupLocked) — this is the
         // actual "reveal" mechanism, not a separate revealedLineups collection.
+        // Reveal is intentionally public (no isSignedIn() check) once both teams have
+        // locked — matches koc3-app's Schedule.js, which shows revealed lineups to any
+        // visitor, not just signed-in ones. This only ever exposes lineups BOTH captains
+        // already committed to; nothing pending/partial leaks.
         allow read: if isTournamentAdmin(tournamentId) ||
           (isSignedIn() && isCaptainOfTeam(tournamentId, resource.data.teamId)) ||
-          (isSignedIn() && resource.data.lockedAt != null &&
+          (resource.data.lockedAt != null &&
            opponentLineupLocked(tournamentId, resource.data.scheduleEntryId, resource.data.teamId));
         allow create: if isTournamentAdmin(tournamentId) ||
           isCaptainOfTeam(tournamentId, request.resource.data.teamId);
