@@ -11,6 +11,8 @@ import { canDeleteMatch, canEditTeams, canManageSettings } from '../utils/roles'
 import { buildUtrRatingsTable } from '../data/utrRatings';
 import { auctionPlayerRatingUpdates, buildAuctionPlayerRatingsTable } from '../data/auctionPlayers';
 import TeamLogo from '../components/TeamLogo';
+import { useTournament } from '../contexts/TournamentContext';
+import { DEFAULT_TOURNAMENT_CONFIG } from '../config/tournamentPlatform';
 
 function firebaseObjectToList(data, source) {
   if (!data) return [];
@@ -25,6 +27,50 @@ function firebaseObjectToList(data, source) {
 }
 
 
+function TournamentManager() {
+  const { currentTournament, currentTournamentId, selectTournament, normalizeTournamentId } = useTournament();
+  const [draftId, setDraftId] = useState('');
+  const [msg, setMsg] = useState('');
+
+  const createTournament = async () => {
+    const id = normalizeTournamentId(draftId);
+    if (!id) return;
+    try {
+      await update(ref(db, `platform/tournaments/${id}`), {
+        config: { ...DEFAULT_TOURNAMENT_CONFIG, id, name: draftId.trim() || id, shortName: id, status: 'draft', createdAt: Date.now() },
+        settings: { eligibilityRules: {} },
+        permissions: { roles: ['super-admin', 'tournament-admin', 'organizer', 'captain', 'vice-captain', 'player', 'guest', 'public'] },
+        branding: {},
+        registration: { publicRegistration: false, waitlist: false }
+      });
+      selectTournament(id);
+      setMsg(`✅ Created and selected ${id}`);
+      setDraftId('');
+    } catch (e) {
+      setMsg('Create failed: ' + e.message);
+    }
+  };
+
+  const actions = ['Create Tournament', 'Open Tournament', 'Edit Tournament', 'Archive Tournament', 'Duplicate Tournament', 'Delete Tournament', 'Publish Tournament', 'Import Players', 'Generate Teams', 'Generate Schedule', 'Generate Groups', 'Generate Playoffs', 'Tournament Reports', 'Settings', 'Permissions', 'Branding', 'Sponsors', 'Announcements'];
+
+  return (
+    <div className="card" data-testid="tournament-manager">
+      <h2>🏟️ Tournament Manager</h2>
+      <p className="hint">Current tournament: <strong>{currentTournament.name}</strong> (<code>{currentTournamentId}</code>). All Firebase reads/writes resolve under <code>platform/tournaments/{currentTournamentId}</code>.</p>
+      <div className="row">
+        <div className="field">
+          <div className="field-label">Tournament ID / Short Name</div>
+          <input className="input" value={draftId} onChange={e => setDraftId(e.target.value)} placeholder="prosper-open" data-testid="tournament-id-input" />
+        </div>
+        <button className="btn" onClick={createTournament} data-testid="create-tournament-btn">Create Tournament</button>
+      </div>
+      {msg && <div className={msg.startsWith('✅') ? 'success-box' : 'error-box'} style={{ marginTop: '.6rem' }}>{msg}</div>}
+      <div className="stats-grid" style={{ marginTop: '.75rem' }}>
+        {actions.map(action => <button key={action} className="btn secondary small" onClick={() => setMsg(`${action} will use the selected tournament configuration.`)}>{action}</button>)}
+      </div>
+    </div>
+  );
+}
 
 function applyNameRenamesToMatch(match, team, payload, playerRenameMap) {
   let changed = false;
@@ -544,7 +590,7 @@ function AdminLineupManager({ teams, schedule, lineupSubmissions, revealedLineup
 }
 
 export default function Admin({ teams, adminConfig, matches, schedule, lineupSubmissions = {}, revealedLineups = {}, settings = {} }) {
-  const [tab, setTab] = useState('teams');
+  const [tab, setTab] = useState('tournaments');
   const [legacyMatches, setLegacyMatches] = useState([]);
   const [legacyFallbackMatches, setLegacyFallbackMatches] = useState([]);
   const [playerRatings, setPlayerRatings] = useState({});
@@ -639,12 +685,15 @@ export default function Admin({ teams, adminConfig, matches, schedule, lineupSub
       )}
 
       <div className="tabs">
+        <button className={`tab ${tab === 'tournaments' ? 'active' : ''}`} onClick={() => setTab('tournaments')} data-testid="admin-tab-tournaments">Tournaments</button>
         <button className={`tab ${tab === 'lineups' ? 'active' : ''}`} onClick={() => setTab('lineups')} data-testid="admin-tab-lineups">Lineups</button>
         <button className={`tab ${tab === 'teams' ? 'active' : ''}`} onClick={() => setTab('teams')} data-testid="admin-tab-teams">Teams</button>
         {isSuperAdmin && <button className={`tab ${tab === 'schedule' ? 'active' : ''}`} onClick={() => setTab('schedule')} data-testid="admin-tab-schedule">Schedule</button>}
         {(isSuperAdmin || session?.loginViaPin) && <button className={`tab ${tab === 'settings' ? 'active' : ''}`} onClick={() => setTab('settings')} data-testid="admin-tab-settings">Settings</button>}
         {isSuperAdmin && <button className={`tab ${tab === 'passwords' ? 'active' : ''}`} onClick={() => setTab('passwords')} data-testid="admin-tab-passwords">Passwords</button>}
       </div>
+
+      {tab === 'tournaments' && <TournamentManager />}
 
       {tab === 'teams' && (
         <>
