@@ -10,7 +10,7 @@ interface TournamentContextValue {
   /** Scoped repository factory — every screen gets its data access through this, never a
    * hand-written Firestore path. Throws if no tournament is loaded yet. */
   repo: <T extends { id: string }>(
-    subcollection: 'teams' | 'players' | 'matches' | 'schedules' | 'standings' | 'permissions'
+    subcollection: 'teams' | 'players' | 'matches' | 'schedules' | 'standings' | 'permissions' | 'invites'
   ) => TournamentScopedRepository<T>;
 }
 

@@ -5,10 +5,12 @@ import TournamentManager from '@/pages/admin/TournamentManager';
 import CreateTournamentWizard from '@/pages/admin/wizard/CreateTournamentWizard';
 import TournamentDetail from '@/pages/admin/TournamentDetail';
 import AdminLogin from '@/pages/admin/AdminLogin';
+import SignUp from '@/pages/admin/SignUp';
 import RosterImport from '@/pages/admin/RosterImport';
 import GenerateTeams from '@/pages/admin/GenerateTeams';
 import GenerateSchedule from '@/pages/admin/GenerateSchedule';
 import TournamentSettings from '@/pages/admin/TournamentSettings';
+import TeamRoles from '@/pages/admin/TeamRoles';
 import PublicTournamentLayout from '@/pages/public/PublicTournamentLayout';
 import PublicHome from '@/pages/public/PublicHome';
 import PublicSchedule from '@/pages/public/PublicSchedule';
@@ -34,6 +36,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Navigate to="/admin" replace />} />
       <Route path="/admin/login" element={<AdminLogin />} />
+      <Route path="/admin/signup" element={<SignUp />} />
       <Route path="/admin" element={<RequireAuth><TournamentManager /></RequireAuth>} />
       <Route path="/admin/tournaments/new" element={<RequireAuth><CreateTournamentWizard /></RequireAuth>} />
       <Route path="/admin/tournaments/:tournamentId" element={<RequireAuth><TournamentDetail /></RequireAuth>} />
@@ -41,6 +44,7 @@ export default function App() {
       <Route path="/admin/tournaments/:tournamentId/generate-teams" element={<RequireAuth><GenerateTeams /></RequireAuth>} />
       <Route path="/admin/tournaments/:tournamentId/generate-schedule" element={<RequireAuth><GenerateSchedule /></RequireAuth>} />
       <Route path="/admin/tournaments/:tournamentId/edit" element={<RequireAuth><TournamentSettings /></RequireAuth>} />
+      <Route path="/admin/tournaments/:tournamentId/roles" element={<RequireAuth><TeamRoles /></RequireAuth>} />
 
       <Route path="/t/:slug" element={<PublicTournamentLayout />}>
         <Route index element={<PublicHome />} />

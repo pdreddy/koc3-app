@@ -1,6 +1,9 @@
 import { useParams, Outlet, Link as RouterLink, useLocation } from 'react-router-dom';
-import { AppBar, Avatar, Box, Container, Tab, Tabs, Toolbar, Typography, Alert } from '@mui/material';
+import { AppBar, Avatar, Box, Button, Chip, Container, Stack, Tab, Tabs, Toolbar, Typography, Alert } from '@mui/material';
 import { TournamentProvider, useTournament } from '@/contexts/TournamentContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTournamentRole } from '@/hooks/useTournamentRole';
+import { useClaimPendingInvite } from '@/hooks/useClaimPendingInvite';
 
 const NAV_ITEMS: { pageId: string; label: string; path: string }[] = [
   { pageId: 'home', label: 'Home', path: '' },
@@ -8,7 +11,37 @@ const NAV_ITEMS: { pageId: string; label: string; path: string }[] = [
   { pageId: 'standings', label: 'Standings', path: 'standings' },
   { pageId: 'teams', label: 'Teams', path: 'teams' },
   { pageId: 'rules', label: 'Rules', path: 'rules' },
+  { pageId: 'scoreEntry', label: 'Enter Score', path: 'score' },
 ];
+
+const ROLE_LABELS: Record<string, string> = {
+  TOURNAMENT_ADMIN: 'Admin', ORGANIZER: 'Organizer', CAPTAIN: 'Captain',
+  VICE_CAPTAIN: 'Vice Captain', PLAYER: 'Player',
+};
+
+function AccountStatus() {
+  const { user, signOut } = useAuth();
+  const { role, loading: roleLoading } = useTournamentRole();
+  const location = useLocation();
+
+  if (!user) {
+    return (
+      <Button size="small" component={RouterLink} to={`/admin/login?redirect=${encodeURIComponent(location.pathname)}`}>
+        Sign In
+      </Button>
+    );
+  }
+
+  return (
+    <Stack direction="row" spacing={1} alignItems="center">
+      {!roleLoading && (
+        <Chip size="small" label={role ? ROLE_LABELS[role] ?? role : 'No role yet'} color={role ? 'primary' : 'default'} />
+      )}
+      <Typography variant="body2" color="text.secondary">{user.email}</Typography>
+      <Button size="small" onClick={() => signOut()}>Sign Out</Button>
+    </Stack>
+  );
+}
 
 function PublicHeader() {
   const { tournament } = useTournament();
@@ -23,6 +56,7 @@ function PublicHeader() {
       <Toolbar>
         {branding.logoUrl && <Avatar src={branding.logoUrl} sx={{ mr: 1.5 }} variant="rounded" />}
         <Typography variant="h6" sx={{ flexGrow: 1 }}>{info.name}</Typography>
+        <AccountStatus />
       </Toolbar>
       <Tabs value={currentTab} variant="scrollable" scrollButtons="auto">
         {NAV_ITEMS.map((item) => (
@@ -41,6 +75,10 @@ function PublicHeader() {
 
 function PublicTournamentShell() {
   const { tournament, loading, error } = useTournament();
+  // Hooks must run unconditionally on every render — useClaimPendingInvite itself no-ops
+  // until both a signed-in user and a loaded tournament are available, so it's safe to
+  // call before the loading/error early-returns below.
+  useClaimPendingInvite();
 
   if (loading) return <Container sx={{ py: 6 }}><Typography color="text.secondary">Loading…</Typography></Container>;
   if (error || !tournament) return <Container sx={{ py: 6 }}><Alert severity="error">{error || 'Tournament not found'}</Alert></Container>;

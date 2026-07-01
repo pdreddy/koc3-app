@@ -77,12 +77,43 @@ service cloud.firestore {
         // tournament, since permission docs are the only thing it checks. See
         // TournamentService.create(), which performs this write immediately after creating
         // the tournament doc.
+        // Second self-write exception: a signed-in user may create their OWN permission
+        // doc if it exactly matches an unclaimed invite for their email
+        // (tournaments/{tournamentId}/invites/{email}, doc id == email). This is what lets
+        // an admin-issued invite ("captain@example.com is CAPTAIN of Team 3") turn into a
+        // real role the moment that person signs in — see
+        // hooks/useClaimPendingInvite.ts, which performs this write. CAVEAT: compares
+        // request.auth.token.email directly as a path segment; not verified against a real
+        // deploy that this always matches the invite doc id's casing — see README.md.
         allow create: if isTournamentAdmin(tournamentId) ||
           (isSignedIn() &&
            request.auth.uid == userId &&
            request.auth.uid == get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.createdBy &&
-           request.resource.data.role == 'TOURNAMENT_ADMIN');
+           request.resource.data.role == 'TOURNAMENT_ADMIN') ||
+          (isSignedIn() &&
+           request.auth.uid == userId &&
+           request.auth.token.email != null &&
+           exists(/databases/$(database)/documents/tournaments/$(tournamentId)/invites/$(request.auth.token.email)) &&
+           get(/databases/$(database)/documents/tournaments/$(tournamentId)/invites/$(request.auth.token.email)).data.claimedBy == null &&
+           get(/databases/$(database)/documents/tournaments/$(tournamentId)/invites/$(request.auth.token.email)).data.role == request.resource.data.role &&
+           get(/databases/$(database)/documents/tournaments/$(tournamentId)/invites/$(request.auth.token.email)).data.teamId == request.resource.data.teamId);
         allow update, delete: if isTournamentAdmin(tournamentId);
+      }
+
+      match /invites/{email} {
+        // An admin can see/manage every invite; the invited person can see their own (to
+        // know they've been invited) before they've even signed up.
+        allow read: if isTournamentAdmin(tournamentId) || (isSignedIn() && request.auth.token.email == email);
+        allow create, delete: if isTournamentAdmin(tournamentId);
+        // Claiming: the invited user may flip claimedBy from null to their own uid — and
+        // only that, nothing else about the invite — once. Everything else (re-assigning
+        // an invite, changing its role) stays admin-only.
+        allow update: if isTournamentAdmin(tournamentId) ||
+          (isSignedIn() &&
+           request.auth.token.email == email &&
+           resource.data.claimedBy == null &&
+           request.resource.data.claimedBy == request.auth.uid &&
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimedBy', 'claimedAt']));
       }
 
       match /teams/{teamId} {

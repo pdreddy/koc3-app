@@ -52,10 +52,25 @@ end-to-end. Treat this as "should work, being verified," not "verified."
   update their own team's scheduled matches (score entry) and create/update matches their
   team is part of, but can't touch an already-`APPROVED` match. Platform-wide `SUPER_ADMIN`
   is an explicit TODO — `isSuperAdmin()` always returns `false`.
+- **Signup + role invites** — this is what actually connects "a captain" to "a screen they
+  can see": `/admin/signup` lets anyone self-register a Firebase Auth account (no admin
+  console needed anymore). Admins use **Team Roles** (`/admin/tournaments/{id}/roles`) to
+  invite an email address as `CAPTAIN`/`VICE_CAPTAIN`/`PLAYER` (per team) or `ORGANIZER`,
+  which writes `tournaments/{id}/invites/{normalizedEmail}`. The moment that person signs
+  in (new or existing account) and visits the tournament's public site,
+  `useClaimPendingInvite` finds the matching invite and self-creates their
+  `permissions/{uid}` doc — no Cloud Function needed. The public site header shows a Sign
+  In link (signed out) or the resolved role + Sign Out (signed in). **Not yet verified
+  against a real deploy** — see the case-sensitivity caveat in
+  `hooks/useClaimPendingInvite.ts` and `firestore.rules`' `permissions`/`invites` blocks
+  (email matching relies on `request.auth.token.email` casing, which isn't guaranteed to
+  match the lowercased invite doc id in every case).
 
 ### What's NOT implemented
 
 - Admin approval workflow for submitted scores (see Score Entry note above).
+- Un-inviting / changing someone's role once claimed (Team Roles only creates invites, no
+  edit/revoke UI yet — do it directly in Firestore for now).
 - Manual/drag-drop team assignment, group generation as its own separate step (currently
   folded into team generation — see `teamGenerator.ts`'s `groupLabelFor`), knockout/playoff
   bracket generation, notifications, CSV export, analytics.
@@ -73,12 +88,13 @@ npm run dev                  # http://localhost:5173
 
 You'll also need, in the Firebase project you point `.env.local` at:
 - Firestore enabled (Native mode)
-- Authentication → Email/Password provider enabled, with at least one user created (there's
-  no self-serve admin signup screen yet — create the first admin user directly in the
-  Firebase console)
+- Authentication → Email/Password provider enabled. First account: use `/admin/signup` in
+  the app itself (or create one directly in the Firebase console, same effect) — whoever
+  creates a tournament automatically becomes its admin, no manual role assignment needed
+  for that first account.
 - `firestore.rules` deployed (`firebase deploy --only firestore:rules` from a machine with
   the Firebase CLI and credentials for that project — not available in the session that
-  wrote this)
+  wrote this) — redeploy any time this file changes, including this update.
 
 ## Commands
 

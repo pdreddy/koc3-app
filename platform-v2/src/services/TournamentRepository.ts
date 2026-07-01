@@ -77,7 +77,7 @@ export class TournamentScopedRepository<T extends { id: string }> {
 // Convenience factory — the only thing most call sites should ever need.
 export function tournamentRepository<T extends { id: string }>(
   tournamentId: string,
-  subcollection: 'teams' | 'players' | 'matches' | 'schedules' | 'standings' | 'permissions'
+  subcollection: 'teams' | 'players' | 'matches' | 'schedules' | 'standings' | 'permissions' | 'invites'
 ): TournamentScopedRepository<T> {
   return new TournamentScopedRepository<T>(tournamentId, subcollection);
 }
