@@ -126,10 +126,28 @@ Each phase must build, pass tests, and preserve KOC behavior before starting the
   Cloud Function validates, not the match-scoring line structure — renamed to `lineupSlots`
   and explicitly marked not-wired.
 
-Remaining phases (5, 6) plus the newly-identified **Phase 7** (lineup/cross-pairing match
-structure, spanning client + Cloud Function) are substantial, independent efforts that touch
-shared, high-risk business logic or require a real Firebase deploy to verify, and should be
-taken up as their own reviewed increments.
+- **Phase 5 (done, scoped to app-level only):** `AuthContext.js` now stamps `clubId` (from
+  the active `ClubContext`) onto every session created by `loginAdmin`/`loginTeam`, and
+  signs a session back out to GUEST if its `clubId` no longer matches the active club.
+  Sessions with no `clubId` (i.e. every session that existed before this change) are left
+  alone, so logged-in users are unaffected. This is client-side only — it does **not** add
+  real Firebase custom claims or RTDB-level per-club isolation, which needs a trusted
+  claims-issuing mechanism (e.g. a Cloud Function calling
+  `admin.auth().setCustomUserClaims()`) that doesn't exist in this codebase today and can
+  only be verified via a real deploy. That remains open follow-up work.
+- **Phase 6 (done, scoped to header + document metadata):** `Header.js`'s logo/short
+  name/tagline and `document.title`/`theme-color` now read from the active club's
+  `branding` config instead of hardcoded JSX/static HTML. KOC's config values reproduce
+  today's exact strings, so this is a no-op for KOC. Build-time-only static assets
+  (`manifest.json`, favicon, apple-touch-icon) aren't runtime-swappable for a single SPA
+  deployment and remain out of scope — true per-club branding of those needs either a
+  per-club build/deployment or a manifest-serving backend.
+
+Remaining: the newly-identified **Phase 7** (lineup/cross-pairing match structure, spanning
+client + Cloud Function) and full RTDB-level multi-tenant auth (real custom claims,
+club-scoped security rules, club onboarding admin flow) are substantial, independent efforts
+that touch shared, high-risk business logic or require a real Firebase deploy to verify, and
+should be taken up as their own reviewed increments.
 
 ### Pre-existing gap found while scoping Phase 5 (fixed separately, not part of multi-club work)
 
