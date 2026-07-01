@@ -2,6 +2,7 @@ import React from 'react';
 import { Alert, Container, Typography } from '@mui/material';
 import { useTournament } from '@/contexts/TournamentContext';
 import { canViewAtLevel, useTournamentRole } from '@/hooks/useTournamentRole';
+import { DEFAULT_VISIBILITY } from '@/types';
 
 // The admin-configurable per-page access control described in the spec's "Screen
 // Visibility" step: reads tournament.config.visibility[pageId] and compares it against the
@@ -17,7 +18,11 @@ export function VisibilityGate({ pageId, children }: { pageId: string; children:
   if (tournamentLoading || roleLoading) return null;
   if (!tournament) return <Alert severity="error">Tournament not found.</Alert>;
 
-  const required = tournament.config.visibility[pageId] ?? 'ADMIN'; // fail closed for unknown page ids
+  // Fall back to the shipped default for any page id missing from this tournament's saved
+  // config — e.g. a tournament created before a new page existed won't have that key in
+  // its stored visibility map, and should pick up the new page's sensible default instead
+  // of failing closed as 'ADMIN' for everyone including the tournament's own admin.
+  const required = tournament.config.visibility[pageId] ?? DEFAULT_VISIBILITY[pageId] ?? 'ADMIN';
   if (required === 'HIDDEN') {
     return (
       <Container sx={{ py: 6 }}>

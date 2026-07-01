@@ -11,6 +11,7 @@ const NAV_ITEMS: { pageId: string; label: string; path: string }[] = [
   { pageId: 'standings', label: 'Standings', path: 'standings' },
   { pageId: 'teams', label: 'Teams', path: 'teams' },
   { pageId: 'rules', label: 'Rules', path: 'rules' },
+  { pageId: 'lineupSubmission', label: 'Lineup', path: 'lineup' },
   { pageId: 'scoreEntry', label: 'Enter Score', path: 'score' },
 ];
 

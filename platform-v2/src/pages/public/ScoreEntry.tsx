@@ -6,7 +6,8 @@ import {
 import { VisibilityGate } from '@/components/layout/VisibilityGate';
 import { useTournament } from '@/contexts/TournamentContext';
 import { useTournamentRole } from '@/hooks/useTournamentRole';
-import type { Match, MatchLine, Player, ScheduleEntry, SetScore, Team } from '@/types';
+import type { LineupSubmission, Match, MatchLine, Player, ScheduleEntry, SetScore, Team } from '@/types';
+import { lineupDocId } from '@/types';
 import { buildLineSpecs, type LineSpec } from '@/services/matchLines';
 import { validateLine, lineWinner } from '@/services/scoringEngine';
 
@@ -67,13 +68,25 @@ function SetRow({
 
 function LineForm({
   spec, team1, team2, team1Players, team2Players, gamesPerSet, maxSets, onValidChange,
+  prefillTeam1PlayerIds, prefillTeam2PlayerIds,
 }: {
   spec: LineSpec; team1: Team; team2: Team; team1Players: Player[]; team2Players: Player[];
   gamesPerSet: number; maxSets: number;
   onValidChange: (line: MatchLine | null, errors: string[]) => void;
+  prefillTeam1PlayerIds?: string[]; prefillTeam2PlayerIds?: string[];
 }) {
-  const [team1PlayerIds, setTeam1PlayerIds] = useState<string[]>(Array(spec.playersPerSide).fill(''));
-  const [team2PlayerIds, setTeam2PlayerIds] = useState<string[]>(Array(spec.playersPerSide).fill(''));
+  // Prefilled from a revealed lineup submission (both teams locked) when available —
+  // see hooks usage in ScoreEntryContent — otherwise starts blank as before.
+  const [team1PlayerIds, setTeam1PlayerIds] = useState<string[]>(
+    () => prefillTeam1PlayerIds && prefillTeam1PlayerIds.length === spec.playersPerSide
+      ? prefillTeam1PlayerIds
+      : Array(spec.playersPerSide).fill('')
+  );
+  const [team2PlayerIds, setTeam2PlayerIds] = useState<string[]>(
+    () => prefillTeam2PlayerIds && prefillTeam2PlayerIds.length === spec.playersPerSide
+      ? prefillTeam2PlayerIds
+      : Array(spec.playersPerSide).fill('')
+  );
   const [sets, setSets] = useState<DraftSet[]>(Array.from({ length: maxSets }, emptySet));
 
   useEffect(() => {
@@ -155,6 +168,7 @@ function ScoreEntryContent() {
   const selectedEntry = entries.find((e) => e.id === selectedEntryId) ?? null;
   const team1 = selectedEntry ? teams[selectedEntry.team1Id] : null;
   const team2 = selectedEntry ? teams[selectedEntry.team2Id] : null;
+  const [revealedLineups, setRevealedLineups] = useState<{ team1: LineupSubmission; team2: LineupSubmission } | null>(null);
 
   useEffect(() => {
     if (!team1 || !team2) return;
@@ -164,6 +178,21 @@ function ScoreEntryContent() {
       setPlayers({ [team1.id]: p1.filter((p): p is Player => Boolean(p)), [team2.id]: p2.filter((p): p is Player => Boolean(p)) });
     });
   }, [team1, team2, repo]);
+
+  // If both teams have locked a pre-match lineup (see pages/public/LineupSubmission.tsx),
+  // prefill the score-entry player selects from it instead of making the entrant re-pick
+  // players that were already agreed on and revealed.
+  useEffect(() => {
+    setRevealedLineups(null);
+    if (!selectedEntry || !team1 || !team2) return;
+    const lineupRepo = repo<LineupSubmission>('lineups');
+    Promise.all([
+      lineupRepo.get(lineupDocId(selectedEntry.id, team1.id)).catch(() => null),
+      lineupRepo.get(lineupDocId(selectedEntry.id, team2.id)).catch(() => null),
+    ]).then(([l1, l2]) => {
+      if (l1?.lockedAt && l2?.lockedAt) setRevealedLineups({ team1: l1, team2: l2 });
+    });
+  }, [selectedEntry, team1, team2, repo]);
 
   const lineSpecs = useMemo(() => (tournament ? buildLineSpecs(tournament.config) : []), [tournament]);
 
@@ -230,6 +259,9 @@ function ScoreEntryContent() {
 
       {selectedEntry && team1 && team2 && players[team1.id] && players[team2.id] && (
         <>
+          {revealedLineups && (
+            <Alert severity="info">Player selections below are prefilled from the revealed, locked lineups — change them if needed.</Alert>
+          )}
           {lineSpecs.map((spec) => (
             <LineForm
               key={spec.label}
@@ -241,6 +273,8 @@ function ScoreEntryContent() {
               gamesPerSet={scoring.gamesPerSet}
               maxSets={maxSets}
               onValidChange={(line, errors) => setLines((prev) => ({ ...prev, [spec.label]: { line, errors } }))}
+              prefillTeam1PlayerIds={revealedLineups?.team1.lines.find((l) => l.label === spec.label)?.playerIds}
+              prefillTeam2PlayerIds={revealedLineups?.team2.lines.find((l) => l.label === spec.label)?.playerIds}
             />
           ))}
 

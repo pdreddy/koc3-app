@@ -6,3 +6,10 @@
 // tournaments comes from each one being its own document with its own subcollections, not
 // from a namespace prefix.
 export const TOURNAMENTS_COLLECTION = 'tournaments';
+
+// Every subcollection a tournament document can have. Shared between TournamentRepository
+// (constrains what tournamentRepository() will construct) and TournamentContext (constrains
+// what repo() will construct) so the two can't drift apart.
+export type TournamentSubcollection =
+  | 'teams' | 'players' | 'matches' | 'schedules' | 'standings' | 'permissions' | 'invites'
+  | 'lineups' | 'auditLogs' | 'announcements' | 'sponsors' | 'gallery';

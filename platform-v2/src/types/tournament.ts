@@ -157,12 +157,19 @@ export const DEFAULT_VISIBILITY: VisibilityMap = {
   gallery: 'PUBLIC',
   rules: 'PUBLIC',
   announcements: 'PUBLIC',
+  sponsors: 'PUBLIC',
+  history: 'PUBLIC',
+  matchups: 'PUBLIC',
+  ratings: 'PUBLIC',
+  more: 'PUBLIC',
   playerProfiles: 'LOGIN_REQUIRED',
   captainDashboard: 'CAPTAIN',
   scoreEntry: 'CAPTAIN',
+  lineupSubmission: 'CAPTAIN',
   adminDashboard: 'ADMIN',
   playerImport: 'ADMIN',
   tournamentSettings: 'ADMIN',
+  auditLogs: 'ADMIN',
 };
 
 // ── Branding ────────────────────────────────────────────────────────────────────────────

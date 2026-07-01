@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { identityConverter } from './firestoreConverters';
-import { TOURNAMENTS_COLLECTION } from './firestorePaths';
+import { TOURNAMENTS_COLLECTION, type TournamentSubcollection } from './firestorePaths';
 
 // Every read/write in this platform goes through a repository built by this factory, so
 // no component or service ever writes a Firestore path by hand — the tournamentId scoping
@@ -77,7 +77,7 @@ export class TournamentScopedRepository<T extends { id: string }> {
 // Convenience factory — the only thing most call sites should ever need.
 export function tournamentRepository<T extends { id: string }>(
   tournamentId: string,
-  subcollection: 'teams' | 'players' | 'matches' | 'schedules' | 'standings' | 'permissions' | 'invites'
+  subcollection: TournamentSubcollection
 ): TournamentScopedRepository<T> {
   return new TournamentScopedRepository<T>(tournamentId, subcollection);
 }

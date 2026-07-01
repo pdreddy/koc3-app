@@ -7,3 +7,4 @@ export * from './schedule';
 export * from './standings';
 export * from './permission';
 export * from './invite';
+export * from './lineup';

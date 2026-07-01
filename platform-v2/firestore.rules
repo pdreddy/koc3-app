@@ -60,6 +60,23 @@ service cloud.firestore {
       );
     }
 
+    // Blind-lineup reveal, with no Cloud Function: a lineup doc (id ==
+    // `${scheduleEntryId}__${teamId}`, see types/lineup.ts lineupDocId()) is only readable
+    // by the OTHER team once both teams' lineups have lockedAt set. This cross-document
+    // check is exactly the kind of thing koc3-app v1 needed a Cloud Function for (RTDB
+    // rules there couldn't do it); Firestore's get() makes it possible directly in rules.
+    function scheduleFixture(tournamentId, scheduleEntryId) {
+      return get(/databases/$(database)/documents/tournaments/$(tournamentId)/schedules/$(scheduleEntryId));
+    }
+
+    function opponentLineupLocked(tournamentId, scheduleEntryId, teamId) {
+      let fixture = scheduleFixture(tournamentId, scheduleEntryId).data;
+      let otherTeamId = fixture.team1Id == teamId ? fixture.team2Id : fixture.team1Id;
+      let otherLineupId = scheduleEntryId + '__' + otherTeamId;
+      let otherLineupPath = /databases/$(database)/documents/tournaments/$(tournamentId)/lineups/$(otherLineupId);
+      return exists(otherLineupPath) && get(otherLineupPath).data.lockedAt != null;
+    }
+
     match /tournaments/{tournamentId} {
       // Tournament doc itself: publicly readable once published (so /t/{slug} works for
       // guests), otherwise admin-only. Writes always admin-only.
@@ -157,6 +174,23 @@ service cloud.firestore {
         allow update: if isTournamentAdmin(tournamentId) ||
           ((resource.data.status != 'APPROVED') &&
            (isCaptainOfTeam(tournamentId, resource.data.team1Id) || isCaptainOfTeam(tournamentId, resource.data.team2Id)));
+        allow delete: if isTournamentAdmin(tournamentId);
+      }
+
+      match /lineups/{lineupId} {
+        // Own team's lineup: always readable by that team's captain (and admins). The
+        // opponent's lineup: only once both are locked (opponentLineupLocked) — this is the
+        // actual "reveal" mechanism, not a separate revealedLineups collection.
+        allow read: if isTournamentAdmin(tournamentId) ||
+          (isSignedIn() && isCaptainOfTeam(tournamentId, resource.data.teamId)) ||
+          (isSignedIn() && resource.data.lockedAt != null &&
+           opponentLineupLocked(tournamentId, resource.data.scheduleEntryId, resource.data.teamId));
+        allow create: if isTournamentAdmin(tournamentId) ||
+          isCaptainOfTeam(tournamentId, request.resource.data.teamId);
+        // Editable freely (draft saves) until locked; once lockedAt is set, immutable
+        // except by an admin — matches ScoreEntry's already-APPROVED-is-final convention.
+        allow update: if isTournamentAdmin(tournamentId) ||
+          (isCaptainOfTeam(tournamentId, resource.data.teamId) && resource.data.lockedAt == null);
         allow delete: if isTournamentAdmin(tournamentId);
       }
     }

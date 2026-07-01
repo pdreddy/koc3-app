@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import type { Tournament } from '@/types';
 import { TournamentService } from '@/services/TournamentService';
 import { TournamentScopedRepository } from '@/services/TournamentRepository';
+import type { TournamentSubcollection } from '@/services/firestorePaths';
 
 interface TournamentContextValue {
   tournament: Tournament | null;
@@ -9,9 +10,7 @@ interface TournamentContextValue {
   error: string | null;
   /** Scoped repository factory — every screen gets its data access through this, never a
    * hand-written Firestore path. Throws if no tournament is loaded yet. */
-  repo: <T extends { id: string }>(
-    subcollection: 'teams' | 'players' | 'matches' | 'schedules' | 'standings' | 'permissions' | 'invites'
-  ) => TournamentScopedRepository<T>;
+  repo: <T extends { id: string }>(subcollection: TournamentSubcollection) => TournamentScopedRepository<T>;
 }
 
 const TournamentContext = createContext<TournamentContextValue | null>(null);
