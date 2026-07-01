@@ -5,14 +5,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTournamentRole } from '@/hooks/useTournamentRole';
 import { useClaimPendingInvite } from '@/hooks/useClaimPendingInvite';
 
+// Primary nav stays short (koc3-app collapses secondary pages into a "More" screen rather
+// than a long tab bar) — History/Matchups/Ratings/Rules live behind More.
 const NAV_ITEMS: { pageId: string; label: string; path: string }[] = [
   { pageId: 'home', label: 'Home', path: '' },
   { pageId: 'schedule', label: 'Schedule', path: 'schedule' },
   { pageId: 'standings', label: 'Standings', path: 'standings' },
   { pageId: 'teams', label: 'Teams', path: 'teams' },
-  { pageId: 'rules', label: 'Rules', path: 'rules' },
   { pageId: 'lineupSubmission', label: 'Lineup', path: 'lineup' },
   { pageId: 'scoreEntry', label: 'Enter Score', path: 'score' },
+  { pageId: 'more', label: 'More', path: 'more' },
 ];
 
 const ROLE_LABELS: Record<string, string> = {

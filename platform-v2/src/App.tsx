@@ -19,6 +19,10 @@ import PublicTeams from '@/pages/public/PublicTeams';
 import PublicRules from '@/pages/public/PublicRules';
 import ScoreEntry from '@/pages/public/ScoreEntry';
 import LineupSubmission from '@/pages/public/LineupSubmission';
+import History from '@/pages/public/History';
+import Matchups from '@/pages/public/Matchups';
+import Ratings from '@/pages/public/Ratings';
+import More from '@/pages/public/More';
 
 // Requires a signed-in Firebase Auth user. This is NOT yet a real per-tournament role
 // check (that needs Firestore security rules + TournamentPermission docs — Task #11) —
@@ -55,6 +59,10 @@ export default function App() {
         <Route path="rules" element={<PublicRules />} />
         <Route path="score" element={<ScoreEntry />} />
         <Route path="lineup" element={<LineupSubmission />} />
+        <Route path="history" element={<History />} />
+        <Route path="matchups" element={<Matchups />} />
+        <Route path="ratings" element={<Ratings />} />
+        <Route path="more" element={<More />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/admin" replace />} />
