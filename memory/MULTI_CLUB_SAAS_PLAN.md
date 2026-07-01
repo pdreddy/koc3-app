@@ -75,21 +75,58 @@ Each phase must build, pass tests, and preserve KOC behavior before starting the
 - **Phase 3:** Generalize `roundRobin`/schedule builder to N groups × M teams, driven by config;
   regenerate KOC's schedule from config and diff against the existing hardcoded schedule to
   confirm equivalence before switching.
-- **Phase 4:** Generalize match/lineup format (line count, singles/doubles mix, scoring rules,
-  tiebreak thresholds) in `tennisScoreRules.js`, `ScoreProcessingService.js`, quick-score parser,
-  and the Cloud Function validator together (they must stay in sync) — highest risk phase,
-  needs the most careful verification against real match data.
+- **Phase 4:** Generalize the set/game/tiebreak *scoring* rules (games-per-set, sets-to-win,
+  tiebreak thresholds) in `tennisScoreRules.js` — done; see progress log below.
 - **Phase 5:** Club-scoped auth (custom claims with `clubId`), club-scoped security rules,
   club onboarding admin flow (create club → seed default config → invite admin).
 - **Phase 6:** Branding/theming per club (logo, colors, sponsor slots), multi-club navigation
   (club picker / subdomain routing).
+- **Phase 7 (split out of the original Phase 4 during implementation):** Generalize the
+  match/lineup *structure* itself — line count, the doubles cross-pairing "reverse" format,
+  and the pre-match lineup-submission slots — across `ScoreEntry.js`, `quickScoreParser.js`,
+  `ScoreProcessingService.js`, and the Cloud Function (`functions/index.js`) together, since
+  they must stay in sync and the Cloud Function can only be verified on deploy. Highest-risk
+  remaining phase; needs the most careful verification against real match data and a real
+  Firebase deploy/staging environment.
 
-## 5. What Ships in This Session
+## 5. Progress Log
 
-Phase 1 only, per the "small, safe, incremental" instruction: club registry + `LeagueConfig`
-schema (documenting, not yet driving, today's rules) + `buildPaths()` factory + `ClubContext`
-scaffold + additive security-rule stubs. No page, service, or business-logic file's behavior
-changes. Verified via existing build + test suite before and after.
+- **Phase 1 (done):** club registry (`config/clubs.js`), `LeagueConfig` schema
+  (`config/leagueConfig.js`), `buildPaths()` factory (`firebasePaths.js`), `ClubContext`
+  scaffold, additive `clubs`/`leagueConfigs` security-rule blocks. No existing behavior
+  changed. Verified via build + full test suite before/after.
+- **Phase 2 (done):** `pages/Standings.js` now sources `qualifyTop`, `groupCount`,
+  `teamsPerGroup`, and the tiebreak order from `LeagueConfig` instead of literals. Extracted
+  `utils/standingsRanking.js` (`buildStandingsComparator`), verified equivalent to the
+  original inline comparator via 200 randomized trials against a kept reference
+  implementation, plus the existing `Standings.test.js` suite (unmodified, still green).
+  Found and documented (not fixed) a pre-existing duplicate/divergent standings sort in
+  `ScoreProcessingService.computeStandings()` — persisted but read by no page today.
+- **Phase 3 (done):** `utils/roundRobin.js` gained `buildScheduleFromGroups(groups, options)`,
+  a generalized N-groups × M-teams scheduler; `buildScheduleFor8x2` is now a thin wrapper
+  supplying KOC's literals. Verified byte-identical output via a Jest snapshot captured from
+  the pre-refactor implementation (critical because App.js's schedule-seeding logic compares
+  `scheduleVersion` to decide whether to silently regenerate a live club's schedule). Added
+  coverage for uneven group sizes (4/6/8 teams) proving real reusability.
+- **Phase 4 (done, rescoped):** `utils/tennisScoreRules.js`'s set/game/tiebreak thresholds
+  (games-per-set, sets-to-win, tiebreak minPoints/winBy) are now driven by an optional
+  `format` argument, defaulting to `DEFAULT_MATCH_FORMAT` (KOC's exact current rules). No
+  existing call site passes a format, so behavior is unchanged by default. Added a
+  characterization test suite first (the file had almost none) to lock in existing behavior
+  before refactoring. **Rescoped from the original plan**: closer inspection showed the
+  match/lineup *structure* (how many lines exist, the doubles "reverse" cross-pairing round
+  robin between each team's two pairs — see `pages/ScoreEntry.js` `COURT_TEMPLATES` /
+  `buildLineupCourts`) is a specific tournament-format concept, not just "N configurable
+  lines," and it's validated in three places that must move together: the client
+  (`ScoreEntry.js`, `quickScoreParser.js`), `ScoreProcessingService.js`, and a Cloud Function
+  (`functions/index.js`) that can only be verified on deploy. Generalizing *that* is deferred
+  to its own dedicated phase (7, below) rather than guessed at under time pressure. The
+  earlier Phase-1 `LeagueConfig.lines` field (which incorrectly modeled this as `S1/D1/D2`)
+  was corrected: that shape is actually the pre-match lineup-*submission* slot structure the
+  Cloud Function validates, not the match-scoring line structure — renamed to `lineupSlots`
+  and explicitly marked not-wired.
 
-Phases 2–6 are substantial, independent efforts (each touches shared, high-risk business logic)
-and should be taken up as their own reviewed increments rather than rushed into one session.
+Remaining phases (5, 6) plus the newly-identified **Phase 7** (lineup/cross-pairing match
+structure, spanning client + Cloud Function) are substantial, independent efforts that touch
+shared, high-risk business logic or require a real Firebase deploy to verify, and should be
+taken up as their own reviewed increments.
