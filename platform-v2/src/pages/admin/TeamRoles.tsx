@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
-  Alert, Button, Chip, Container, MenuItem, Select, Stack, Table, TableBody, TableCell,
-  TableHead, TableRow, TextField, Typography,
+  Alert, Button, Chip, Container, IconButton, MenuItem, Select, Stack, Table, TableBody,
+  TableCell, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { TournamentProvider, useTournament } from '@/contexts/TournamentContext';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Invite, Player, Role, Team } from '@/types';
+import type { Invite, Player, Role, Team, TournamentPermission } from '@/types';
 import { normalizeEmail } from '@/types';
 import { writeAuditLog } from '@/services/auditService';
 
@@ -64,6 +65,42 @@ function InviteRow({
   );
 }
 
+function InviteStatusRow({ invite, tournamentId, onRemoved }: { invite: Invite; tournamentId: string; onRemoved: (id: string) => void }) {
+  const { repo } = useTournament();
+  const { user } = useAuth();
+  const [busy, setBusy] = useState(false);
+
+  const handleRemove = async () => {
+    setBusy(true);
+    // Revoking a claimed role deletes both the permission doc (the actual access grant)
+    // and the invite record; cancelling an unclaimed invite just deletes the invite.
+    if (invite.claimedBy) {
+      await repo<TournamentPermission>('permissions').remove(invite.claimedBy);
+    }
+    await repo<Invite>('invites').remove(invite.id);
+    await writeAuditLog(
+      tournamentId,
+      invite.claimedBy ? 'ROLE_REVOKED' : 'INVITE_CANCELLED',
+      { uid: user?.uid ?? 'unknown', email: user?.email ?? null },
+      'invite',
+      invite.id,
+      { role: invite.role, teamId: invite.teamId }
+    );
+    onRemoved(invite.id);
+  };
+
+  return (
+    <Stack direction="row" spacing={1} alignItems="center">
+      <Typography sx={{ minWidth: 220 }}>{invite.email}</Typography>
+      <Chip size="small" label={invite.role.replaceAll('_', ' ')} />
+      <Chip size="small" color={invite.claimedBy ? 'success' : 'default'} label={invite.claimedBy ? 'Claimed' : 'Pending'} />
+      <IconButton size="small" disabled={busy} onClick={handleRemove} title={invite.claimedBy ? 'Revoke role' : 'Cancel invite'}>
+        <DeleteIcon fontSize="small" />
+      </IconButton>
+    </Stack>
+  );
+}
+
 function TeamRolesContent() {
   const { tournament, repo } = useTournament();
   const [teams, setTeams] = useState<Team[]>([]);
@@ -95,6 +132,7 @@ function TeamRolesContent() {
   if (!tournament) return null;
 
   const upsertInvite = (invite: Invite) => setInvites((prev) => [...prev.filter((i) => i.id !== invite.id), invite]);
+  const removeInvite = (id: string) => setInvites((prev) => prev.filter((i) => i.id !== id));
 
   return (
     <Stack spacing={4}>
@@ -108,11 +146,7 @@ function TeamRolesContent() {
       <Stack spacing={1}>
         <Typography variant="h6">Organizers / Co-Admins</Typography>
         {(invitesByTeam.organizers ?? []).map((inv) => (
-          <Stack key={inv.id} direction="row" spacing={1} alignItems="center">
-            <Typography sx={{ minWidth: 220 }}>{inv.email}</Typography>
-            <Chip size="small" label={inv.role.replaceAll('_', ' ')} />
-            <Chip size="small" color={inv.claimedBy ? 'success' : 'default'} label={inv.claimedBy ? 'Claimed' : 'Pending'} />
-          </Stack>
+          <InviteStatusRow key={inv.id} invite={inv} tournamentId={tournament.id} onRemoved={removeInvite} />
         ))}
         <InviteRow defaultEmail="" teamId={null} tournamentId={tournament.id} onInvited={upsertInvite} />
       </Stack>
@@ -137,11 +171,7 @@ function TeamRolesContent() {
               </TableBody>
             </Table>
             {(invitesByTeam[team.id] ?? []).map((inv) => (
-              <Stack key={inv.id} direction="row" spacing={1} alignItems="center">
-                <Typography sx={{ minWidth: 220 }}>{inv.email}</Typography>
-                <Chip size="small" label={inv.role.replaceAll('_', ' ')} />
-                <Chip size="small" color={inv.claimedBy ? 'success' : 'default'} label={inv.claimedBy ? 'Claimed' : 'Pending'} />
-              </Stack>
+              <InviteStatusRow key={inv.id} invite={inv} tournamentId={tournament.id} onRemoved={removeInvite} />
             ))}
             <InviteRow
               defaultEmail={players[team.playerIds[0]]?.email ?? ''}
