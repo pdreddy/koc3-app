@@ -66,6 +66,28 @@ end-to-end. Treat this as "should work, being verified," not "verified."
   (email matching relies on `request.auth.token.email` casing, which isn't guaranteed to
   match the lowercased invite doc id in every case).
 
+- **Blind lineup submission/lock/reveal** (`/t/{slug}/lineup`, captain-gated): submit a
+  pre-match lineup that stays hidden from the opponent until BOTH teams lock —
+  `firestore.rules`' `opponentLineupLocked()` does the cross-document check that koc3-app v1
+  needed a Cloud Function for. Score Entry prefills player selects from the revealed lineup.
+- **History / Matchups / Ratings / More** (`/t/{slug}/history|matchups|ratings|more`):
+  approved-match history with line-by-line detail; per-player win/loss + doubles
+  partnership records (`services/playerStatsEngine.ts`); a simplified win-percentage rating
+  (explicitly NOT koc3-app's actual PTL/PPRC formula); a collapsed-links page, same pattern
+  koc3-app uses to keep its primary nav short.
+- **Audit log** (`/admin/tournaments/{id}/audit`, admin-only): every notable write
+  (tournament create/publish/archive, config save, role invite/claim, lineup lock, score
+  save) is recorded via `services/auditService.ts`. Entries are immutable and can only be
+  created by the user they're attributed to (`firestore.rules` enforces
+  `performedByUserId == request.auth.uid`).
+- **Announcements / Sponsors / Gallery** (`/admin/tournaments/{id}/content` to manage,
+  `/t/{slug}/announcements|sponsors|gallery` to view): simple admin-managed content lists.
+  No file upload — images are pasted URLs (this project has no Firebase Storage wired up).
+- **PWA**: installable manifest + icons (placeholder solid-color squares — there's no
+  shared app-shell logo since branding is per-tournament, not per-app), a minimal
+  hand-written service worker (network-first, offline app-shell fallback, production-only),
+  and a mobile-first fixed bottom nav below the `sm` breakpoint.
+
 ### What's NOT implemented
 
 - Admin approval workflow for submitted scores (see Score Entry note above).
@@ -73,7 +95,8 @@ end-to-end. Treat this as "should work, being verified," not "verified."
   edit/revoke UI yet — do it directly in Firestore for now).
 - Manual/drag-drop team assignment, group generation as its own separate step (currently
   folded into team generation — see `teamGenerator.ts`'s `groupLabelFor`), knockout/playoff
-  bracket generation, notifications, CSV export, analytics.
+  bracket generation, real push/email notifications, CSV export, analytics dashboards, file
+  uploads (Storage isn't configured), platform-wide SUPER_ADMIN.
 - Full manual/browser testing — this is in progress now; expect rough edges.
 
 ## Setup
