@@ -143,6 +143,21 @@ service cloud.firestore {
         allow write: if isTournamentAdmin(tournamentId);
       }
 
+      match /announcements/{announcementId} {
+        allow read: if true;
+        allow write: if isTournamentAdmin(tournamentId);
+      }
+
+      match /sponsors/{sponsorId} {
+        allow read: if true;
+        allow write: if isTournamentAdmin(tournamentId);
+      }
+
+      match /gallery/{imageId} {
+        allow read: if true;
+        allow write: if isTournamentAdmin(tournamentId);
+      }
+
       match /schedules/{scheduleId} {
         allow read: if true;
         allow create, delete: if isTournamentAdmin(tournamentId); // schedule generation is admin-only

@@ -9,3 +9,4 @@ export * from './permission';
 export * from './invite';
 export * from './lineup';
 export * from './auditLog';
+export * from './content';

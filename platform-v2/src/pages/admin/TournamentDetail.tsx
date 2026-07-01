@@ -59,6 +59,9 @@ function TournamentDetailInner() {
         <Button variant="outlined" component={RouterLink} to={`/admin/tournaments/${tournament.id}/audit`}>
           Audit Log
         </Button>
+        <Button variant="outlined" component={RouterLink} to={`/admin/tournaments/${tournament.id}/content`}>
+          Content
+        </Button>
       </Stack>
 
       <Divider />

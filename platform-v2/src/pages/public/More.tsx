@@ -8,6 +8,9 @@ const LINKS = [
   { path: 'matchups', label: 'Matchups & Player Stats' },
   { path: 'ratings', label: 'Player Ratings' },
   { path: 'rules', label: 'Rules' },
+  { path: 'announcements', label: 'Announcements' },
+  { path: 'sponsors', label: 'Sponsors' },
+  { path: 'gallery', label: 'Gallery' },
 ];
 
 function MoreContent() {
