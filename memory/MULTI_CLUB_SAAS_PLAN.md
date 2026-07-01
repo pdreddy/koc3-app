@@ -143,11 +143,46 @@ Each phase must build, pass tests, and preserve KOC behavior before starting the
   deployment and remain out of scope — true per-club branding of those needs either a
   per-club build/deployment or a manifest-serving backend.
 
-Remaining: the newly-identified **Phase 7** (lineup/cross-pairing match structure, spanning
-client + Cloud Function) and full RTDB-level multi-tenant auth (real custom claims,
-club-scoped security rules, club onboarding admin flow) are substantial, independent efforts
-that touch shared, high-risk business logic or require a real Firebase deploy to verify, and
-should be taken up as their own reviewed increments.
+- **Phase 7 (done, rescoped to the scoring side only):** `utils/matchStructure.js` extracts
+  a config-driven engine for singles-line count, doubles-pairs-per-team, and the resulting
+  cross-pairing round robin from `pages/ScoreEntry.js`'s hardcoded `COURT_TEMPLATES` /
+  `LINEUP_ROLE_SLOTS` / `buildLineupCourts`. `DEFAULT_MATCH_STRUCTURE` reproduces KOC's
+  exact 5-line format; `ScoreEntry.js` now derives from it instead of duplicating the logic.
+  Verified via `matchStructure.test.js`, which ports `ScoreEntry.test.js`'s exact
+  `buildLineupCourts` assertions (that file can't run under this project's Jest config — see
+  known issues below) plus new cases proving genuine reusability (1 or 3 doubles pairs, 2
+  singles lines). **Still not covered**: `pages/Home.js`'s `buildDashboardLineupLines` (the
+  pre-match lineup-*submission* UI — has its own independent hardcoded `LINEUP_ROLE_SLOTS`
+  copy, a pre-existing duplication not introduced by this work) and the lineup-lock Cloud
+  Function (`functions/index.js`) both still hardcode the S1/D1/D2 shape. Generalizing those
+  needs a real Firebase deploy to verify, and doing so on top of the still-unverified RTDB
+  rules fix above would compound risk — left as open follow-up. Because
+  `DEFAULT_MATCH_STRUCTURE` reproduces the same S1/D1/D2 shape those two hardcode, they stay
+  compatible as long as a club uses the default structure.
+
+## 6. Known Issues Found (not fixed, out of scope)
+
+- `ScoreProcessingService.computeStandings()` has its own, slightly different (and
+  currently unused by any page) standings tiebreak order than `pages/Standings.js` — see
+  Phase 2 above.
+- `pages/ScoreEntry.test.js` cannot run under this project's Jest config: `ScoreEntry.js`
+  transitively imports `firebase.js`, which imports `firebaseConfig.js`, which uses Vite's
+  `import.meta.env` — a syntax CRA's Jest/Babel setup doesn't support. Pre-existing, not
+  introduced by this work. A fix would need either a Jest-compatible env-var shim for
+  `firebaseConfig.js` or migrating the test runner to Vitest.
+- `pages/Home.js` has its own independent copy of `LINEUP_ROLE_SLOTS` (`code: 'S1'`)
+  separate from `pages/ScoreEntry.js`'s (`code: 'S'` before Phase 7, now derived from
+  `matchStructure.js`) — two hardcoded copies of conceptually the same 5-slot structure.
+  Not unified in this work; see Phase 7 above.
+
+## 7. Remaining Work
+
+Full RTDB-level multi-tenant auth (real custom claims issued by a trusted server,
+club-scoped security rules, a club onboarding admin flow) and completing Phase 7 for the
+lineup-submission UI + Cloud Function are the two substantial pieces left. Both touch
+shared, high-risk, security- or data-integrity-critical logic, and the Cloud Function piece
+specifically requires a real Firebase deploy to verify — take them up as their own reviewed
+increments with deploy access available.
 
 ### Pre-existing gap found while scoping Phase 5 (fixed separately, not part of multi-club work)
 
