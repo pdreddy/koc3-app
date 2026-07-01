@@ -14,6 +14,7 @@ export function buildDefaultTournamentConfig(): TournamentConfig {
       clubName: '',
       leagueName: '',
       description: '',
+      rulesText: '',
       shortName: '',
       logoUrl: null,
       bannerUrl: null,

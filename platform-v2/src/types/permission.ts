@@ -4,6 +4,7 @@ import type { Role } from './common';
 // assignment for a given (global) auth user. SUPER_ADMIN is platform-wide and is not
 // stored per-tournament (see AuthContext).
 export interface TournamentPermission {
+  id: string; // equal to userId — the doc id; kept as a field so this satisfies the generic {id:string} repository constraint
   userId: string;
   tournamentId: string;
   role: Exclude<Role, 'SUPER_ADMIN' | 'GUEST' | 'PUBLIC'>;

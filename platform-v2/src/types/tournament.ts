@@ -7,6 +7,7 @@ export interface TournamentInfo {
   clubName: string;
   leagueName: string;
   description: string;
+  rulesText: string;
   shortName: string;
   logoUrl: string | null;
   bannerUrl: string | null;

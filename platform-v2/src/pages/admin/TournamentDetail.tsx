@@ -1,25 +1,57 @@
-import { useParams } from 'react-router-dom';
-import { Alert, Chip, Container, Divider, Stack, Typography } from '@mui/material';
+import { Link as RouterLink, useParams } from 'react-router-dom';
+import { Alert, Button, Chip, Container, Divider, Link, Stack, Typography } from '@mui/material';
 import { TournamentProvider, useTournament } from '@/contexts/TournamentContext';
+import { TournamentService } from '@/services/TournamentService';
+import { useAuth } from '@/contexts/AuthContext';
 
-// Stub detail view: confirms the wizard actually persisted a real, loadable tournament
-// document. Full admin screens (roster import, team/schedule generators, settings editor,
-// visibility control) are follow-on increments — see Tasks #7-#9 in the plan.
+// Confirms the wizard actually persisted a real, loadable tournament document, and links
+// out to the setup actions (import players / generate teams / generate schedule). A full
+// settings editor (wizard steps 4-10 revisited, branding, visibility) is still a follow-on.
 function TournamentDetailInner() {
   const { tournament, loading, error } = useTournament();
+  const { user } = useAuth();
 
   if (loading) return <Typography color="text.secondary">Loading tournament…</Typography>;
   if (error) return <Alert severity="error">{error}</Alert>;
   if (!tournament) return null;
 
   const { config } = tournament;
+  const publicUrl = `/t/${tournament.slug}`;
+
+  const handlePublish = async () => {
+    await TournamentService.publish(tournament.id, user?.uid || 'unknown');
+    window.location.reload();
+  };
+
   return (
     <Stack spacing={2}>
       <Stack direction="row" spacing={1} alignItems="center">
         <Typography variant="h4">{config.info.name}</Typography>
         <Chip label={tournament.status} size="small" />
       </Stack>
-      <Typography color="text.secondary">/t/{tournament.slug} · {config.type.replaceAll('_', ' ')}</Typography>
+      <Typography color="text.secondary">
+        <Link component={RouterLink} to={publicUrl}>{publicUrl}</Link> · {config.type.replaceAll('_', ' ')}
+      </Typography>
+      {tournament.status !== 'PUBLISHED' && (
+        <Alert severity="info" action={<Button size="small" onClick={handlePublish}>Publish</Button>}>
+          This tournament is a draft — the public site won't be visible until it's published.
+        </Alert>
+      )}
+      <Divider />
+
+      <Typography variant="h6">Setup</Typography>
+      <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+        <Button variant="outlined" component={RouterLink} to={`/admin/tournaments/${tournament.id}/import-players`}>
+          Import Players
+        </Button>
+        <Button variant="outlined" component={RouterLink} to={`/admin/tournaments/${tournament.id}/generate-teams`}>
+          Generate Teams
+        </Button>
+        <Button variant="outlined" component={RouterLink} to={`/admin/tournaments/${tournament.id}/generate-schedule`}>
+          Generate Schedule
+        </Button>
+      </Stack>
+
       <Divider />
       <Typography variant="h6">Structure</Typography>
       <Typography>
@@ -36,8 +68,8 @@ function TournamentDetailInner() {
         {config.playoffs.enabled ? `Top ${config.playoffs.qualifyPerGroup} per group qualify` : 'No playoffs'}
       </Typography>
       <Alert severity="info">
-        Roster import, team/schedule generation, and settings editing aren't built yet — this is a
-        read-only confirmation that tournament creation and Firestore loading both work end-to-end.
+        Settings editing (revisiting wizard steps 4-10, branding, visibility) isn't built yet —
+        edit those in Firestore directly for now, or via a future settings screen.
       </Alert>
     </Stack>
   );

@@ -4,6 +4,7 @@ import {
   getDoc,
   getDocs,
   addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   query,
@@ -80,6 +81,21 @@ export const TournamentService = {
       archivedAt: null,
     };
     const ref = await addDoc(tournamentsCollection, draft as Tournament);
+
+    // Bootstrap the creator as this tournament's admin — without this, nobody would ever
+    // pass isTournamentAdmin() in firestore.rules for a tournament they just created,
+    // since permission docs are the *only* thing those rules check (see the rules file's
+    // header comment for why custom claims were deliberately avoided). The rule allowing
+    // this specific self-write checks that the caller matches the tournament's createdBy.
+    await setDoc(doc(db, 'platform', 'tournaments', ref.id, 'permissions', params.createdBy), {
+      userId: params.createdBy,
+      tournamentId: ref.id,
+      role: 'TOURNAMENT_ADMIN',
+      teamId: null,
+      grantedAt: now,
+      grantedBy: params.createdBy,
+    });
+
     return { ...draft, id: ref.id };
   },
 

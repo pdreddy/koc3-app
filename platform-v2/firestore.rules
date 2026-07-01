@@ -63,7 +63,19 @@ service cloud.firestore {
       match /permissions/{userId} {
         // Users can read their own role; admins can read/write everyone's.
         allow read: if isSignedIn() && (request.auth.uid == userId || isTournamentAdmin(tournamentId));
-        allow write: if isTournamentAdmin(tournamentId);
+        // Bootstrap exception: the tournament's creator may grant *themselves*
+        // TOURNAMENT_ADMIN exactly once (checked against the tournament doc's createdBy,
+        // not against any existing permission doc — the whole point is that none exists
+        // yet). Without this, isTournamentAdmin() could never become true for a brand new
+        // tournament, since permission docs are the only thing it checks. See
+        // TournamentService.create(), which performs this write immediately after creating
+        // the tournament doc.
+        allow create: if isTournamentAdmin(tournamentId) ||
+          (isSignedIn() &&
+           request.auth.uid == userId &&
+           request.auth.uid == get(/databases/$(database)/documents/platform/tournaments/$(tournamentId)).data.createdBy &&
+           request.resource.data.role == 'TOURNAMENT_ADMIN');
+        allow update, delete: if isTournamentAdmin(tournamentId);
       }
 
       match /teams/{teamId} {
