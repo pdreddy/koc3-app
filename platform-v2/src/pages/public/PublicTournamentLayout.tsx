@@ -4,6 +4,7 @@ import { TournamentProvider, useTournament } from '@/contexts/TournamentContext'
 import { useAuth } from '@/contexts/AuthContext';
 import { useTournamentRole } from '@/hooks/useTournamentRole';
 import { useClaimPendingInvite } from '@/hooks/useClaimPendingInvite';
+import { BottomNav } from '@/components/layout/BottomNav';
 
 // Primary nav stays short (koc3-app collapses secondary pages into a "More" screen rather
 // than a long tab bar) — History/Matchups/Ratings/Rules live behind More.
@@ -61,7 +62,7 @@ function PublicHeader() {
         <Typography variant="h6" sx={{ flexGrow: 1 }}>{info.name}</Typography>
         <AccountStatus />
       </Toolbar>
-      <Tabs value={currentTab} variant="scrollable" scrollButtons="auto">
+      <Tabs value={currentTab} variant="scrollable" scrollButtons="auto" sx={{ display: { xs: 'none', sm: 'flex' } }}>
         {NAV_ITEMS.map((item) => (
           <Tab
             key={item.pageId}
@@ -89,10 +90,15 @@ function PublicTournamentShell() {
     return <Container sx={{ py: 6 }}><Alert severity="info">This tournament hasn't been published yet.</Alert></Container>;
   }
 
+  const basePath = `/t/${tournament.slug}`;
   return (
     <Box>
       <PublicHeader />
-      <Outlet />
+      {/* Bottom padding keeps content from being hidden behind the fixed mobile bottom nav. */}
+      <Box sx={{ pb: { xs: 8, sm: 0 } }}>
+        <Outlet />
+      </Box>
+      <BottomNav basePath={basePath} />
     </Box>
   );
 }
