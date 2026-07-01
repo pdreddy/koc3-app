@@ -3,7 +3,7 @@ import {
   Alert, Box, Button, Container, Step, StepLabel, Stepper, Typography,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { useWizardDraft } from './useWizardDraft';
+import { useConfigDraft } from '@/hooks/useConfigDraft';
 import Step1Info from './Step1Info';
 import Step2Type from './Step2Type';
 import Step3Structure from './Step3Structure';
@@ -22,7 +22,7 @@ export default function CreateTournamentWizard() {
   const [activeStep, setActiveStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { draft, patch, setField } = useWizardDraft();
+  const { draft, patch, setField } = useConfigDraft();
   const { user } = useAuth();
   const navigate = useNavigate();
 

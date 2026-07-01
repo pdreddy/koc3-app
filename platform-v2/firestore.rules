@@ -90,7 +90,13 @@ service cloud.firestore {
 
       match /schedules/{scheduleId} {
         allow read: if true;
-        allow write: if isTournamentAdmin(tournamentId);
+        allow create, delete: if isTournamentAdmin(tournamentId); // schedule generation is admin-only
+        // A captain of either scheduled team may mark their own entry as played once they
+        // submit a score (ScoreEntry.tsx sets status + matchId together with the Match
+        // create) — everything else about the schedule (dates/times/teams) stays admin-only.
+        allow update: if isTournamentAdmin(tournamentId) ||
+          ((isCaptainOfTeam(tournamentId, resource.data.team1Id) || isCaptainOfTeam(tournamentId, resource.data.team2Id)) &&
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'matchId']));
       }
 
       match /standings/{teamId} {
@@ -101,7 +107,12 @@ service cloud.firestore {
       match /matches/{matchId} {
         allow read: if true;
         // A captain may create/update a match their own team is part of (score entry);
-        // approval/deletion of an already-approved match stays admin-only.
+        // approval/deletion of an already-approved match stays admin-only. NOTE: there is
+        // currently no separate admin-approval step — ScoreEntry.tsx creates matches with
+        // status 'APPROVED' directly, so a captain's submitted score is immediately final.
+        // A review/approval workflow (mirroring koc3-app's PENDING -> APPROVED flow) is
+        // not built yet; tightening this to require admin approval before APPROVED is
+        // future work.
         allow create: if isTournamentAdmin(tournamentId) ||
           isCaptainOfTeam(tournamentId, request.resource.data.team1Id) ||
           isCaptainOfTeam(tournamentId, request.resource.data.team2Id);

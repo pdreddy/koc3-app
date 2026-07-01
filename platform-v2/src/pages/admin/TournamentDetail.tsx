@@ -50,6 +50,9 @@ function TournamentDetailInner() {
         <Button variant="outlined" component={RouterLink} to={`/admin/tournaments/${tournament.id}/generate-schedule`}>
           Generate Schedule
         </Button>
+        <Button variant="outlined" component={RouterLink} to={`/admin/tournaments/${tournament.id}/edit`}>
+          Settings
+        </Button>
       </Stack>
 
       <Divider />
@@ -67,10 +70,6 @@ function TournamentDetailInner() {
       <Typography>
         {config.playoffs.enabled ? `Top ${config.playoffs.qualifyPerGroup} per group qualify` : 'No playoffs'}
       </Typography>
-      <Alert severity="info">
-        Settings editing (revisiting wizard steps 4-10, branding, visibility) isn't built yet —
-        edit those in Firestore directly for now, or via a future settings screen.
-      </Alert>
     </Stack>
   );
 }

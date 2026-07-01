@@ -99,9 +99,14 @@ export const TournamentService = {
     return { ...draft, id: ref.id };
   },
 
-  async updateConfig(id: string, patch: Partial<TournamentConfig>, updatedBy: string): Promise<void> {
+  // Takes a *complete* TournamentConfig, not a partial — Firestore's updateDoc only does a
+  // shallow merge at the top level of the document, so `{ config: X }` REPLACES the entire
+  // nested config object with X. A Partial<TournamentConfig> here would silently wipe every
+  // field the caller didn't include. Callers building an edit form should keep a full draft
+  // in memory (see useConfigDraft) and pass the whole thing back on save, not a diff.
+  async updateConfig(id: string, config: TournamentConfig, updatedBy: string): Promise<void> {
     await updateDoc(doc(tournamentsCollection, id), {
-      config: patch,
+      config,
       updatedAt: Date.now(),
       updatedBy,
     } as Record<string, unknown>);

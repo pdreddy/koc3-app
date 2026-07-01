@@ -7,12 +7,12 @@ the "unlimited clubs and tournaments on one codebase" platform vision. This is i
 `memory/MULTI_CLUB_SAAS_PLAN.md` for why those two goals conflict and were split into
 separate efforts.
 
-## Status: full create-to-publish flow implemented, not yet manually tested
+## Status: full create → configure → play → publish flow implemented, actively being tested
 
-Typechecks and builds clean (`npm run build`). **Nobody has run this in a browser against a
-real Firebase project yet** — that needs a Firestore-enabled project and credentials that
-don't exist in the session that wrote this. Treat everything below as "should work" pending
-that first real test pass, not "verified working."
+Typechecks and builds clean (`npm run build`). Currently being tested against a real
+Firestore project for the first time — see the Setup section for what needs to be true in
+that project (Firestore + Auth enabled, a user created, rules deployed) before it works
+end-to-end. Treat this as "should work, being verified," not "verified."
 
 ### What's implemented
 
@@ -24,11 +24,21 @@ that first real test pass, not "verified working."
   anywhere. `TournamentService` handles tournament-level CRUD (create/list/publish/
   archive/duplicate/delete).
 - **Admin flow**: sign in → Tournament Manager → Create Tournament wizard (Steps 1-3: info,
-  type, structure; steps 4-10 get defaults, not yet individually editable after creation) →
+  type, structure — steps 4-10 get defaults, editable afterward in **Settings**) →
   tournament detail page → **Import Players** (CSV or JSON upload, column mapping,
   duplicate detection) → **Generate Teams** (random or UTR-balanced snake draft, split
   across the configured group count) → **Generate Schedule** (round-robin per group,
   configurable start date/time) → **Publish**.
+- **Tournament Settings** (`/admin/tournaments/{id}/edit`): revisit every wizard step after
+  creation — info/rules text, type, structure, player config, match types + lineup,
+  scoring, standings tiebreak order (reorderable), playoffs, registration, per-page
+  visibility, branding. Saves the whole config back via `TournamentService.updateConfig`.
+- **Score Entry** (`/t/{slug}/score`, captain-gated): pick one of your team's scheduled
+  matches, select players per line (derived from `config.lineup` + `config.matchTypes` via
+  `src/services/matchLines.ts`), enter set scores validated against `config.scoring`
+  (`src/services/scoringEngine.ts` — same config-driven design as the koc3-app PR's
+  `tennisScoreRules.js`), save → writes a `Match` doc and marks the schedule entry `PLAYED`.
+  **No admin-approval step yet** — a captain's submitted score is immediately `APPROVED`.
 - **Public site** (`/t/{slug}`): Home, Schedule, Standings (computed client-side from
   matches via `src/services/standingsEngine.ts`, driven by `config.standings.tiebreakOrder`
   — same design as the koc3-app PR's `standingsRanking.js`), Teams, Rules.
@@ -38,22 +48,18 @@ that first real test pass, not "verified working."
   only** — `firestore.rules` is the actual security boundary.
 - **`firestore.rules`**: tournament isolation via same-subtree `permissions/{uid}` docs
   instead of Firebase Auth custom claims (deliberately — see the file's header comment).
-  The tournament creator is bootstrapped as `TOURNAMENT_ADMIN` automatically
-  (`TournamentService.create()` writes their permission doc right after the tournament doc,
-  and the rules have a matching one-time bootstrap exception keyed on `createdBy`).
-  **Not deployed.** Platform-wide `SUPER_ADMIN` is an explicit TODO —
-  `isSuperAdmin()` always returns `false`.
+  The tournament creator is bootstrapped as `TOURNAMENT_ADMIN` automatically. Captains can
+  update their own team's scheduled matches (score entry) and create/update matches their
+  team is part of, but can't touch an already-`APPROVED` match. Platform-wide `SUPER_ADMIN`
+  is an explicit TODO — `isSuperAdmin()` always returns `false`.
 
 ### What's NOT implemented
 
-- Editing a tournament's config after creation (wizard steps 4-10, branding, visibility)
-  — currently Firestore-console-only.
-- Score entry (captains recording match results) — matches/standings assume data exists,
-  nothing writes a `Match` doc yet.
+- Admin approval workflow for submitted scores (see Score Entry note above).
 - Manual/drag-drop team assignment, group generation as its own separate step (currently
   folded into team generation — see `teamGenerator.ts`'s `groupLabelFor`), knockout/playoff
-  bracket generation, notifications, branding customization UI, CSV export, analytics.
-- Any manual/browser testing whatsoever.
+  bracket generation, notifications, CSV export, analytics.
+- Full manual/browser testing — this is in progress now; expect rough edges.
 
 ## Setup
 

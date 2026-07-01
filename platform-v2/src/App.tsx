@@ -8,12 +8,14 @@ import AdminLogin from '@/pages/admin/AdminLogin';
 import RosterImport from '@/pages/admin/RosterImport';
 import GenerateTeams from '@/pages/admin/GenerateTeams';
 import GenerateSchedule from '@/pages/admin/GenerateSchedule';
+import TournamentSettings from '@/pages/admin/TournamentSettings';
 import PublicTournamentLayout from '@/pages/public/PublicTournamentLayout';
 import PublicHome from '@/pages/public/PublicHome';
 import PublicSchedule from '@/pages/public/PublicSchedule';
 import PublicStandings from '@/pages/public/PublicStandings';
 import PublicTeams from '@/pages/public/PublicTeams';
 import PublicRules from '@/pages/public/PublicRules';
+import ScoreEntry from '@/pages/public/ScoreEntry';
 
 // Requires a signed-in Firebase Auth user. This is NOT yet a real per-tournament role
 // check (that needs Firestore security rules + TournamentPermission docs — Task #11) —
@@ -38,6 +40,7 @@ export default function App() {
       <Route path="/admin/tournaments/:tournamentId/import-players" element={<RequireAuth><RosterImport /></RequireAuth>} />
       <Route path="/admin/tournaments/:tournamentId/generate-teams" element={<RequireAuth><GenerateTeams /></RequireAuth>} />
       <Route path="/admin/tournaments/:tournamentId/generate-schedule" element={<RequireAuth><GenerateSchedule /></RequireAuth>} />
+      <Route path="/admin/tournaments/:tournamentId/edit" element={<RequireAuth><TournamentSettings /></RequireAuth>} />
 
       <Route path="/t/:slug" element={<PublicTournamentLayout />}>
         <Route index element={<PublicHome />} />
@@ -45,6 +48,7 @@ export default function App() {
         <Route path="standings" element={<PublicStandings />} />
         <Route path="teams" element={<PublicTeams />} />
         <Route path="rules" element={<PublicRules />} />
+        <Route path="score" element={<ScoreEntry />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/admin" replace />} />

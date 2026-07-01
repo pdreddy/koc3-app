@@ -24,6 +24,7 @@ export default function Step1Info({
         <Grid item xs={12} sm={6}><TextField fullWidth label="Club Name" {...field('clubName')} /></Grid>
         <Grid item xs={12} sm={6}><TextField fullWidth label="League Name" {...field('leagueName')} /></Grid>
         <Grid item xs={12}><TextField fullWidth multiline minRows={2} label="Description" {...field('description')} /></Grid>
+        <Grid item xs={12}><TextField fullWidth multiline minRows={4} label="Rules" placeholder="Published on the public Rules page" {...field('rulesText')} /></Grid>
         <Grid item xs={12} sm={6}><TextField fullWidth label="Location" {...field('location')} /></Grid>
         <Grid item xs={12} sm={6}><TextField fullWidth label="Organizer" {...field('organizer')} /></Grid>
         <Grid item xs={12} sm={6}><TextField fullWidth type="email" label="Contact Email" {...field('contactEmail')} /></Grid>
