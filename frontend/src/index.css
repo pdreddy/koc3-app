@@ -4093,3 +4093,59 @@ table.std { min-width: 420px !important; }
   font-size: .78rem;
   font-weight: 800;
 }
+
+/* Rules page compact card fix: prevent grid rows from stretching shorter cards into large empty panels. */
+.rl-grid {
+  align-items: start !important;
+  grid-auto-rows: auto !important;
+}
+
+.rl-card {
+  align-self: start !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+.rules-page-shell .rl-card {
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.rules-page-shell .rl-card-head {
+  align-items: center;
+  border-bottom: 1px dashed rgba(148, 163, 184, .28);
+  gap: .7rem;
+  margin-bottom: .55rem;
+  padding-bottom: .65rem;
+}
+
+.rules-page-shell .rl-num {
+  line-height: 1;
+  min-width: 2.15rem;
+}
+
+.rules-page-shell .rl-chip {
+  height: 2.15rem;
+  width: 2.15rem;
+}
+
+.rules-page-shell .rl-card h3 {
+  font-size: clamp(1rem, 1.4vw, 1.18rem);
+  margin: 0;
+  padding-top: 0;
+}
+
+.rules-page-shell .rl-item {
+  border-top-color: rgba(148, 163, 184, .22);
+  padding: .52rem 0;
+}
+
+.rules-page-shell .rl-ic {
+  background: #f8fafc;
+  border: 1px solid rgba(219, 234, 254, .9);
+  border-radius: 999px;
+  display: inline-grid;
+  height: 1.8rem;
+  place-items: center;
+  width: 1.8rem;
+}
