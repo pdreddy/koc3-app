@@ -1,14 +1,30 @@
 // LeagueConfig: the target shape for making league rules configurable per club/season.
+// Captures KOC's current values verbatim as the default, so every dimension here is
+// byte-for-byte equivalent to today's behavior until a club opts into something different.
 //
-// Phase 1 status: this module defines the schema and captures KOC's *current* hardcoded
-// values verbatim, so a config document exists and is byte-for-byte equivalent to today's
-// behavior. Nothing reads from this yet — roundRobin.js, tennisScoreRules.js,
-// ScoreProcessingService.js and Standings.js still use their own literals. Wiring each of
-// those to read from LeagueConfig (while proving output stays identical for KOC) is later,
-// separately-verified work — see memory/MULTI_CLUB_SAAS_PLAN.md phases 2-4.
-//
-// Until a module is migrated, treat this as documentation of "what KOC's implicit config
-// would be" rather than an active source of truth.
+// Wiring status (see memory/MULTI_CLUB_SAAS_PLAN.md for the full phased plan):
+//  - standings.tiebreakOrder / playoffs.qualifyPerGroup / structure.groupCount|teamsPerGroup
+//    ARE consumed by pages/Standings.js.
+//  - matchFormat IS consumed by utils/tennisScoreRules.js (validateLineScore, etc.) when a
+//    caller explicitly passes it; ScoreEntry.js and ScoreProcessingService.js still call
+//    those functions without a format argument, so they use DEFAULT_MATCH_FORMAT — wiring
+//    those call sites to a resolved per-club config is a later, separately-verified step.
+//  - scheduling.* documents the shape consumed by utils/roundRobin.js's
+//    buildScheduleFromGroups(); buildScheduleFor8x2 (KOC's actual seeding path) still
+//    supplies these as literals rather than reading this object.
+//  - lineupSlots is NOT wired anywhere. The real match-day format is 1 singles line + a
+//    4-line doubles "cross-pairing" round robin between each team's two doubles pairs
+//    (see pages/ScoreEntry.js COURT_TEMPLATES / buildLineupCourts) — a more specific
+//    tournament-format concept than a flat line list, and it's validated in three places
+//    that must move together (ScoreEntry.js, quickScoreParser.js, and the lineup-lock
+//    Cloud Function in functions/index.js, which can't be verified outside a deploy).
+//    Generalizing it is intentionally deferred to its own phase rather than guessed at here.
+//  - eligibility is already config-driven at runtime via settings.eligibilityRules in RTDB
+//    (see utils/eligibilityRules.js) — these are just the same fallback defaults mirrored
+//    here for visibility.
+//  - branding, playoffs.type are not wired into any component yet.
+
+import { DEFAULT_MATCH_FORMAT } from '../utils/tennisScoreRules';
 
 export const DEFAULT_LEAGUE_CONFIG = {
   season: {
@@ -24,11 +40,16 @@ export const DEFAULT_LEAGUE_CONFIG = {
     groupLabels: ['A', 'B'],
   },
 
-  // Lineup / court format: one entry per scored line in a match day
-  lines: [
-    { code: 'S1', type: 'singles', setFormat: '4-game', bestOfSets: 3, setTiebreak: { minPoints: 7, winBy: 2 } },
-    { code: 'D1', type: 'doubles', setFormat: '4-game', bestOfSets: 2, setTiebreak: { minPoints: 7, winBy: 2 }, matchTiebreak: { minPoints: 10, winBy: 2 } },
-    { code: 'D2', type: 'doubles', setFormat: '4-game', bestOfSets: 2, setTiebreak: { minPoints: 7, winBy: 2 }, matchTiebreak: { minPoints: 10, winBy: 2 } },
+  // Set/game/tiebreak scoring rules — see utils/tennisScoreRules.js DEFAULT_MATCH_FORMAT
+  // (this is a re-export, not a duplicate, so the two can't drift apart).
+  matchFormat: DEFAULT_MATCH_FORMAT,
+
+  // Pre-match lineup submission slots (validated by the Cloud Function before lineups are
+  // revealed). NOT wired anywhere yet — see the file header note above.
+  lineupSlots: [
+    { code: 'S1', label: 'Singles', playersNeeded: 1 },
+    { code: 'D1', label: 'Doubles 1', playersNeeded: 2 },
+    { code: 'D2', label: 'Doubles 2', playersNeeded: 2 },
   ],
 
   // Points / standings — order matches the tiebreak chain on the live Standings page
