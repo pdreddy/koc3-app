@@ -29,11 +29,49 @@ function isoDate(date) {
   return date.toISOString().slice(0, 10);
 }
 
-function dateForRound(firstDate, roundIndex) {
+function dateForRound(firstDate, roundIndex, bufferAfterRoundIndex) {
   const date = new Date(firstDate.getTime());
-  const weekOffset = roundIndex === 0 ? 0 : roundIndex + 1; // skip Jul 4/5 buffer weekend before round 2
+  const extraWeek = (bufferAfterRoundIndex != null && roundIndex > bufferAfterRoundIndex) ? 1 : 0;
+  const weekOffset = roundIndex + extraWeek;
   date.setDate(firstDate.getDate() + weekOffset * 7);
   return date;
+}
+
+/**
+ * Config-driven round-robin schedule builder for N groups of arbitrary size.
+ * @param {Array<{label: string, teams: Array, firstDate: Date, time: string, roundsPerGroup?: number}>} groups
+ * @param {{ bufferAfterRoundIndex?: number, scheduleVersion?: string }} [options] - bufferAfterRoundIndex
+ *   inserts one extra week's gap immediately after that 0-based round index (KOC's Jul 4 buffer weekend).
+ * @returns {Object} map of matchId -> match record (Firebase-friendly)
+ */
+export function buildScheduleFromGroups(groups, { bufferAfterRoundIndex = null, scheduleVersion } = {}) {
+  const out = {};
+  groups.forEach(({ label, teams, firstDate, time, roundsPerGroup }) => {
+    const teamCount = teams.length;
+    const pairings = roundRobin(teamCount);
+    const rounds = roundsPerGroup ?? (teamCount - 1);
+    for (let r = 0; r < rounds; r++) {
+      const dateISO = isoDate(dateForRound(firstDate, r, bufferAfterRoundIndex));
+      pairings[r].forEach(([i, j], k) => {
+        const t1 = teams[i];
+        const t2 = teams[j];
+        if (!t1 || !t2) return;
+        const id = `${label}-r${r + 1}-m${k + 1}`;
+        out[id] = {
+          id,
+          group: label,
+          round: r + 1,
+          date: dateISO,
+          time,
+          team1Id: t1.id,
+          team2Id: t2.id,
+          status: 'scheduled',
+          scheduleVersion
+        };
+      });
+    }
+  });
+  return out;
 }
 
 /**
@@ -45,37 +83,10 @@ function dateForRound(firstDate, roundIndex) {
  * @returns {Object} map of matchId -> match record (Firebase-friendly)
  */
 export function buildScheduleFor8x2(groupATeams, groupBTeams) {
-  const out = {};
-  const pairingsA = roundRobin(8);
-  const pairingsB = roundRobin(8);
-
-  const buildGroup = (label, teamsArr, pairings, firstDate) => {
-    for (let r = 0; r < 7; r++) {
-      const roundDate = dateForRound(firstDate, r);
-      const dateISO = isoDate(roundDate);
-      pairings[r].forEach(([i, j], k) => {
-        const t1 = teamsArr[i];
-        const t2 = teamsArr[j];
-        if (!t1 || !t2) return;
-        const slot = '7:15 PM';
-        const id = `${label}-r${r + 1}-m${k + 1}`;
-        out[id] = {
-          id,
-          group: label,
-          round: r + 1,
-          date: dateISO,
-          time: slot,
-          team1Id: t1.id,
-          team2Id: t2.id,
-          status: 'scheduled',
-          scheduleVersion: KOC3_SCHEDULE_VERSION
-        };
-      });
-    }
-  };
-
-  buildGroup('A', groupATeams, pairingsA, GROUP_A_FIRST_DATE);
-  buildGroup('B', groupBTeams, pairingsB, GROUP_B_FIRST_DATE);
+  const out = buildScheduleFromGroups([
+    { label: 'A', teams: groupATeams, firstDate: GROUP_A_FIRST_DATE, time: '7:15 PM', roundsPerGroup: 7 },
+    { label: 'B', teams: groupBTeams, firstDate: GROUP_B_FIRST_DATE, time: '7:15 PM', roundsPerGroup: 7 },
+  ], { bufferAfterRoundIndex: 0, scheduleVersion: KOC3_SCHEDULE_VERSION });
 
   out.buffer_week = {
     id: 'buffer_week',
