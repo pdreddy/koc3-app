@@ -1,3 +1,4 @@
+import { DEFAULT_CLUB_ID, getClub } from './config/clubs';
 import { DEFAULT_TOURNAMENT_ID, PLATFORM_ROOT } from './config/tournamentPlatform';
 
 let currentTournamentId = DEFAULT_TOURNAMENT_ID;
@@ -78,6 +79,16 @@ export function buildPaths(tournamentId = currentTournamentId) {
 
 export function getTournamentPaths(tournamentId = currentTournamentId) {
   return buildPaths(tournamentId);
+}
+
+// Compatibility seam for the existing ClubContext API. The platform migration now
+// scopes runtime reads/writes by tournament, but older club-aware setup code still
+// imports getClubPaths(). Keep that export available and map the current KOC club
+// to the selected tournament namespace so Vite dependency scanning and existing
+// consumers continue to work during the migration.
+export function getClubPaths(clubId = DEFAULT_CLUB_ID) {
+  const club = getClub(clubId);
+  return getTournamentPaths(club?.defaultTournamentId || DEFAULT_TOURNAMENT_ID);
 }
 
 export const PATHS = new Proxy({}, {
