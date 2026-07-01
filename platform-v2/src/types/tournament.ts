@@ -159,6 +159,7 @@ export const DEFAULT_VISIBILITY: VisibilityMap = {
   announcements: 'PUBLIC',
   sponsors: 'PUBLIC',
   history: 'PUBLIC',
+  playoffs: 'PUBLIC',
   matchups: 'PUBLIC',
   ratings: 'PUBLIC',
   more: 'PUBLIC',

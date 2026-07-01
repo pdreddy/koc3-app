@@ -25,6 +25,7 @@ export type MatchStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'PENDING_APPROVAL' | 'AP
 export interface Match {
   id: string;
   scheduleEntryId: string | null;
+  playoffMatchId: string | null; // set instead of scheduleEntryId when this Match belongs to a playoffMatches bracket slot
   team1Id: string;
   team2Id: string;
   lines: MatchLine[];

@@ -50,6 +50,9 @@ function TournamentDetailInner() {
         <Button variant="outlined" component={RouterLink} to={`/admin/tournaments/${tournament.id}/generate-schedule`}>
           Generate Schedule
         </Button>
+        <Button variant="outlined" component={RouterLink} to={`/admin/tournaments/${tournament.id}/generate-playoffs`}>
+          Generate Playoffs
+        </Button>
         <Button variant="outlined" component={RouterLink} to={`/admin/tournaments/${tournament.id}/roles`}>
           Team Roles
         </Button>

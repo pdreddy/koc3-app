@@ -204,6 +204,21 @@ service cloud.firestore {
            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'matchId']));
       }
 
+      match /playoffMatches/{playoffMatchId} {
+        allow read: if true;
+        // Bracket generation (GeneratePlayoffs.tsx) and advancement (advancePlayoffWinner,
+        // called from ApproveScores.tsx / an admin's own ScoreEntry.tsx submission) are
+        // both always admin-actor operations — admins may write anything. The one
+        // exception: a captain submitting a score for their own ready bracket slot
+        // (ScoreEntry.tsx, non-admin path) just links matchId so the slot drops out of the
+        // "ready" list while pending; they can never touch team1Id/team2Id/winnerTeamId/
+        // the forward-advancement fields themselves.
+        allow create, delete: if isTournamentAdmin(tournamentId);
+        allow update: if isTournamentAdmin(tournamentId) ||
+          ((isCaptainOfTeam(tournamentId, resource.data.team1Id) || isCaptainOfTeam(tournamentId, resource.data.team2Id)) &&
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['matchId']));
+      }
+
       match /standings/{teamId} {
         allow read: if true;
         allow write: if isTournamentAdmin(tournamentId); // standings are server/admin-computed, not player-writable

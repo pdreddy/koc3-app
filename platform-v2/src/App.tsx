@@ -11,6 +11,7 @@ import SignUp from '@/pages/admin/SignUp';
 import RosterImport from '@/pages/admin/RosterImport';
 import GenerateTeams from '@/pages/admin/GenerateTeams';
 import GenerateSchedule from '@/pages/admin/GenerateSchedule';
+import GeneratePlayoffs from '@/pages/admin/GeneratePlayoffs';
 import TournamentSettings from '@/pages/admin/TournamentSettings';
 import TeamRoles from '@/pages/admin/TeamRoles';
 import AuditLogs from '@/pages/admin/AuditLogs';
@@ -28,6 +29,7 @@ import PublicRules from '@/pages/public/PublicRules';
 import ScoreEntry from '@/pages/public/ScoreEntry';
 import LineupSubmission from '@/pages/public/LineupSubmission';
 import History from '@/pages/public/History';
+import Playoffs from '@/pages/public/Playoffs';
 import Matchups from '@/pages/public/Matchups';
 import Ratings from '@/pages/public/Ratings';
 import More from '@/pages/public/More';
@@ -57,6 +59,7 @@ export default function App() {
       <Route path="/admin/tournaments/:tournamentId/import-players" element={<RequireAuth><RosterImport /></RequireAuth>} />
       <Route path="/admin/tournaments/:tournamentId/generate-teams" element={<RequireAuth><GenerateTeams /></RequireAuth>} />
       <Route path="/admin/tournaments/:tournamentId/generate-schedule" element={<RequireAuth><GenerateSchedule /></RequireAuth>} />
+      <Route path="/admin/tournaments/:tournamentId/generate-playoffs" element={<RequireAuth><GeneratePlayoffs /></RequireAuth>} />
       <Route path="/admin/tournaments/:tournamentId/edit" element={<RequireAuth><TournamentSettings /></RequireAuth>} />
       <Route path="/admin/tournaments/:tournamentId/roles" element={<RequireAuth><TeamRoles /></RequireAuth>} />
       <Route path="/admin/tournaments/:tournamentId/audit" element={<RequireAuth><AuditLogs /></RequireAuth>} />
@@ -72,6 +75,7 @@ export default function App() {
         <Route path="score" element={<ScoreEntry />} />
         <Route path="lineup" element={<LineupSubmission />} />
         <Route path="history" element={<History />} />
+        <Route path="playoffs" element={<Playoffs />} />
         <Route path="matchups" element={<Matchups />} />
         <Route path="ratings" element={<Ratings />} />
         <Route path="more" element={<More />} />

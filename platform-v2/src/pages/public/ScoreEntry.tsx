@@ -7,11 +7,25 @@ import { VisibilityGate } from '@/components/layout/VisibilityGate';
 import { useTournament } from '@/contexts/TournamentContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTournamentRole } from '@/hooks/useTournamentRole';
-import type { LineupSubmission, Match, MatchLine, Player, ScheduleEntry, SetScore, Team } from '@/types';
+import type { LineupSubmission, Match, MatchLine, PlayoffMatch, Player, ScheduleEntry, SetScore, Team } from '@/types';
 import { lineupDocId } from '@/types';
 import { buildLineSpecs, type LineSpec } from '@/services/matchLines';
 import { validateLine, lineWinner } from '@/services/scoringEngine';
+import { advancePlayoffWinner } from '@/services/playoffBracketGenerator';
 import { writeAuditLog } from '@/services/auditService';
+
+// Unifies a group-stage ScheduleEntry and a ready playoffMatches bracket slot into one
+// pickable "what am I entering a score for" target — see targetsFor() below. Playoff
+// matches only become pickable once both team1Id/team2Id are filled in (i.e. not a bye and
+// not still waiting on a previous round) and no Match is linked yet.
+interface ScoreTarget {
+  key: string;
+  kind: 'schedule' | 'playoff';
+  id: string;
+  team1Id: string;
+  team2Id: string;
+  label: string;
+}
 
 interface DraftSet {
   team1: string;
@@ -152,6 +166,7 @@ function ScoreEntryContent() {
   const { teamId, role } = useTournamentRole();
   const isAdminEntry = role === 'TOURNAMENT_ADMIN' || role === 'ORGANIZER';
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
+  const [playoffMatches, setPlayoffMatches] = useState<PlayoffMatch[]>([]);
   const [teams, setTeams] = useState<Record<string, Team>>({});
   const [players, setPlayers] = useState<Record<string, Player[]>>({});
   const [selectedEntryId, setSelectedEntryId] = useState('');
@@ -162,16 +177,31 @@ function ScoreEntryContent() {
 
   useEffect(() => {
     if (!tournament) return;
-    Promise.all([repo<ScheduleEntry>('schedules').list(), repo<Team>('teams').list()]).then(([schedules, teamList]) => {
-      const teamMap = Object.fromEntries(teamList.map((t) => [t.id, t]));
-      setTeams(teamMap);
-      setEntries(schedules.filter((e) => e.status === 'SCHEDULED' && (!teamId || e.team1Id === teamId || e.team2Id === teamId)));
-    });
+    Promise.all([repo<ScheduleEntry>('schedules').list(), repo<Team>('teams').list(), repo<PlayoffMatch>('playoffMatches').list()]).then(
+      ([schedules, teamList, playoffs]) => {
+        const teamMap = Object.fromEntries(teamList.map((t) => [t.id, t]));
+        setTeams(teamMap);
+        setEntries(schedules.filter((e) => e.status === 'SCHEDULED' && (!teamId || e.team1Id === teamId || e.team2Id === teamId)));
+        setPlayoffMatches(
+          playoffs.filter((p) => p.team1Id && p.team2Id && !p.matchId && (!teamId || p.team1Id === teamId || p.team2Id === teamId))
+        );
+      }
+    );
   }, [tournament, repo, teamId]);
 
-  const selectedEntry = entries.find((e) => e.id === selectedEntryId) ?? null;
-  const team1 = selectedEntry ? teams[selectedEntry.team1Id] : null;
-  const team2 = selectedEntry ? teams[selectedEntry.team2Id] : null;
+  const targets: ScoreTarget[] = [
+    ...entries.map((e): ScoreTarget => ({
+      key: `schedule:${e.id}`, kind: 'schedule', id: e.id, team1Id: e.team1Id, team2Id: e.team2Id,
+      label: `${teams[e.team1Id]?.name ?? e.team1Id} vs ${teams[e.team2Id]?.name ?? e.team2Id} — ${e.date}`,
+    })),
+    ...playoffMatches.map((p): ScoreTarget => ({
+      key: `playoff:${p.id}`, kind: 'playoff', id: p.id, team1Id: p.team1Id!, team2Id: p.team2Id!,
+      label: `${teams[p.team1Id!]?.name ?? p.team1Id} vs ${teams[p.team2Id!]?.name ?? p.team2Id} — ${p.round.replaceAll('_', ' ')}`,
+    })),
+  ];
+  const selectedTarget = targets.find((t) => t.key === selectedEntryId) ?? null;
+  const team1 = selectedTarget ? teams[selectedTarget.team1Id] : null;
+  const team2 = selectedTarget ? teams[selectedTarget.team2Id] : null;
   const [revealedLineups, setRevealedLineups] = useState<{ team1: LineupSubmission; team2: LineupSubmission } | null>(null);
 
   useEffect(() => {
@@ -185,18 +215,19 @@ function ScoreEntryContent() {
 
   // If both teams have locked a pre-match lineup (see pages/public/LineupSubmission.tsx),
   // prefill the score-entry player selects from it instead of making the entrant re-pick
-  // players that were already agreed on and revealed.
+  // players that were already agreed on and revealed. Lineups are only wired up for
+  // group-stage schedule entries, not playoff bracket slots.
   useEffect(() => {
     setRevealedLineups(null);
-    if (!selectedEntry || !team1 || !team2) return;
+    if (!selectedTarget || selectedTarget.kind !== 'schedule' || !team1 || !team2) return;
     const lineupRepo = repo<LineupSubmission>('lineups');
     Promise.all([
-      lineupRepo.get(lineupDocId(selectedEntry.id, team1.id)).catch(() => null),
-      lineupRepo.get(lineupDocId(selectedEntry.id, team2.id)).catch(() => null),
+      lineupRepo.get(lineupDocId(selectedTarget.id, team1.id)).catch(() => null),
+      lineupRepo.get(lineupDocId(selectedTarget.id, team2.id)).catch(() => null),
     ]).then(([l1, l2]) => {
       if (l1?.lockedAt && l2?.lockedAt) setRevealedLineups({ team1: l1, team2: l2 });
     });
-  }, [selectedEntry, team1, team2, repo]);
+  }, [selectedTarget, team1, team2, repo]);
 
   const lineSpecs = useMemo(() => (tournament ? buildLineSpecs(tournament.config) : []), [tournament]);
 
@@ -211,7 +242,7 @@ function ScoreEntryContent() {
   });
 
   const handleSubmit = async () => {
-    if (!selectedEntry || !team1 || !team2) return;
+    if (!selectedTarget || !team1 || !team2) return;
     setSubmitting(true);
     setSubmitError(null);
     const finalLines = lineSpecs.map((spec) => lines[spec.label].line!);
@@ -229,7 +260,8 @@ function ScoreEntryContent() {
       // pages/admin/ApproveScores.tsx) — matches koc3-app's PENDING -> APPROVED convention,
       // which the earlier version of this file skipped.
       const match = await repo<Match>('matches').create({
-        scheduleEntryId: selectedEntry.id,
+        scheduleEntryId: selectedTarget.kind === 'schedule' ? selectedTarget.id : null,
+        playoffMatchId: selectedTarget.kind === 'playoff' ? selectedTarget.id : null,
         team1Id: team1.id,
         team2Id: team2.id,
         lines: finalLines,
@@ -241,7 +273,20 @@ function ScoreEntryContent() {
         createdAt: now,
         updatedAt: now,
       });
-      await repo<ScheduleEntry>('schedules').update(selectedEntry.id, { status: 'PLAYED', matchId: match.id });
+      if (selectedTarget.kind === 'schedule') {
+        await repo<ScheduleEntry>('schedules').update(selectedTarget.id, { status: 'PLAYED', matchId: match.id });
+      } else {
+        // Always link the Match so this bracket slot drops out of the "ready" list — but
+        // only advance the bracket (winner into the next round) once the score is trusted,
+        // i.e. entered directly by an admin. A captain's PENDING_APPROVAL submission waits
+        // for pages/admin/ApproveScores.tsx to do that instead.
+        const playoffMatch = playoffMatches.find((p) => p.id === selectedTarget.id);
+        if (isAdminEntry && winnerTeamId && playoffMatch) {
+          await advancePlayoffWinner(repo, playoffMatch, winnerTeamId, match.id);
+        } else {
+          await repo<PlayoffMatch>('playoffMatches').update(selectedTarget.id, { matchId: match.id });
+        }
+      }
       if (user) await writeAuditLog(tournament.id, 'SCORE_SAVED', { uid: user.uid, email: user.email }, 'match', match.id, { winnerTeamId, status: match.status });
       setSuccess(true);
     } catch (e) {
@@ -254,19 +299,17 @@ function ScoreEntryContent() {
   return (
     <Stack spacing={3}>
       <Typography variant="h4">Enter Score</Typography>
-      {entries.length === 0 && <Typography color="text.secondary">No scheduled matches to enter right now.</Typography>}
-      {entries.length > 0 && (
+      {targets.length === 0 && <Typography color="text.secondary">No scheduled matches to enter right now.</Typography>}
+      {targets.length > 0 && (
         <Select value={selectedEntryId} displayEmpty onChange={(e) => { setSelectedEntryId(e.target.value); setLines({}); setSuccess(false); }}>
           <MenuItem value="" disabled>Select a match</MenuItem>
-          {entries.map((e) => (
-            <MenuItem key={e.id} value={e.id}>
-              {teams[e.team1Id]?.name ?? e.team1Id} vs {teams[e.team2Id]?.name ?? e.team2Id} — {e.date}
-            </MenuItem>
+          {targets.map((t) => (
+            <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>
           ))}
         </Select>
       )}
 
-      {selectedEntry && team1 && team2 && players[team1.id] && players[team2.id] && (
+      {selectedTarget && team1 && team2 && players[team1.id] && players[team2.id] && (
         <>
           {revealedLineups && (
             <Alert severity="info">Player selections below are prefilled from the revealed, locked lineups — change them if needed.</Alert>

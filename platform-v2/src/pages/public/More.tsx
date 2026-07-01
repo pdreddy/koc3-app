@@ -5,6 +5,7 @@ import { useTournament } from '@/contexts/TournamentContext';
 
 const LINKS = [
   { path: 'history', label: 'Match History' },
+  { path: 'playoffs', label: 'Playoffs' },
   { path: 'matchups', label: 'Matchups & Player Stats' },
   { path: 'ratings', label: 'Player Ratings' },
   { path: 'rules', label: 'Rules' },

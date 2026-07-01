@@ -6,8 +6,9 @@ import {
 } from '@mui/material';
 import { TournamentProvider, useTournament } from '@/contexts/TournamentContext';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Match, ScheduleEntry, Team } from '@/types';
+import type { Match, PlayoffMatch, ScheduleEntry, Team } from '@/types';
 import { writeAuditLog } from '@/services/auditService';
+import { advancePlayoffWinner } from '@/services/playoffBracketGenerator';
 
 function setScoreLabel(set: { team1: number; team2: number; tiebreak?: { team1: number; team2: number }; matchTiebreak?: { team1: number; team2: number } }): string {
   if (set.matchTiebreak) return `[${set.matchTiebreak.team1}-${set.matchTiebreak.team2}]`;
@@ -37,6 +38,13 @@ function ApproveScoresContent() {
   const handleApprove = async (match: Match) => {
     setBusyId(match.id);
     await repo<Match>('matches').update(match.id, { status: 'APPROVED', approvedBy: user?.uid ?? null, updatedAt: Date.now() });
+    // A playoff bracket slot's winner only advances into the next round once its Match is
+    // trusted (APPROVED) — a captain's PENDING_APPROVAL submission just linked matchId
+    // (see ScoreEntry.tsx), it never touched winnerTeamId/nextMatchId itself.
+    if (match.playoffMatchId && match.winnerTeamId) {
+      const playoffMatch = await repo<PlayoffMatch>('playoffMatches').get(match.playoffMatchId);
+      if (playoffMatch) await advancePlayoffWinner(repo, playoffMatch, match.winnerTeamId, match.id);
+    }
     await writeAuditLog(tournament.id, 'SCORE_APPROVED', { uid: user?.uid ?? 'unknown', email: user?.email ?? null }, 'match', match.id, {});
     setBusyId(null);
     reload();
@@ -44,11 +52,14 @@ function ApproveScoresContent() {
 
   const handleReject = async (match: Match) => {
     setBusyId(match.id);
-    // Rejecting deletes the match entirely and reopens the schedule entry so the captain
-    // can resubmit, rather than leaving a permanently-disputed record around.
+    // Rejecting deletes the match entirely and reopens the schedule entry / playoff slot so
+    // the captain can resubmit, rather than leaving a permanently-disputed record around.
     await repo<Match>('matches').remove(match.id);
     if (match.scheduleEntryId) {
       await repo<ScheduleEntry>('schedules').update(match.scheduleEntryId, { status: 'SCHEDULED', matchId: null });
+    }
+    if (match.playoffMatchId) {
+      await repo<PlayoffMatch>('playoffMatches').update(match.playoffMatchId, { matchId: null });
     }
     await writeAuditLog(tournament.id, 'SCORE_REJECTED', { uid: user?.uid ?? 'unknown', email: user?.email ?? null }, 'match', match.id, {});
     setBusyId(null);
