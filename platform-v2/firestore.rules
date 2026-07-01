@@ -18,8 +18,9 @@ rules_version = '2';
 //
 // STATUS: skeleton, not deployed or tested against a real project — see
 // platform-v2/README.md / memory/MULTI_CLUB_SAAS_PLAN.md follow-up notes.
-// SUPER_ADMIN (platform-wide, can manage any tournament) still needs a real mechanism —
-// left as a TODO below rather than guessed at.
+// SUPER_ADMIN (platform-wide, can manage any tournament) is backed by a top-level
+// superAdmins/{uid} allowlist collection — see isSuperAdmin() and the superAdmins /
+// superAdminInvites match blocks below.
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -28,13 +29,21 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // TODO: platform-wide super admin check. Candidates: a superAdmins/{uid} allowlist
-    // document (readable only by Cloud Functions), or a custom claim set by a trusted
-    // server after out-of-band verification. Not implemented — every rule below currently
-    // only recognizes per-tournament roles, so there is no "manage any tournament" escape
-    // hatch yet. Do not assume this exists until it's built and tested.
+    // Platform-wide super admin: presence of a top-level superAdmins/{uid} doc (see
+    // src/services/superAdminService.ts, src/contexts/SuperAdminContext.tsx). Every
+    // per-tournament role function below (hasRole/isTournamentAdmin/isCaptainOfTeam) ORs
+    // against this, so a super admin transparently gets admin access to every tournament
+    // without needing a permissions/{uid} doc in each one.
     function isSuperAdmin() {
-      return false;
+      return isSignedIn() && exists(/databases/$(database)/documents/superAdmins/$(request.auth.uid));
+    }
+
+    // The only way the very first super admin can ever come into existence: a hardcoded
+    // allowlist, since every OTHER create path on superAdmins/{uid} requires isSuperAdmin()
+    // to already be true. Mirror of BOOTSTRAP_SUPER_ADMIN_EMAILS in superAdminService.ts —
+    // keep both lists in sync by hand.
+    function isBootstrapSuperAdminEmail(email) {
+      return email in ['damu.palavali@gmail.com'];
     }
 
     function permissionDoc(tournamentId) {
@@ -75,6 +84,32 @@ service cloud.firestore {
       let otherLineupId = scheduleEntryId + '__' + otherTeamId;
       let otherLineupPath = /databases/$(database)/documents/tournaments/$(tournamentId)/lineups/$(otherLineupId);
       return exists(otherLineupPath) && get(otherLineupPath).data.lockedAt != null;
+    }
+
+    // Platform-wide, not scoped to any tournament — see isSuperAdmin() above.
+    match /superAdmins/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isSuperAdmin());
+      // Self-write is allowed either via the hardcoded bootstrap allowlist (only ever
+      // matches the founder's own email) or by claiming a matching, unclaimed
+      // superAdminInvites/{email} doc — same claim-on-login shape as tournament invites.
+      allow create: if isSuperAdmin() ||
+        (isSignedIn() && request.auth.uid == userId && request.auth.token.email != null &&
+         isBootstrapSuperAdminEmail(request.auth.token.email)) ||
+        (isSignedIn() && request.auth.uid == userId && request.auth.token.email != null &&
+         exists(/databases/$(database)/documents/superAdminInvites/$(request.auth.token.email)) &&
+         get(/databases/$(database)/documents/superAdminInvites/$(request.auth.token.email)).data.claimedBy == null);
+      allow update, delete: if isSuperAdmin();
+    }
+
+    match /superAdminInvites/{email} {
+      allow read: if isSuperAdmin() || (isSignedIn() && request.auth.token.email == email);
+      allow create, delete: if isSuperAdmin();
+      allow update: if isSuperAdmin() ||
+        (isSignedIn() &&
+         request.auth.token.email == email &&
+         resource.data.claimedBy == null &&
+         request.resource.data.claimedBy == request.auth.uid &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimedBy', 'claimedAt']));
     }
 
     match /tournaments/{tournamentId} {

@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { TournamentService } from '@/services/TournamentService';
 import type { Tournament } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSuperAdmin } from '@/contexts/SuperAdminContext';
 
 const STATUS_COLOR: Record<Tournament['status'], 'default' | 'success' | 'warning'> = {
   DRAFT: 'default',
@@ -69,6 +70,7 @@ export default function TournamentManager() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { isSuperAdmin } = useSuperAdmin();
 
   const reload = async () => {
     setLoading(true);
@@ -84,9 +86,16 @@ export default function TournamentManager() {
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h4">Tournament Manager</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/admin/tournaments/new')}>
-          Create Tournament
-        </Button>
+        <Stack direction="row" spacing={2}>
+          {isSuperAdmin && (
+            <Button variant="outlined" onClick={() => navigate('/admin/super-admins')}>
+              Super Admins
+            </Button>
+          )}
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/admin/tournaments/new')}>
+            Create Tournament
+          </Button>
+        </Stack>
       </Stack>
 
       {loading && <Typography color="text.secondary">Loading tournaments…</Typography>}

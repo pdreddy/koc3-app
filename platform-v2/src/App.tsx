@@ -1,7 +1,9 @@
 import React from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { SuperAdminProvider } from '@/contexts/SuperAdminContext';
 import TournamentManager from '@/pages/admin/TournamentManager';
+import SuperAdmins from '@/pages/admin/SuperAdmins';
 import CreateTournamentWizard from '@/pages/admin/wizard/CreateTournamentWizard';
 import TournamentDetail from '@/pages/admin/TournamentDetail';
 import AdminLogin from '@/pages/admin/AdminLogin';
@@ -39,7 +41,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (!user) return <Navigate to="/admin/login" replace />;
-  return <>{children}</>;
+  return <SuperAdminProvider>{children}</SuperAdminProvider>;
 }
 
 export default function App() {
@@ -49,6 +51,7 @@ export default function App() {
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/admin/signup" element={<SignUp />} />
       <Route path="/admin" element={<RequireAuth><TournamentManager /></RequireAuth>} />
+      <Route path="/admin/super-admins" element={<RequireAuth><SuperAdmins /></RequireAuth>} />
       <Route path="/admin/tournaments/new" element={<RequireAuth><CreateTournamentWizard /></RequireAuth>} />
       <Route path="/admin/tournaments/:tournamentId" element={<RequireAuth><TournamentDetail /></RequireAuth>} />
       <Route path="/admin/tournaments/:tournamentId/import-players" element={<RequireAuth><RosterImport /></RequireAuth>} />
