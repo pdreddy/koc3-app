@@ -14,9 +14,11 @@ import ScoringEditor from './settings/ScoringEditor';
 import StandingsEditor from './settings/StandingsEditor';
 import { PlayoffsEditor, RegistrationEditor } from './settings/PlayoffsRegistrationEditor';
 import BrandingEditor from './settings/BrandingEditor';
+import EligibilityEditor from './settings/EligibilityEditor';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { DEFAULT_ELIGIBILITY_CONFIG } from '@/services/eligibilityEngine';
 
-const TABS = ['Info', 'Type', 'Structure', 'Players', 'Match Types', 'Scoring', 'Standings', 'Playoffs', 'Registration', 'Visibility', 'Branding'];
+const TABS = ['Info', 'Type', 'Structure', 'Players', 'Match Types', 'Scoring', 'Standings', 'Eligibility', 'Playoffs', 'Registration', 'Visibility', 'Branding'];
 
 function TournamentSettingsContent() {
   const { tournament, loading } = useTournament();
@@ -29,7 +31,10 @@ function TournamentSettingsContent() {
   // Re-sync the draft once the tournament finishes loading (useConfigDraft's initial value
   // is captured before that happens on first render).
   useEffect(() => {
-    if (tournament) reset(tournament.config);
+    // Merge in a default eligibility config for tournaments created before that field
+    // existed — without this, saving would write `eligibility: undefined` (Firestore
+    // rejects undefined field values) for anyone who never opens that tab.
+    if (tournament) reset({ ...tournament.config, eligibility: tournament.config.eligibility ?? DEFAULT_ELIGIBILITY_CONFIG });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournament?.id]);
 
@@ -65,10 +70,11 @@ function TournamentSettingsContent() {
         )}
         {tab === 5 && <ScoringEditor value={draft.scoring} onChange={(p) => patch('scoring', p)} />}
         {tab === 6 && <StandingsEditor value={draft.standings} onChange={(p) => patch('standings', p)} />}
-        {tab === 7 && <PlayoffsEditor value={draft.playoffs} onChange={(p) => patch('playoffs', p)} />}
-        {tab === 8 && <RegistrationEditor value={draft.registration} onChange={(p) => patch('registration', p)} />}
-        {tab === 9 && <VisibilityEditor value={draft.visibility} onChange={(next) => setField('visibility', next)} />}
-        {tab === 10 && <BrandingEditor value={draft.branding} onChange={(p) => patch('branding', p)} tournamentId={tournament.id} />}
+        {tab === 7 && <EligibilityEditor value={draft.eligibility} onChange={(p) => patch('eligibility', p)} />}
+        {tab === 8 && <PlayoffsEditor value={draft.playoffs} onChange={(p) => patch('playoffs', p)} />}
+        {tab === 9 && <RegistrationEditor value={draft.registration} onChange={(p) => patch('registration', p)} />}
+        {tab === 10 && <VisibilityEditor value={draft.visibility} onChange={(next) => setField('visibility', next)} />}
+        {tab === 11 && <BrandingEditor value={draft.branding} onChange={(p) => patch('branding', p)} tournamentId={tournament.id} />}
       </Box>
 
       {saved && <Alert severity="success" onClose={() => setSaved(false)}>Saved.</Alert>}

@@ -76,6 +76,24 @@ end-to-end. Treat this as "should work, being verified," not "verified."
   pre-match lineup that stays hidden from the opponent until BOTH teams lock —
   `firestore.rules`' `opponentLineupLocked()` does the cross-document check that koc3-app v1
   needed a Cloud Function for. Score Entry prefills player selects from the revealed lineup.
+  Once revealed, a "Share on WhatsApp" button (`services/shareService.ts`, just a `wa.me`
+  link, no API) generates a formatted lineup summary; Score Entry gets the same treatment
+  after a score is saved.
+- **Player eligibility / capacity caps** (`services/eligibilityEngine.ts`, config-driven —
+  see Settings' Eligibility tab): the config-driven equivalent of koc3-app's hardcoded
+  eligibilityRules.js (max singles days / total match days / doubles-partner days per
+  player, no singles+doubles on the same match day). Lineup Submission shows real-time
+  ⚠️ warnings per player option and a team capacity table, mirroring koc3-app's Home.js
+  `optionErrors` map.
+- **Captain dashboard** (`/t/{slug}` — Home itself, when signed in as CAPTAIN/
+  VICE_CAPTAIN): koc3-app's Home.js *was* the captain dashboard — one page with scheduled
+  fixtures, inline status, and capacity warnings, not separate routes with no overview.
+  Home now shows the same thing above the public Explore tile grid: each upcoming fixture
+  with a lineup/reveal status chip and Submit Lineup / Enter Score buttons (Enter Score
+  stays disabled until both lineups are revealed, matching koc3-app), a capacity-warning
+  callout for players at/near a cap, and a recent-results recap. Score Entry and Lineup
+  Submission remain their own routes for the actual data entry — this is the missing
+  overview layer on top of them, not a full merge into one giant page.
 - **History / Matchups / Ratings / More** (`/t/{slug}/history|matchups|ratings|more`):
   approved-match history with line-by-line detail; per-player win/loss + doubles
   partnership records (`services/playerStatsEngine.ts`); a simplified win-percentage rating
@@ -107,6 +125,13 @@ end-to-end. Treat this as "should work, being verified," not "verified."
   CSS-only match-activity-by-week bar chart (no charting library pulled in), per-group
   standings leaders, and a top-5 players-by-wins leaderboard — all computed client-side
   from data the admin already has read access to, no separate aggregation/rollup.
+- **Manage Teams** (`/admin/tournaments/{id}/manage-teams`): team generation only ever
+  produced "Team 1", "Team 2", ... with no captain assigned and no way to fix that
+  afterward — this page lets an admin rename a team, set its abbreviation/logo, and
+  designate captain/vice-captain from its roster (writes back to both the Team doc and the
+  Player docs' `isCaptain`/`isViceCaptain` flags).
+- **Schedule filters** (`/t/{slug}/schedule`): group and team filter selects, matching
+  koc3-app's Schedule.js — previously a flat, ungrouped-by-filter table.
 - **PWA**: installable manifest + icons (placeholder solid-color squares — there's no
   shared app-shell logo since branding is per-tournament, not per-app), a minimal
   hand-written service worker (network-first, offline app-shell fallback, production-only),
@@ -120,6 +145,10 @@ end-to-end. Treat this as "should work, being verified," not "verified."
   team audience, not per-recipient), with no email/push delivery layer.
 - Manual/drag-drop team assignment, group generation as its own separate step (currently
   folded into team generation — see `teamGenerator.ts`'s `groupLabelFor`).
+- Fuzzy/autocomplete player-name entry and the quick-paste freeform score parser from
+  koc3-app's ScoreEntry.js — this platform's Score Entry is select-dropdown only.
+- PTL/UTR-specific ratings breakdown and the legacy KOC2 name-mapping tool — Ratings here is
+  a single simplified win-percentage list (see the in-app disclaimer on that page).
 - Full manual/browser testing — this is in progress now; expect rough edges.
 
 ## Setup

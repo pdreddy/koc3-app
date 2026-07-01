@@ -15,6 +15,13 @@ import { advancePlayoffWinner } from '@/services/playoffBracketGenerator';
 import { writeAuditLog } from '@/services/auditService';
 import { notify } from '@/services/notificationService';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { buildScoreShareUrl } from '@/services/shareService';
+
+function setScoreLabel(set: SetScore): string {
+  if (set.matchTiebreak) return `[${set.matchTiebreak.team1}-${set.matchTiebreak.team2}]`;
+  const base = `${set.team1}-${set.team2}`;
+  return set.tiebreak ? `${base}(${Math.min(set.tiebreak.team1, set.tiebreak.team2)})` : base;
+}
 
 // Unifies a group-stage ScheduleEntry and a ready playoffMatches bracket slot into one
 // pickable "what am I entering a score for" target — see targetsFor() below. Playoff
@@ -176,6 +183,7 @@ function ScoreEntryContent() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!tournament) return;
@@ -297,6 +305,18 @@ function ScoreEntryContent() {
           `/admin/tournaments/${tournament.id}/approve-scores`, user.uid
         );
       }
+      const playerName = (id: string) => [...(players[team1.id] ?? []), ...(players[team2.id] ?? [])].find((p) => p.id === id)?.displayName ?? id;
+      setShareUrl(buildScoreShareUrl({
+        team1Name: team1.name,
+        team2Name: team2.name,
+        winnerName: winnerTeamId ? (winnerTeamId === team1.id ? team1.name : team2.name) : null,
+        lines: finalLines.map((line) => ({
+          label: line.label,
+          team1Players: line.team1PlayerIds.map(playerName),
+          team2Players: line.team2PlayerIds.map(playerName),
+          scoreLabel: line.sets.map(setScoreLabel).join(', '),
+        })),
+      }));
       setSuccess(true);
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : String(e));
@@ -310,7 +330,7 @@ function ScoreEntryContent() {
       <PageHeader title="Enter Score" subtitle="Pick a scheduled match or ready playoff slot and enter the result." />
       {targets.length === 0 && <Typography color="text.secondary">No scheduled matches to enter right now.</Typography>}
       {targets.length > 0 && (
-        <Select value={selectedEntryId} displayEmpty onChange={(e) => { setSelectedEntryId(e.target.value); setLines({}); setSuccess(false); }}>
+        <Select value={selectedEntryId} displayEmpty onChange={(e) => { setSelectedEntryId(e.target.value); setLines({}); setSuccess(false); setShareUrl(null); }}>
           <MenuItem value="" disabled>Select a match</MenuItem>
           {targets.map((t) => (
             <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>
@@ -342,7 +362,10 @@ function ScoreEntryContent() {
           {validationErrors.length > 0 && <Alert severity="warning">{validationErrors.join(' · ')}</Alert>}
           {submitError && <Alert severity="error">{submitError}</Alert>}
           {success && (
-            <Alert severity="success">
+            <Alert
+              severity="success"
+              action={shareUrl ? <Button color="inherit" size="small" href={shareUrl} target="_blank" rel="noreferrer">Share on WhatsApp</Button> : undefined}
+            >
               {isAdminEntry ? 'Score saved and approved.' : 'Score submitted — an admin needs to approve it before it counts in standings.'}
             </Alert>
           )}

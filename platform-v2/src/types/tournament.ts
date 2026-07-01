@@ -189,6 +189,21 @@ export interface BrandingConfig {
   faviconUrl: string | null;
 }
 
+// ── Player eligibility / capacity caps ─────────────────────────────────────────────────
+// Config-driven equivalent of koc3-app's hardcoded eligibilityRules.js (max 2 singles days,
+// 6 total match days, 3 partner days, no singles+doubles same match day) — same idea, but
+// tunable per tournament rather than baked into the code, matching every other engine in
+// this platform (scoringEngine, standingsEngine, ...). A "day" here means one scheduled
+// fixture (ScheduleEntry), not a calendar date — a player who appears in any line of a
+// fixture uses one "day" regardless of how many lines that fixture has.
+export interface EligibilityConfig {
+  enabled: boolean;
+  maxSinglesDaysPerPlayer: number | null; // null = uncapped
+  maxTotalMatchDaysPerPlayer: number | null;
+  maxPartnerDaysPerPair: number | null;
+  allowSinglesAndDoublesSameDay: boolean;
+}
+
 // ── The full, aggregated tournament configuration document ────────────────────────────
 export interface TournamentConfig {
   info: TournamentInfo;
@@ -203,6 +218,7 @@ export interface TournamentConfig {
   registration: RegistrationConfig;
   visibility: VisibilityMap;
   branding: BrandingConfig;
+  eligibility: EligibilityConfig;
 }
 
 // ── The Tournament document itself (tournaments/{tournamentId}) ───────────────────────

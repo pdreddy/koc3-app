@@ -28,6 +28,7 @@ function TournamentDetailInner() {
   const setupLinks = [
     { to: 'import-players', icon: '📋', label: 'Import Players', desc: 'CSV/JSON roster upload' },
     { to: 'generate-teams', icon: '👥', label: 'Generate Teams', desc: 'Random or UTR-balanced' },
+    { to: 'manage-teams', icon: '✏️', label: 'Manage Teams', desc: 'Rename, logo, captains' },
     { to: 'generate-schedule', icon: '📅', label: 'Generate Schedule', desc: 'Round-robin fixtures' },
     { to: 'generate-playoffs', icon: '🏆', label: 'Generate Playoffs', desc: 'Knockout bracket' },
     { to: 'roles', icon: '🔑', label: 'Team Roles', desc: 'Invite captains & organizers' },

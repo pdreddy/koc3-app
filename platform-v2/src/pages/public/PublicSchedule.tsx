@@ -1,5 +1,8 @@
-import { useEffect, useState } from 'react';
-import { Chip, Container, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Chip, Container, MenuItem, Select, Stack, Table, TableBody, TableCell, TableHead, TableRow,
+  Typography,
+} from '@mui/material';
 import { VisibilityGate } from '@/components/layout/VisibilityGate';
 import { useTournament } from '@/contexts/TournamentContext';
 import type { ScheduleEntry, Team } from '@/types';
@@ -10,6 +13,8 @@ function ScheduleContent() {
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [teams, setTeams] = useState<Record<string, Team>>({});
   const [loading, setLoading] = useState(true);
+  const [groupFilter, setGroupFilter] = useState('ALL');
+  const [teamFilter, setTeamFilter] = useState('ALL');
 
   useEffect(() => {
     // Guard on `tournament` itself, not just the loading flag — see the note in
@@ -25,16 +30,41 @@ function ScheduleContent() {
     return () => { cancelled = true; };
   }, [tournament, repo]);
 
+  const groups = useMemo(() => Array.from(new Set(entries.map((e) => e.group))).sort(), [entries]);
+  const teamOptions = useMemo(
+    () => Object.values(teams).filter((t) => groupFilter === 'ALL' || t.group === groupFilter).sort((a, b) => a.name.localeCompare(b.name)),
+    [teams, groupFilter]
+  );
+
   if (loading) return <Typography color="text.secondary">Loading schedule…</Typography>;
   if (entries.length === 0) return <Typography color="text.secondary">No schedule published yet.</Typography>;
 
-  const byGroup = entries.reduce<Record<string, ScheduleEntry[]>>((acc, e) => {
+  const filtered = entries.filter((e) => {
+    if (groupFilter !== 'ALL' && e.group !== groupFilter) return false;
+    if (teamFilter !== 'ALL' && e.team1Id !== teamFilter && e.team2Id !== teamFilter) return false;
+    return true;
+  });
+
+  const byGroup = filtered.reduce<Record<string, ScheduleEntry[]>>((acc, e) => {
     (acc[e.group] ||= []).push(e);
     return acc;
   }, {});
 
   return (
-    <Stack spacing={4}>
+    <Stack spacing={3}>
+      <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+        <Select size="small" value={groupFilter} onChange={(e) => { setGroupFilter(e.target.value); setTeamFilter('ALL'); }} sx={{ minWidth: 160 }}>
+          <MenuItem value="ALL">All Groups</MenuItem>
+          {groups.map((g) => <MenuItem key={g} value={g}>Group {g}</MenuItem>)}
+        </Select>
+        <Select size="small" value={teamFilter} onChange={(e) => setTeamFilter(e.target.value)} sx={{ minWidth: 200 }}>
+          <MenuItem value="ALL">All Teams</MenuItem>
+          {teamOptions.map((t) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
+        </Select>
+      </Stack>
+
+      {Object.keys(byGroup).length === 0 && <Typography color="text.secondary">No matches for this filter.</Typography>}
+
       {Object.entries(byGroup).map(([group, groupEntries]) => (
         <Stack key={group} spacing={1.5}>
           <Typography variant="h6">Group {group}</Typography>

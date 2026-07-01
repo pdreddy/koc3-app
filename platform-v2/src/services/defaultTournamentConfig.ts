@@ -130,5 +130,15 @@ export function buildDefaultTournamentConfig(): TournamentConfig {
       socialLinks: {},
       faviconUrl: null,
     },
+    // Mirrors koc3-app's long-standing eligibilityRules.js defaults (2 singles / 6 total /
+    // 3 partner days, no singles+doubles same match day) — a known-good starting point,
+    // fully editable in Settings, not KOC-specific.
+    eligibility: {
+      enabled: true,
+      maxSinglesDaysPerPlayer: 2,
+      maxTotalMatchDaysPerPlayer: 6,
+      maxPartnerDaysPerPair: 3,
+      allowSinglesAndDoublesSameDay: false,
+    },
   };
 }

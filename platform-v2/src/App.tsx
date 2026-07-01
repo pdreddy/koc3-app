@@ -10,6 +10,7 @@ import AdminLogin from '@/pages/admin/AdminLogin';
 import SignUp from '@/pages/admin/SignUp';
 import RosterImport from '@/pages/admin/RosterImport';
 import GenerateTeams from '@/pages/admin/GenerateTeams';
+import ManageTeams from '@/pages/admin/ManageTeams';
 import GenerateSchedule from '@/pages/admin/GenerateSchedule';
 import GeneratePlayoffs from '@/pages/admin/GeneratePlayoffs';
 import TournamentSettings from '@/pages/admin/TournamentSettings';
@@ -60,6 +61,7 @@ export default function App() {
       <Route path="/admin/tournaments/:tournamentId" element={<RequireAuth><TournamentDetail /></RequireAuth>} />
       <Route path="/admin/tournaments/:tournamentId/import-players" element={<RequireAuth><RosterImport /></RequireAuth>} />
       <Route path="/admin/tournaments/:tournamentId/generate-teams" element={<RequireAuth><GenerateTeams /></RequireAuth>} />
+      <Route path="/admin/tournaments/:tournamentId/manage-teams" element={<RequireAuth><ManageTeams /></RequireAuth>} />
       <Route path="/admin/tournaments/:tournamentId/generate-schedule" element={<RequireAuth><GenerateSchedule /></RequireAuth>} />
       <Route path="/admin/tournaments/:tournamentId/generate-playoffs" element={<RequireAuth><GeneratePlayoffs /></RequireAuth>} />
       <Route path="/admin/tournaments/:tournamentId/edit" element={<RequireAuth><TournamentSettings /></RequireAuth>} />
