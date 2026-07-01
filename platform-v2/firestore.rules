@@ -176,18 +176,18 @@ service cloud.firestore {
 
       match /matches/{matchId} {
         allow read: if true;
-        // A captain may create/update a match their own team is part of (score entry);
-        // approval/deletion of an already-approved match stays admin-only. NOTE: there is
-        // currently no separate admin-approval step — ScoreEntry.tsx creates matches with
-        // status 'APPROVED' directly, so a captain's submitted score is immediately final.
-        // A review/approval workflow (mirroring koc3-app's PENDING -> APPROVED flow) is
-        // not built yet; tightening this to require admin approval before APPROVED is
-        // future work.
+        // A captain may create a match their own team is part of, but only as
+        // PENDING_APPROVAL — an admin-entered match may go straight to APPROVED (matches
+        // ScoreEntry.tsx's isAdminEntry check). Only an admin may ever set status to
+        // APPROVED: a captain can keep editing their own match while it's still
+        // PENDING_APPROVAL (request.resource.data.status must also stay PENDING_APPROVAL),
+        // but cannot self-approve. See pages/admin/ApproveScores.tsx.
         allow create: if isTournamentAdmin(tournamentId) ||
-          isCaptainOfTeam(tournamentId, request.resource.data.team1Id) ||
-          isCaptainOfTeam(tournamentId, request.resource.data.team2Id);
+          ((request.resource.data.status == 'PENDING_APPROVAL') &&
+           (isCaptainOfTeam(tournamentId, request.resource.data.team1Id) || isCaptainOfTeam(tournamentId, request.resource.data.team2Id)));
         allow update: if isTournamentAdmin(tournamentId) ||
-          ((resource.data.status != 'APPROVED') &&
+          ((resource.data.status == 'PENDING_APPROVAL') &&
+           (request.resource.data.status == 'PENDING_APPROVAL') &&
            (isCaptainOfTeam(tournamentId, resource.data.team1Id) || isCaptainOfTeam(tournamentId, resource.data.team2Id)));
         allow delete: if isTournamentAdmin(tournamentId);
       }

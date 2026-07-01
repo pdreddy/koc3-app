@@ -20,7 +20,7 @@ export interface MatchLine {
   status: MatchLineStatus;
 }
 
-export type MatchStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'APPROVED' | 'DISPUTED' | 'CANCELLED';
+export type MatchStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'PENDING_APPROVAL' | 'APPROVED' | 'DISPUTED' | 'CANCELLED';
 
 export interface Match {
   id: string;

@@ -149,7 +149,8 @@ function LineForm({
 function ScoreEntryContent() {
   const { tournament, repo } = useTournament();
   const { user } = useAuth();
-  const { teamId } = useTournamentRole();
+  const { teamId, role } = useTournamentRole();
+  const isAdminEntry = role === 'TOURNAMENT_ADMIN' || role === 'ORGANIZER';
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [teams, setTeams] = useState<Record<string, Team>>({});
   const [players, setPlayers] = useState<Record<string, Player[]>>({});
@@ -223,21 +224,25 @@ function ScoreEntryContent() {
     const now = Date.now();
 
     try {
+      // Admin-entered scores are trusted and go straight to APPROVED; a captain's
+      // submission is PENDING_APPROVAL until an admin reviews it (see
+      // pages/admin/ApproveScores.tsx) — matches koc3-app's PENDING -> APPROVED convention,
+      // which the earlier version of this file skipped.
       const match = await repo<Match>('matches').create({
         scheduleEntryId: selectedEntry.id,
         team1Id: team1.id,
         team2Id: team2.id,
         lines: finalLines,
         winnerTeamId,
-        status: 'APPROVED',
-        enteredBy: null,
-        approvedBy: null,
+        status: isAdminEntry ? 'APPROVED' : 'PENDING_APPROVAL',
+        enteredBy: user?.uid ?? null,
+        approvedBy: isAdminEntry ? (user?.uid ?? null) : null,
         playedAt: now,
         createdAt: now,
         updatedAt: now,
       });
       await repo<ScheduleEntry>('schedules').update(selectedEntry.id, { status: 'PLAYED', matchId: match.id });
-      if (user) await writeAuditLog(tournament.id, 'SCORE_SAVED', { uid: user.uid, email: user.email }, 'match', match.id, { winnerTeamId });
+      if (user) await writeAuditLog(tournament.id, 'SCORE_SAVED', { uid: user.uid, email: user.email }, 'match', match.id, { winnerTeamId, status: match.status });
       setSuccess(true);
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : String(e));
@@ -284,7 +289,11 @@ function ScoreEntryContent() {
 
           {validationErrors.length > 0 && <Alert severity="warning">{validationErrors.join(' · ')}</Alert>}
           {submitError && <Alert severity="error">{submitError}</Alert>}
-          {success && <Alert severity="success">Score saved.</Alert>}
+          {success && (
+            <Alert severity="success">
+              {isAdminEntry ? 'Score saved and approved.' : 'Score submitted — an admin needs to approve it before it counts in standings.'}
+            </Alert>
+          )}
 
           <Box>
             <Button
