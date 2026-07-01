@@ -2,8 +2,10 @@ import React from 'react';
 import TeamLogo from '../components/TeamLogo';
 import { resolveMatchTeams, matchWinnerId } from '../utils/matchTeams';
 import { isApprovedMatch } from '../utils/matchStatus';
+import { buildStandingsComparator } from '../utils/standingsRanking';
+import { useClub } from '../contexts/ClubContext';
 
-function statsForGroup(teamsInGroup, matches, allTeams) {
+function statsForGroup(teamsInGroup, matches, allTeams, tiebreakOrder) {
   const groupIds = new Set(teamsInGroup.map(t => t.id));
   const stats = {};
   teamsInGroup.forEach(t => {
@@ -39,16 +41,7 @@ function statsForGroup(teamsInGroup, matches, allTeams) {
     ...s,
     setDiff: s.setsFor - s.setsAgainst,
     gameDiff: s.gamesFor - s.gamesAgainst
-  })).sort((a, b) =>
-    (b.points - a.points) ||
-    (b.setsFor - a.setsFor) ||
-    (b.gamesFor - a.gamesFor) ||
-    (b.singlesWins - a.singlesWins) ||
-    ((headToHead[`${b.id}:${a.id}`] || 0) - (headToHead[`${a.id}:${b.id}`] || 0)) ||
-    (b.setDiff - a.setDiff) ||
-    (b.gameDiff - a.gameDiff) ||
-    a.team.localeCompare(b.team)
-  );
+  })).sort(buildStandingsComparator(tiebreakOrder, headToHead));
 }
 
 function GroupTable({ label, rows, qualifyTop }) {
@@ -110,27 +103,33 @@ function GroupTable({ label, rows, qualifyTop }) {
 }
 
 export default function Standings({ teams, matches }) {
+  const { leagueConfig } = useClub();
+  const qualifyTop = leagueConfig?.playoffs?.qualifyPerGroup ?? 4;
+  const groupCount = leagueConfig?.structure?.groupCount ?? 2;
+  const teamsPerGroup = leagueConfig?.structure?.teamsPerGroup ?? 8;
+  const tiebreakOrder = leagueConfig?.standings?.tiebreakOrder;
+
   const list = Object.values(teams || {});
   const groupA = list.filter(t => (t.group || 'A') === 'A').sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
   const groupB = list.filter(t => t.group === 'B').sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
 
-  const rowsA = statsForGroup(groupA, matches, teams);
-  const rowsB = statsForGroup(groupB, matches, teams);
+  const rowsA = statsForGroup(groupA, matches, teams, tiebreakOrder);
+  const rowsB = statsForGroup(groupB, matches, teams, tiebreakOrder);
 
   return (
     <main className="container standings-page">
       <div className="page-title">
         <h1>Standings</h1>
-        <p>Two groups of 8 · Top 4 from each group qualify for semifinals</p>
+        <p>{groupCount} groups of {teamsPerGroup} · Top {qualifyTop} from each group qualify for semifinals</p>
       </div>
       <section className="standings-summary" aria-label="Standings summary">
-        <div className="standings-summary-card"><span>Groups</span><strong>2</strong><small>A & B brackets</small></div>
+        <div className="standings-summary-card"><span>Groups</span><strong>{groupCount}</strong><small>A & B brackets</small></div>
         <div className="standings-summary-card"><span>Teams</span><strong>{groupA.length + groupB.length}</strong><small>Competing teams</small></div>
-        <div className="standings-summary-card"><span>Qualified</span><strong>4</strong><small>Top 4 each group</small></div>
+        <div className="standings-summary-card"><span>Qualified</span><strong>{qualifyTop}</strong><small>Top {qualifyTop} each group</small></div>
       </section>
       <div className="groups-grid standings-grid">
-        <GroupTable label="A" rows={rowsA} qualifyTop={4} />
-        <GroupTable label="B" rows={rowsB} qualifyTop={4} />
+        <GroupTable label="A" rows={rowsA} qualifyTop={qualifyTop} />
+        <GroupTable label="B" rows={rowsB} qualifyTop={qualifyTop} />
       </div>
       <p className="hint center standings-sort-note">Sort: Team Points → Sets Won → Total Games Won → Singles Won → Head-to-Head</p>
     </main>

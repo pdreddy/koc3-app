@@ -31,10 +31,14 @@ export const DEFAULT_LEAGUE_CONFIG = {
     { code: 'D2', type: 'doubles', setFormat: '4-game', bestOfSets: 2, setTiebreak: { minPoints: 7, winBy: 2 }, matchTiebreak: { minPoints: 10, winBy: 2 } },
   ],
 
-  // Points / standings
+  // Points / standings — order matches the tiebreak chain on the live Standings page
+  // exactly (see utils/standingsRanking.js DEFAULT_TIEBREAK_ORDER). Note: the standings
+  // persisted by ScoreProcessingService.computeStandings() use a slightly different,
+  // legacy order and aren't read by any page today — reconciling that is out of scope
+  // for this phase (see memory/MULTI_CLUB_SAAS_PLAN.md).
   standings: {
     pointsPerWin: 1,
-    tiebreakOrder: ['points', 'setsWon', 'singlesWins', 'headToHead', 'gameDiff', 'teamName'],
+    tiebreakOrder: ['points', 'setsFor', 'gamesFor', 'singlesWins', 'headToHead', 'setDiff', 'gameDiff', 'teamName'],
   },
 
   // Playoff structure
