@@ -5,6 +5,7 @@ import { onValue, ref, set, get, update } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ClubProvider } from './contexts/ClubContext';
+import { TournamentProvider, useTournament } from './contexts/TournamentContext';
 import { ROLES, hasRole } from './utils/roles';
 import { buildInitialTeams, canonicalizeTeamsData, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERS, normalizeAdminUsername } from './data/initialTeams';
 import { buildUtrRatingsTable } from './data/utrRatings';
@@ -12,6 +13,7 @@ import { sortByGroupOrder } from './data/auctionTeams';
 import { auctionPlayerRatingUpdates, buildAuctionPlayerRatingsTable } from './data/auctionPlayers';
 import { buildScheduleFor8x2, KOC3_SCHEDULE_VERSION } from './utils/roundRobin';
 import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from './utils/eligibilityRules';
+import { DEFAULT_TOURNAMENT_CONFIG } from './config/tournamentPlatform';
 
 import BottomNav from './components/BottomNav';
 import AppHeader from './components/Header';
@@ -90,6 +92,7 @@ function ChromeWrapper({ children }) {
 }
 
 function Shell() {
+  const { currentTournamentId } = useTournament();
   const { session, refreshTeamSession } = useAuth();
 
   // Read from Zustand store (each selector is stable — only re-renders when that slice changes)
@@ -170,10 +173,14 @@ function Shell() {
           get(ref(db, PATHS.schedule)),
         ]);
 
-        // Teams — seed or migrate
+        await update(ref(db, PATHS.config), { ...DEFAULT_TOURNAMENT_CONFIG, id: currentTournamentId, updatedAt: Date.now() });
+
+        // Teams — seed or migrate. KOC Season 3 first checks the legacy koc_s3 tree,
+        // then writes into the isolated platform/tournaments/koc-season-3 namespace.
         let teamsData;
         if (!tSnap.exists()) {
-          teamsData = buildInitialTeams();
+          const legacyTeamsSnap = currentTournamentId === 'koc-season-3' ? await get(ref(db, 'koc_s3/teams')) : null;
+          teamsData = legacyTeamsSnap?.exists() ? (legacyTeamsSnap.val() || {}) : buildInitialTeams();
           await set(ref(db, PATHS.teams), teamsData);
         } else {
           teamsData = tSnap.val() || {};
@@ -198,11 +205,16 @@ function Shell() {
 
         // Admin password
         if (!aSnap.exists()) {
-          await set(ref(db, PATHS.admin), { password: DEFAULT_ADMIN_PASSWORD });
+          const legacyAdminSnap = currentTournamentId === 'koc-season-3' ? await get(ref(db, 'koc_s3/admin')) : null;
+          await set(ref(db, PATHS.admin), legacyAdminSnap?.exists() ? legacyAdminSnap.val() : { password: DEFAULT_ADMIN_PASSWORD });
         }
 
         // Admin users
-        const adminUsers = auSnap.val() || {};
+        const legacyAdminUsersSnap = !auSnap.exists() && currentTournamentId === 'koc-season-3' ? await get(ref(db, 'koc_s3/adminUsers')) : null;
+        if (!auSnap.exists() && legacyAdminUsersSnap?.exists()) {
+          await set(ref(db, PATHS.adminUsers), legacyAdminUsersSnap.val() || {});
+        }
+        const adminUsers = legacyAdminUsersSnap?.exists() ? (legacyAdminUsersSnap.val() || {}) : (auSnap.val() || {});
         const existingAdminUsers = Object.keys(adminUsers).reduce((lookup, username) => {
           lookup[normalizeAdminUsername(username)] = true;
           return lookup;
@@ -217,20 +229,31 @@ function Shell() {
 
         // Settings
         if (!settingsSnap.exists()) {
-          await set(ref(db, PATHS.settings), { eligibilityRules: DEFAULT_ELIGIBILITY_RULES });
+          const legacySettingsSnap = currentTournamentId === 'koc-season-3' ? await get(ref(db, 'koc_s3/settings')) : null;
+          await set(ref(db, PATHS.settings), legacySettingsSnap?.exists() ? legacySettingsSnap.val() : { eligibilityRules: DEFAULT_ELIGIBILITY_RULES });
         }
 
         // Player ratings
         if (!rSnap.exists()) {
-          await set(ref(db, PATHS.playerRatings), { ...buildUtrRatingsTable(), ...buildAuctionPlayerRatingsTable() });
+          const legacyRatingsSnap = currentTournamentId === 'koc-season-3' ? await get(ref(db, 'koc_s3/playerRatings')) : null;
+          await set(ref(db, PATHS.playerRatings), legacyRatingsSnap?.exists() ? legacyRatingsSnap.val() : { ...buildUtrRatingsTable(), ...buildAuctionPlayerRatingsTable() });
         } else {
           await update(ref(db, PATHS.playerRatings), auctionPlayerRatingUpdates());
         }
 
         // Schedule — seed if missing or stale
-        const scheduleData = sSnap.val() || {};
+        let scheduleData = sSnap.val() || {};
+        let scheduleMigratedFromLegacy = false;
+        if (!sSnap.exists() && currentTournamentId === 'koc-season-3') {
+          const legacyScheduleSnap = await get(ref(db, 'koc_s3/schedule'));
+          if (legacyScheduleSnap.exists()) {
+            scheduleData = legacyScheduleSnap.val() || {};
+            scheduleMigratedFromLegacy = true;
+            await set(ref(db, PATHS.schedule), scheduleData);
+          }
+        }
         const scheduleMatches = Object.values(scheduleData).filter(item => item?.type !== 'buffer');
-        const shouldSeedSchedule = !sSnap.exists() || scheduleMatches.length === 0 || scheduleMatches.some(item => item?.scheduleVersion !== KOC3_SCHEDULE_VERSION);
+        const shouldSeedSchedule = !scheduleMigratedFromLegacy && (!sSnap.exists() || scheduleMatches.length === 0 || scheduleMatches.some(item => item?.scheduleVersion !== KOC3_SCHEDULE_VERSION));
         if (shouldSeedSchedule) {
           const list = Object.values(buildInitialTeams()).map(canonical => ({
             ...canonical,
@@ -249,7 +272,7 @@ function Shell() {
         console.error('Seed failed', e);
       }
     })();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentTournamentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Public data subscriptions — stable for the lifetime of the app; session changes must not tear these down
   useEffect(() => {
@@ -292,7 +315,7 @@ function Shell() {
       startTransition(() => setSettings({ ...value, eligibilityRules: normalizeEligibilityRules(value.eligibilityRules) }));
     });
     return () => { unsubT(); unsubM(); unsubA(); unsubAU(); unsubS(); unsubLineups(); unsubRevealedLineups(); unsubSettings(); };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentTournamentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
 
@@ -373,6 +396,11 @@ function Shell() {
               <Admin teams={deferredTeams} adminConfig={adminConfig} matches={deferredMatches} schedule={deferredSchedule} lineupSubmissions={deferredLineups} revealedLineups={deferredRevealedLineups} settings={settings} />
             </ProtectedAdmin>
           } />
+          <Route path="/t/:tournamentSlug" element={<Home teams={deferredTeams} schedule={deferredSchedule} matches={deferredMatches} eligibilityRules={settings.eligibilityRules} lineupSubmissions={deferredLineups} revealedLineups={deferredRevealedLineups} lastRefreshed={lastRefreshed} onRefresh={handleRefresh} />} />
+          <Route path="/t/:tournamentSlug/schedule" element={<Schedule teams={deferredTeams} schedule={deferredSchedule} matches={deferredMatches} lineupSubmissions={deferredLineups} revealedLineups={deferredRevealedLineups} />} />
+          <Route path="/t/:tournamentSlug/standings" element={<Standings teams={deferredTeams} matches={deferredMatches} />} />
+          <Route path="/t/:tournamentSlug/teams" element={<Teams teams={deferredTeams} loaded={loaded} />} />
+          <Route path="/t/:tournamentSlug/rules" element={<Rules />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
@@ -501,9 +529,11 @@ function ProtectedAdmin({ children }) {
 export default function App() {
   return (
     <ClubProvider>
-      <AuthProvider>
-        <Shell />
-      </AuthProvider>
+      <TournamentProvider>
+        <AuthProvider>
+          <Shell />
+        </AuthProvider>
+      </TournamentProvider>
     </ClubProvider>
   );
 }
