@@ -7,7 +7,7 @@ const ruleCards = [
     ['🤝', 'Same Doubles Pair', 'The same doubles pair can partner together a maximum of 3 times — 3 match days or 6 matches.']
   ]},
   { num: '02', icon: '📝', title: 'Lines', items: [
-    ['🗓️', 'Sunday Deadline', '🎾 Lineups are due by 7:00 PM on your scheduled match day (Saturday or Sunday) — this is mandatory, even if you plan to play the match later in the week.'],
+    ['🗓️', 'Match Day Deadline', '🎾 Lineups are due by 7:00 PM on your scheduled match day (Saturday or Sunday) — this is mandatory, even if you plan to play the match later in the week.'],
     ['😄', 'Missed Deadline', 'Miss it? Vinod, Uma, or I will set your lines. Yes, that includes their own teams.']
   ]},
   { num: '03', icon: '📅', title: 'Scheduling', items: [
@@ -50,7 +50,7 @@ const ruleCards = [
 const matchFlow = [
   ['1', 'Share Lineup', 'Captains post lines before play.'],
   ['2', 'Play 5 Lines', 'Singles, doubles and reverse doubles.'],
-  ['3', 'Post Scores', 'Winning captain reports before Sunday morning.'],
+  ['3', 'Post Scores', 'Winning captain reports by immediate Monday EOD.'],
   ['4', 'Standings Update', 'Points, sets, games and head-to-head decide rank.']
 ];
 
@@ -146,7 +146,7 @@ export default function Rules() {
 
       <div className="rl-sec-head"><h2>Remember</h2><div className="ln" /></div>
       <section className="rl-flow rl-reminders">
-        <div className="rl-step"><b>🗓️</b><strong>Sunday 7 PM</strong><small>Lines are due.</small></div>
+        <div className="rl-step"><b>🗓️</b><strong>Match Day 7 PM</strong><small>Lines are due for Saturday or Sunday fixtures.</small></div>
         <div className="rl-step"><b>📊</b><strong>Monday EOD</strong><small>Scores are due.</small></div>
       </section>
 
