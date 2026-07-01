@@ -11,6 +11,7 @@ import { resolveMatchTeams } from '../utils/matchTeams';
 import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from '../utils/eligibilityRules';
 import { parseQuickScore } from '../utils/quickScoreParser';
 import { regularSetWinner, validateLineScore } from '../utils/tennisScoreRules';
+import TeamLogo from '../components/TeamLogo';
 
 // Quick Paste is kept as a legacy/migration parser path only; Score Entry mounts the form workflow by default.
 const QUICK_PASTE_ENABLED = false;
@@ -155,7 +156,7 @@ function formatSetsForShare(sets = []) {
   return sets.map(set => {
     let score = `${set.team1}-${set.team2}`;
     if (set.tieBreak) score += `(${set.tieBreak.team1}-${set.tieBreak.team2})`;
-    if (set.matchTieBreak) score += `(${set.matchTieBreak.team1}-${set.matchTieBreak.team2})`;
+    if (typeof set.matchTieBreak === 'object') score += `(${set.matchTieBreak.team1}-${set.matchTieBreak.team2})`;
     return score;
   }).join(', ');
 }
@@ -409,29 +410,94 @@ function PlayerInput({ value, onChange, roster, teamAbbr, testid }) {
 }
 
 
-function buildDefaultWinnerSets(court, winnerTeamNum) {
-  const nextSets = court.sets.map(() => ({ a: '', b: '', tieA: '', tieB: '' }));
-  const straightSets = court.type === 'singles' ? 3 : 2;
-  Array.from({ length: straightSets }).forEach((_, idx) => {
-    nextSets[idx] = winnerTeamNum === 1
-      ? { a: '4', b: '2', tieA: '', tieB: '' }
-      : { a: '2', b: '4', tieA: '', tieB: '' };
+function focusNextScoreInput(input) {
+  requestAnimationFrame(() => {
+    const scope = input.closest('.sets-entry-col') || input.closest('.court-card') || document;
+    const inputs = Array.from(scope.querySelectorAll('.set-input input:not(:disabled)'));
+    const currentIndex = inputs.indexOf(input);
+    const next = currentIndex >= 0 ? inputs[currentIndex + 1] : null;
+    if (next) {
+      next.focus();
+      next.select?.();
+    }
   });
-  return nextSets;
 }
 
-function LineResultButtons({ court, teamAbbr, winnerTeamNum, loserTeamNum, onApply }) {
-  return (
-    <span className="line-result-buttons" data-testid={`line-result-${court.label}-${teamAbbr}`}>
-      <button type="button" className="tag win" onClick={() => onApply(buildDefaultWinnerSets(court, winnerTeamNum))} data-testid={`line-result-${court.label}-${teamAbbr}-w`}>W</button>
-      <button type="button" className="tag lose" onClick={() => onApply(buildDefaultWinnerSets(court, loserTeamNum))} data-testid={`line-result-${court.label}-${teamAbbr}-l`}>L</button>
-    </span>
-  );
+function shouldAdvanceScoreInput(value, digits) {
+  const cleanValue = String(value || '').replace(/\D/g, '');
+  return cleanValue.length >= digits;
 }
 
-function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false }) {
+
+function normalizedTieBreakForSetWinner(setWinner, tieA, tieB) {
+  if (!setWinner || tieA === '' || tieB === '') return null;
+  const ta = Number(tieA);
+  const tb = Number(tieB);
+  if (!Number.isFinite(ta) || !Number.isFinite(tb) || ta === tb) return { team1: ta, team2: tb };
+  const winnerPoints = Math.max(ta, tb);
+  const loserPoints = Math.min(ta, tb);
+  return setWinner === 1
+    ? { team1: winnerPoints, team2: loserPoints }
+    : { team1: loserPoints, team2: winnerPoints };
+}
+
+function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false, team1Abbr = 'Team A', team2Abbr = 'Team B' }) {
+  const [editing, setEditing] = useState(false);
+  const [quickWinner, setQuickWinner] = useState(null);
+  const a = set.a === '' ? null : Number(set.a);
+  const b = set.b === '' ? null : Number(set.b);
+  const resultClass = a == null || b == null || a === b ? 'empty' : (a > b ? 'team1-won' : 'team2-won');
+  const scoreWinner = a == null || b == null || a === b ? null : (a > b ? 1 : 2);
+  const selectedWinner = quickWinner || scoreWinner;
+  const regularWinner = !isMatchTieBreak && a != null && b != null ? regularSetWinner(a, b) : null;
+  const needsTieBreak = !isMatchTieBreak && ((a === 4 && b === 3) || (a === 3 && b === 4));
+  const tieBreakComplete = !needsTieBreak || (set.tieA !== '' && set.tieB !== '');
+  const matchTieBreakComplete = isMatchTieBreak && a != null && b != null && a !== b;
+  const setComplete = isMatchTieBreak ? matchTieBreakComplete : !!regularWinner && tieBreakComplete;
+  const displayTieBreak = needsTieBreak ? normalizedTieBreakForSetWinner(regularWinner, set.tieA, set.tieB) : null;
+  const scoreDigits = isMatchTieBreak ? 2 : 1;
+  const updateScore = (field, value, input, digits = scoreDigits) => {
+    setEditing(true);
+    setQuickWinner(null);
+    onChange({ ...set, [field]: value });
+    if (shouldAdvanceScoreInput(value, digits)) focusNextScoreInput(input);
+  };
+  const swapScoreSides = () => {
+    setEditing(true);
+    setQuickWinner(null);
+    onChange({ ...set, a: set.b, b: set.a, tieA: set.tieB, tieB: set.tieA });
+  };
+  const scrollToNextSet = (element) => {
+    requestAnimationFrame(() => {
+      const currentSet = element?.closest('[data-testid*="-set-"]');
+      const nextSet = currentSet?.nextElementSibling;
+      nextSet?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+      nextSet?.querySelector?.('input:not(:disabled)')?.focus?.();
+    });
+  };
+  const applyQuickScore = (winnerTeamNum, loserGames, element) => {
+    const nextSet = winnerTeamNum === 1
+      ? { ...set, a: '4', b: String(loserGames), tieA: '', tieB: '' }
+      : { ...set, a: String(loserGames), b: '4', tieA: '', tieB: '' };
+    onChange(nextSet);
+    setQuickWinner(null);
+    setEditing(false);
+    scrollToNextSet(element);
+  };
+
+  if (setComplete && !editing) {
+    return (
+      <div className={`set-input set-complete-summary ${resultClass}`.trim()}>
+        <span className="label">{isMatchTieBreak ? 'Match TB' : `Set ${idx + 1}`}</span>
+        <strong>{set.a}-{set.b}{displayTieBreak && ` (${displayTieBreak.team1}-${displayTieBreak.team2})`}</strong>
+        <span className="tag win">{selectedWinner === 1 ? team1Abbr : team2Abbr} won</span>
+        <button type="button" className="btn small ghost set-edit-btn" onClick={() => setEditing(true)} data-testid={`set-${idx}-edit`}>Edit</button>
+      </div>
+    );
+  }
+
   return (
-    <div className="set-input">
+    <div className={`set-input ${resultClass} ${isMatchTieBreak ? 'match-tb' : ''}`.trim()}>
       <span className="label">{isMatchTieBreak ? 'Match TB' : `Set ${idx + 1}`}</span>
       <input
         className="input"
@@ -441,8 +507,12 @@ function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false }) {
         min="0"
         max={isMatchTieBreak ? "30" : "4"}
         disabled={disabled}
-        onChange={e => onChange({ ...set, a: e.target.value })}
+        onChange={e => updateScore('a', e.target.value, e.target)}
         placeholder="0"
+        pattern="[0-9]*"
+        enterKeyHint="next"
+        autoComplete="off"
+        aria-label={`${isMatchTieBreak ? 'Match tiebreak' : `Set ${idx + 1}`} team 1 score`}
         data-testid={`set-${idx}-a`}
       />
       <span>-</span>
@@ -454,11 +524,39 @@ function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false }) {
         min="0"
         max={isMatchTieBreak ? "30" : "4"}
         disabled={disabled}
-        onChange={e => onChange({ ...set, b: e.target.value })}
+        onChange={e => updateScore('b', e.target.value, e.target)}
         placeholder="0"
+        pattern="[0-9]*"
+        enterKeyHint="next"
+        autoComplete="off"
+        aria-label={`${isMatchTieBreak ? 'Match tiebreak' : `Set ${idx + 1}`} team 2 score`}
         data-testid={`set-${idx}-b`}
       />
-      {(!isMatchTieBreak && ((Number(set.a) === 4 && Number(set.b) === 3) || (Number(set.a) === 3 && Number(set.b) === 4))) && (
+      <button
+        type="button"
+        className="set-swap-btn"
+        disabled={disabled || (set.a === '' && set.b === '' && set.tieA === '' && set.tieB === '')}
+        onClick={swapScoreSides}
+        aria-label={`${isMatchTieBreak ? 'Match tiebreak' : `Set ${idx + 1}`} swap team scores`}
+        title="Swap score sides"
+        data-testid={`set-${idx}-swap`}
+      >
+        ⇄
+      </button>
+      {!isMatchTieBreak && (
+        <div className="set-winner-picker" aria-label={`Set ${idx + 1} winner`}>
+          <button type="button" className={selectedWinner === 1 ? 'active' : ''} disabled={disabled} onClick={() => setQuickWinner(1)}>{team1Abbr}</button>
+          <button type="button" className={selectedWinner === 2 ? 'active' : ''} disabled={disabled} onClick={() => setQuickWinner(2)}>{team2Abbr}</button>
+        </div>
+      )}
+      {!isMatchTieBreak && (
+        <div className="fast-score-row compact" aria-label={`Set ${idx + 1} fast score entry`}>
+          {[0, 1, 2, 3].map(games => (
+            <button key={games} type="button" disabled={disabled || !selectedWinner} onClick={(event) => applyQuickScore(selectedWinner, games, event.currentTarget)}>{`4-${games}`}</button>
+          ))}
+        </div>
+      )}
+      {needsTieBreak && (
         <>
           <span style={{ fontSize: '.75rem', color: '#92400e' }}>TB</span>
           <input
@@ -468,8 +566,12 @@ function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false }) {
             value={set.tieA}
             min="0"
             disabled={disabled}
-            onChange={e => onChange({ ...set, tieA: e.target.value })}
+            onChange={e => updateScore('tieA', e.target.value, e.target, 2)}
             placeholder="0"
+            pattern="[0-9]*"
+            enterKeyHint="next"
+            autoComplete="off"
+            aria-label={`Set ${idx + 1} tiebreak team 1 score`}
             data-testid={`set-${idx}-tieA`}
           />
           <span>-</span>
@@ -480,8 +582,12 @@ function SetRow({ idx, set, onChange, disabled, isMatchTieBreak = false }) {
             value={set.tieB}
             min="0"
             disabled={disabled}
-            onChange={e => onChange({ ...set, tieB: e.target.value })}
+            onChange={e => updateScore('tieB', e.target.value, e.target, 2)}
             placeholder="0"
+            pattern="[0-9]*"
+            enterKeyHint="next"
+            autoComplete="off"
+            aria-label={`Set ${idx + 1} tiebreak team 2 score`}
             data-testid={`set-${idx}-tieB`}
           />
         </>
@@ -495,14 +601,21 @@ function computeCourt(c) {
   const sets = [];
   for (let i = 0; i < c.sets.length; i++) {
     const s = c.sets[i];
-    if (s.a === '' && s.b === '') continue;
+    if (s.a === '' || s.b === '') continue;
     const a = Number(s.a) || 0, b = Number(s.b) || 0;
     const firstTwoSplit = c.type === 'doubles' && i === 2 && sets.length >= 2 && regularSetWinner(sets[0].team1, sets[0].team2) !== regularSetWinner(sets[1].team1, sets[1].team2);
     const setEntry = { set: i + 1, team1: a, team2: b };
     if (firstTwoSplit) {
-      setEntry.matchTieBreak = true;
-      if (a > b) s1++;
-      else if (b > a) s2++;
+      setEntry.matchTieBreak = { team1: a, team2: b };
+      if (a > b) {
+        setEntry.team1 = 1;
+        setEntry.team2 = 0;
+        s1++;
+      } else if (b > a) {
+        setEntry.team1 = 0;
+        setEntry.team2 = 1;
+        s2++;
+      }
     } else {
       g1 += a; g2 += b;
       if (a > b) s1++;
@@ -510,7 +623,7 @@ function computeCourt(c) {
       if ((a === 4 && b === 3) || (a === 3 && b === 4)) {
         const ta = s.tieA === '' ? null : Number(s.tieA);
         const tb = s.tieB === '' ? null : Number(s.tieB);
-        if (ta != null && tb != null) setEntry.tieBreak = { team1: ta, team2: tb };
+        if (ta != null && tb != null) setEntry.tieBreak = normalizedTieBreakForSetWinner(regularSetWinner(a, b), s.tieA, s.tieB);
       }
     }
     sets.push(setEntry);
@@ -533,7 +646,10 @@ function validateCourtShape(court, result, validationErrors) {
   if (result.sets.length > court.sets.length) {
     validationErrors.push(`${court.label}: too many sets entered for ${court.type}`);
   }
+  const firstTwo = computeCourt({ ...court, sets: court.sets.slice(0, 2) });
+  const needsDoublesThird = court.type === 'doubles' && firstTwo.s1 === 1 && firstTwo.s2 === 1;
   court.sets.forEach((set, idx) => {
+    if (court.type === 'doubles' && idx === 2 && !needsDoublesThird) return;
     const hasA = set.a !== '';
     const hasB = set.b !== '';
     if (hasA !== hasB) validationErrors.push(`${court.label}: set ${idx + 1} needs both team scores`);
@@ -921,6 +1037,7 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
 
   const [courts, setCourts] = useState(() => COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [success, setSuccess] = useState('');
   const [shareText, setShareText] = useState('');
   const [pendingRecord, setPendingRecord] = useState(null);
@@ -928,6 +1045,9 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
   const [selectedScheduleId, setSelectedScheduleId] = useState('');
   const [autoLoadedRevealId, setAutoLoadedRevealId] = useState('');
   const [loadedLineupFixture, setLoadedLineupFixture] = useState(null);
+  const [visibleSetCounts, setVisibleSetCounts] = useState({});
+  const [collapsedCourts, setCollapsedCourts] = useState({});
+  const [editingCollapsedCourts, setEditingCollapsedCourts] = useState({});
 
   useEffect(() => {
     if (myTeam?.id && !team1Id) setTeam1Id(myTeam.id);
@@ -1005,6 +1125,13 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
   const updateCourt = (idx, patch) => {
     setPendingRecord(null);
     setShareText('');
+    setFieldErrors(errors => {
+      const court = courts[idx];
+      if (!court?.label || !errors[court.label]) return errors;
+      const next = { ...errors };
+      delete next[court.label];
+      return next;
+    });
     setCourts(cs => cs.map((c, i) => i === idx ? { ...c, ...patch } : c));
   };
 
@@ -1042,8 +1169,45 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
     return { totalG1, totalG2, totalS1, totalS2, w1, w2 };
   }, [courts]);
 
+  const visibleSetCountForCourt = (court, idx) => {
+    const firstTwo = computeCourt({ ...court, sets: court.sets.slice(0, 2) });
+    const needsDoublesThird = court.type === 'doubles' && firstTwo.s1 === 1 && firstTwo.s2 === 1;
+    const highestEntered = court.sets.reduce((max, set, setIdx) => {
+      if (court.type === 'doubles' && !needsDoublesThird && setIdx >= 2) return max;
+      return set.a !== '' || set.b !== '' || set.tieA !== '' || set.tieB !== '' ? setIdx + 1 : max;
+    }, 0);
+    const defaultCount = court.type === 'singles' ? 3 : (needsDoublesThird ? 3 : 2);
+    return Math.min(court.sets.length, Math.max(visibleSetCounts[idx] || defaultCount, highestEntered));
+  };
+
+  const showMoreSets = (idx) => {
+    setVisibleSetCounts(counts => ({ ...counts, [idx]: Math.min(5, (counts[idx] || 3) + 2) }));
+  };
+
+  const courtScoreReady = (court) => {
+    if (!courtHasEntry(court)) return false;
+    const result = computeCourt(court);
+    if (!result.winnerTeamNum) return false;
+    return validateLineScore({ label: court.label, type: court.type, sets: result.sets }).length === 0;
+  };
+
+  useEffect(() => {
+    setCollapsedCourts(previous => {
+      const next = { ...previous };
+      courts.forEach((court, idx) => {
+        if (courtScoreReady(court) && !editingCollapsedCourts[idx]) next[idx] = true;
+        if (!courtScoreReady(court)) delete next[idx];
+      });
+      return next;
+    });
+  }, [courts, editingCollapsedCourts]);
+
+  const enteredCourts = courts.filter(courtHasEntry);
+  const canPreviewSaveScore = enteredCourts.length > 0 && enteredCourts.every(courtScoreReady) && totals.w1 !== totals.w2;
+
+
   const handleSubmit = async () => {
-    setError(''); setSuccess(''); setShareText(''); setPendingRecord(null);
+    setError(''); setFieldErrors({}); setSuccess(''); setShareText(''); setPendingRecord(null);
     if (!team1 || !team2) { setError('Please choose both teams.'); return; }
     if (team1.id === team2.id) { setError('Teams must be different.'); return; }
     if (!teamsShareGroup(team1, team2)) { setError('Teams can only play opponents in the same group.'); return; }
@@ -1074,27 +1238,34 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
 
     // Validate all player names exist
     const validationErrors = [];
+    const nextFieldErrors = {};
+    const addValidationError = (message, courtLabel = '') => {
+      validationErrors.push(message);
+      if (courtLabel) nextFieldErrors[courtLabel] = [...(nextFieldErrors[courtLabel] || []), message];
+    };
     const duplicatePlayers = getDuplicatePlayers(courts);
-    duplicatePlayers.forEach(n => validationErrors.push(`Player entered more than once: ${n}`));
+    duplicatePlayers.forEach(n => addValidationError(`Player entered more than once: ${n}`));
 
     const lines = courts.map((c, idx) => {
       const r = computeCourt(c);
       if (!courtHasEntry(c)) return null; // skip untouched courts
       if (r.sets.length === 0) {
-        validationErrors.push(`${c.label}: add at least one set score or clear the court`);
+        addValidationError(`${c.label}: add at least one set score or clear the court`, c.label);
         return null;
       }
-      validateCourtShape(c, r, validationErrors);
+      const courtValidationErrors = [];
+      validateCourtShape(c, r, courtValidationErrors);
+      courtValidationErrors.forEach(message => addValidationError(message, c.label));
       const checkSide = (names, team, side) => {
         return names.map((n, i) => {
           const trimmed = (n || '').trim();
           if (!trimmed) {
-            validationErrors.push(`${c.label}: empty ${side} player ${i + 1}`);
+            addValidationError(`${c.label}: empty ${side} player ${i + 1}`, c.label);
             return trimmed;
           }
           const m = matchName(trimmed, team.players || []);
           if (!m.exact && !m.matched) {
-            validationErrors.push(`${c.label}: "${trimmed}" not found in ${team.name}`);
+            addValidationError(`${c.label}: "${trimmed}" not found in ${team.name}`, c.label);
             return trimmed;
           }
           return (m.matched || { name: trimmed }).name;
@@ -1103,7 +1274,7 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
       const p1 = checkSide(c.p1, team1, `${team1.abbreviation}`);
       const p2 = checkSide(c.p2, team2, `${team2.abbreviation}`);
       if (r.winnerTeamNum === null) {
-        validationErrors.push(`${c.label}: no clear winner from scores`);
+        addValidationError(`${c.label}: no clear winner from scores`, c.label);
       }
       return {
         label: c.label,
@@ -1120,8 +1291,9 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
       setError('Please enter at least one court with scores.');
       return;
     }
-    validationErrors.push(...validateEligibilityForLines(lines, team1, team2, matches, teams, eligibilityRules));
+    validateEligibilityForLines(lines, team1, team2, matches, teams, eligibilityRules).forEach(message => addValidationError(message));
     if (validationErrors.length > 0) {
+      setFieldErrors(nextFieldErrors);
       setError(validationErrors.join('\n'));
       return;
     }
@@ -1174,6 +1346,9 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
       setSuccess(`✅ Saved and synchronized ratings, standings, histories, and dashboard:  ${pendingRecord.t1} vs ${pendingRecord.t2} — Winner: ${pendingRecord.win}`);
       setShareText(formatMatchShareText(savedRecord));
       setPendingRecord(null);
+      setVisibleSetCounts({});
+      setCollapsedCourts({});
+      setEditingCollapsedCourts({});
       setCourts(COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount)));
     } catch (e) {
       setError('Save failed: ' + e.message);
@@ -1296,17 +1471,40 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
 
       {team1 && team2 && !scoreBlocked && courts.map((c, idx) => {
         const status = courtCompletion(c);
+        const result = computeCourt(c);
+        const winnerName = result.winnerTeamNum === 1 ? team1.name : (result.winnerTeamNum === 2 ? team2.name : 'Winner pending');
+        const setSummary = formatSetsForShare(result.sets);
+        const isCollapsed = collapsedCourts[idx] && courtScoreReady(c);
+        if (isCollapsed) {
+          return (
+            <div className={`match-line court-card classic collapsed ${status.status}`} key={idx} data-testid={`court-${idx}-collapsed`}>
+              <div className="court-card-head">
+                <h3>{c.label}</h3>
+                <span className="tag">{c.type}</span>
+                <span className="tag win">{winnerName} won</span>
+                <button type="button" className="btn small ghost court-edit-btn" onClick={() => { setCollapsedCourts(prev => ({ ...prev, [idx]: false })); setEditingCollapsedCourts(prev => ({ ...prev, [idx]: true })); }} data-testid={`court-${idx}-edit`}>Edit</button>
+              </div>
+              <div className="court-collapse-summary">
+                <strong>{setSummary}</strong>
+                <span className="muted">Games {result.g1}-{result.g2} · Sets {result.s1}-{result.s2}</span>
+              </div>
+            </div>
+          );
+        }
         return (
         <div className={`match-line court-card classic ${status.status}`} key={idx}>
           <div className="court-card-head">
             <h3>{c.label}</h3>
             <span className="tag">{c.type}</span>
             <span className={`tag status ${status.status}`}>{status.message}</span>
+            {courtScoreReady(c) && editingCollapsedCourts[idx] && (
+              <button type="button" className="btn small ghost court-edit-btn" onClick={() => { setEditingCollapsedCourts(prev => ({ ...prev, [idx]: false })); setCollapsedCourts(prev => ({ ...prev, [idx]: true })); }} data-testid={`court-${idx}-done`}>Done</button>
+            )}
           </div>
 
           <div className="score-entry-grid">
           <div className="player-entry-col">
-            <div className="field-label player-line-label">{team1.abbreviation} player{c.type === 'doubles' ? 's' : ''} <LineResultButtons court={c} teamAbbr={team1.abbreviation} winnerTeamNum={1} loserTeamNum={2} onApply={(sets) => updateCourt(idx, { sets })} /></div>
+            <div className="field-label player-line-label">{team1.abbreviation} player{c.type === 'doubles' ? 's' : ''}</div>
             {c.p1.map((n, i) => (
               <div className="compact-field" key={i}>
                 <PlayerInput
@@ -1321,7 +1519,7 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
           </div>
 
           <div className="player-entry-col">
-            <div className="field-label player-line-label">{team2.abbreviation} player{c.type === 'doubles' ? 's' : ''} <LineResultButtons court={c} teamAbbr={team2.abbreviation} winnerTeamNum={2} loserTeamNum={1} onApply={(sets) => updateCourt(idx, { sets })} /></div>
+            <div className="field-label player-line-label">{team2.abbreviation} player{c.type === 'doubles' ? 's' : ''}</div>
             {c.p2.map((n, i) => (
               <div className="compact-field" key={i}>
                 <PlayerInput
@@ -1336,14 +1534,26 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
           </div>
 
           <div className="sets-entry-col">
-          <div className="field-label">Sets ({team1.abbreviation} – {team2.abbreviation})</div>
-          {c.sets.map((s, i) => (
-            <div key={i} data-testid={`court-${idx}-set-${i}-row`}>
-              <SetRow idx={i} set={s} isMatchTieBreak={c.type === 'doubles' && i === 2 && computeCourt({ ...c, sets: c.sets.slice(0, 2) }).s1 === 1 && computeCourt({ ...c, sets: c.sets.slice(0, 2) }).s2 === 1} disabled={i > 0 && c.sets[i - 1].a === '' && c.sets[i - 1].b === ''} onChange={(ns) => updateCourt(idx, { sets: c.sets.map((x, j) => j === i ? ns : x) })} />
+          <div className="score-sets-head">
+            <div className="field-label">Sets ({team1.abbreviation} – {team2.abbreviation})</div>
+            {c.type === 'singles' && visibleSetCountForCourt(c, idx) < c.sets.length && (
+              <button type="button" className="btn small ghost add-sets-btn" onClick={() => showMoreSets(idx)} data-testid={`court-${idx}-add-sets`}>+ Add sets 4–5</button>
+            )}
+          </div>
+          <div className="sets-card-grid">
+            {c.sets.slice(0, visibleSetCountForCourt(c, idx)).map((s, i) => (
+              <div key={i} data-testid={`court-${idx}-set-${i}-row`}>
+                <SetRow idx={i} set={s} isMatchTieBreak={c.type === 'doubles' && i === 2 && computeCourt({ ...c, sets: c.sets.slice(0, 2) }).s1 === 1 && computeCourt({ ...c, sets: c.sets.slice(0, 2) }).s2 === 1} disabled={i > 0 && c.sets[i - 1].a === '' && c.sets[i - 1].b === ''} team1Abbr={team1.abbreviation} team2Abbr={team2.abbreviation} onChange={(ns) => updateCourt(idx, { sets: c.sets.map((x, j) => j === i ? ns : x) })} />
+              </div>
+            ))}
+          </div>
+          </div>
+          </div>
+          {fieldErrors[c.label]?.length > 0 && (
+            <div className="field-error-list" data-testid={`court-${idx}-field-errors`}>
+              {fieldErrors[c.label].map((message, errorIdx) => <div key={errorIdx}>⚠️ {message}</div>)}
             </div>
-          ))}
-          </div>
-          </div>
+          )}
         </div>
         );
       })}
@@ -1352,7 +1562,11 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
         <div className="card">
           <h2>📊 Summary</h2>
           <div data-testid="score-summary">
-            <div><strong>{team1.abbreviation}</strong> {totals.totalG1} - {totals.totalG2} <strong>{team2.abbreviation}</strong></div>
+            <div className="score-summary-teams">
+              <span className="team-logo-line"><TeamLogo team={team1} size={32} /><strong>{team1.abbreviation}</strong></span>
+              <span>{totals.totalG1} - {totals.totalG2}</span>
+              <span className="team-logo-line"><TeamLogo team={team2} size={32} /><strong>{team2.abbreviation}</strong></span>
+            </div>
             <div className="muted">Sets: {totals.totalS1}-{totals.totalS2} · Courts won: {totals.w1}-{totals.w2}</div>
             <div style={{ marginTop: '.5rem' }}>
               {totals.w1 > totals.w2 && <span className="tag win" data-testid="winner-tag">{team1.name} leading</span>}
@@ -1364,7 +1578,8 @@ function FormEntry({ teams, matches, schedule, lineupSubmissions, revealedLineup
             className="btn success full"
             style={{ marginTop: '.8rem' }}
             onClick={handleSubmit}
-            disabled={saving || scoreBlocked}
+            disabled={saving || scoreBlocked || !canPreviewSaveScore}
+            title={!canPreviewSaveScore ? 'Complete each entered court before saving' : undefined}
             data-testid="submit-score-btn"
           >
             {saving ? 'Saving...' : 'Preview & Confirm Save'}
@@ -1730,6 +1945,7 @@ Final: KC won 3-2`;
                 const setsDisplay = r.sets.map(s => {
                   let str = `${s.team1}-${s.team2}`;
                   if (s.tieBreak) str += `(${s.tieBreak.team1}-${s.tieBreak.team2})`;
+                  if (typeof s.matchTieBreak === 'object') str += `(${s.matchTieBreak.team1}-${s.matchTieBreak.team2})`;
                   return str;
                 }).join(', ');
                 return (

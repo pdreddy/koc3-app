@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ROLES } from '../utils/roles';
 import { DEFAULT_ADMIN_USERS, normalizeAdminUsername } from '../data/initialTeams';
 import { writeAuditLog } from '../services/AuditService';
+import TeamLogo from '../components/TeamLogo';
 
 const RECOVERY_PINS = {
   [ROLES.SUPER_ADMIN]: '19850905',
@@ -23,6 +24,7 @@ export default function Login({ teams, adminConfig }) {
   const next = location.state?.next || (mode === 'admin' ? '/admin' : '/score');
 
   const teamList = Object.values(teams || {}).sort((a, b) => (a.gradient || 0) - (b.gradient || 0));
+  const selectedTeam = teamId ? teams?.[teamId] : null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -98,8 +100,10 @@ export default function Login({ teams, adminConfig }) {
         <div className="lx-form-wrap" data-testid="login-card">
 
           <div className="lx-form-header">
-            <div className="lx-form-logo-sm">
+            <div className="lx-form-logo-pair" aria-label="KOC and PPRC">
               <img src="/logos/koc-logo.svg" alt="KOC" />
+              <span>×</span>
+              <img src="/logos/pprc-logo.svg" alt="PPRC" />
             </div>
             <div>
               <div className="lx-form-title">Sign in</div>
@@ -148,6 +152,15 @@ export default function Login({ teams, adminConfig }) {
                     <option key={t.id} value={t.id}>{t.name} ({t.abbreviation})</option>
                   ))}
                 </select>
+                {selectedTeam && (
+                  <div className="login-team-preview" data-testid="login-team-preview">
+                    <TeamLogo team={selectedTeam} size={46} />
+                    <div>
+                      <strong>{selectedTeam.name}</strong>
+                      <span>{selectedTeam.abbreviation} · Group {selectedTeam.group || 'A'}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

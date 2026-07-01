@@ -41,8 +41,9 @@ function validateRegularSet(set, label, errors) {
 }
 
 function validateMatchTieBreak(set, label, errors) {
-  const a = Number(set.team1) || 0;
-  const b = Number(set.team2) || 0;
+  const matchTieBreak = typeof set.matchTieBreak === 'object' ? set.matchTieBreak : null;
+  const a = Number(matchTieBreak?.team1 ?? set.team1) || 0;
+  const b = Number(matchTieBreak?.team2 ?? set.team2) || 0;
   const winner = a > b ? 1 : (b > a ? 2 : null);
   const winnerPoints = Math.max(a, b);
   const loserPoints = Math.min(a, b);

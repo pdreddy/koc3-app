@@ -1,13 +1,14 @@
 import { get, push, ref, update } from 'firebase/database';
 import { db, PATHS } from '../firebase';
 import { buildPtlRatings } from '../utils/ptlRating';
-import { resolveMatchTeams, matchWinnerId } from '../utils/matchTeams';
+import { resolveMatchTeams, matchWinnerId, lineWinnerSide } from '../utils/matchTeams';
 import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from '../utils/eligibilityRules';
 import { approvedMatches, isApprovedMatch } from '../utils/matchStatus';
 import { validateLineScore } from '../utils/tennisScoreRules';
 
 const keyFor = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'unknown';
 const listFrom = (val) => Object.entries(val || {}).map(([id, value]) => ({ id, ...(value || {}) }));
+
 
 export function validateScore(match) {
   if (!match?.t1Id || !match?.t2Id) throw new Error('Score validation failed: both teams are required.');
@@ -16,10 +17,9 @@ export function validateScore(match) {
   if (!match.winnerId && !match.win) throw new Error('Score validation failed: winner could not be determined.');
   let courtsWon1 = 0, courtsWon2 = 0;
   match.lines.forEach(line => {
-    const g1 = Number(line.g1) || 0;
-    const g2 = Number(line.g2) || 0;
-    if (g1 > g2) courtsWon1 += 1;
-    if (g2 > g1) courtsWon2 += 1;
+    const winnerSide = lineWinnerSide(line, match);
+    if (winnerSide === 1) courtsWon1 += 1;
+    if (winnerSide === 2) courtsWon2 += 1;
   });
   if (courtsWon1 === courtsWon2) throw new Error('Score validation failed: match winner is tied or unclear.');
   const expectedWinnerId = courtsWon1 > courtsWon2 ? match.t1Id : match.t2Id;
@@ -93,7 +93,7 @@ function computeHistories(teams, matches) {
     tm.sets[team1.id] = (tm.sets[team1.id] || 0) + (Number(m.s1) || 0); tm.sets[team2.id] = (tm.sets[team2.id] || 0) + (Number(m.s2) || 0);
     tm.games[team1.id] = (tm.games[team1.id] || 0) + (Number(m.g1) || 0); tm.games[team2.id] = (tm.games[team2.id] || 0) + (Number(m.g2) || 0); tm.lastPlayed = m.ts || Date.now(); teamMatchups[teamKey] = tm;
     (m.lines || []).forEach(line => {
-      const t1Won = (Number(line.g1) || 0) > (Number(line.g2) || 0);
+      const t1Won = lineWinnerSide(line, m) === 1;
       (line.players?.team1 || []).forEach(p => addPlayer(playerHistory, p, t1Won, line, m, team1, team2, 1));
       (line.players?.team2 || []).forEach(p => addPlayer(playerHistory, p, !t1Won, line, m, team2, team1, 2));
       for (const p1 of (line.players?.team1 || [])) for (const p2 of (line.players?.team2 || [])) {

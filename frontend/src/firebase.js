@@ -5,12 +5,22 @@ import { getDatabase } from 'firebase/database';
 import { firebaseAppName, firebaseConfig } from './firebaseConfig';
 import { PATHS } from './firebasePaths';
 
-if (!firebaseConfig.projectId || !firebaseConfig.databaseURL) {
-  throw new Error('Firebase configuration is missing projectId or databaseURL. Check REACT_APP_FIREBASE_PROJECT_ID and REACT_APP_FIREBASE_DATABASE_URL.');
+function normalizeDatabaseUrl(rawUrl) {
+  const trimmed = String(rawUrl || '').trim();
+  if (!trimmed) return '';
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    return new URL(withProtocol).toString();
+  } catch {
+    throw new Error(`Firebase databaseURL is invalid: "${rawUrl}". Use VITE_FIREBASE_DATABASE_URL with a full URL like https://your-project-default-rtdb.firebaseio.com`);
+  }
 }
 
-const parsedDatabaseUrl = new URL(firebaseConfig.databaseURL);
-const databaseURL = parsedDatabaseUrl.toString();
+if (!firebaseConfig.projectId || !firebaseConfig.databaseURL) {
+  throw new Error('Firebase configuration is missing projectId or databaseURL. Check VITE_FIREBASE_PROJECT_ID and VITE_FIREBASE_DATABASE_URL.');
+}
+
+const databaseURL = normalizeDatabaseUrl(firebaseConfig.databaseURL);
 
 
 export const app = getApps().find(existingApp => existingApp.name === firebaseAppName) || initializeApp(firebaseConfig, firebaseAppName);

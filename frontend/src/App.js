@@ -345,6 +345,7 @@ function Shell() {
 
   return (
     <ChromeWrapper>
+      {!loaded && <PageSpinner />}
       <Suspense fallback={<PageSpinner />}>
         <Routes>
           <Route path="/" element={<Home teams={deferredTeams} schedule={deferredSchedule} matches={deferredMatches} eligibilityRules={settings.eligibilityRules} lineupSubmissions={deferredLineups} revealedLineups={deferredRevealedLineups} lastRefreshed={lastRefreshed} onRefresh={handleRefresh} />} />
