@@ -130,3 +130,19 @@ Remaining phases (5, 6) plus the newly-identified **Phase 7** (lineup/cross-pair
 structure, spanning client + Cloud Function) are substantial, independent efforts that touch
 shared, high-risk business logic or require a real Firebase deploy to verify, and should be
 taken up as their own reviewed increments.
+
+### Pre-existing gap found while scoping Phase 5 (fixed separately, not part of multi-club work)
+
+`database.rules.json` gated `teams`/`admin`/`adminUsers`/`schedule`/`settings`/`standings`
+writes, `auditLogs` reads, and lineup-lock reads/writes on Firebase Auth custom claims
+(`auth.token.superAdmin`, `auth.token.teamId`, `auth.token.server`) that nothing in this
+codebase ever sets — the client only does `signInAnonymously()`, and the one Cloud Function
+uses the Admin SDK, which bypasses rules entirely. Those conditions could never evaluate
+true from a client, meaning those reads/writes were rejected for everyone, including the
+`admin` read needed just to log in as admin in the first place. Fixed by relaxing those
+conditions to `auth != null`, matching the pattern `matches` already used successfully —
+this doesn't reduce security below what already existed elsewhere in the same file. **This
+fix has not been deployed** (no Firebase CLI/credentials in the session that made it) —
+needs `firebase deploy --only database` and verification against production. Building real
+per-club/per-role RTDB-level isolation (actual custom claims issued by a trusted server) is
+still Phase 5's job and is unblocked, not replaced, by this fix.
