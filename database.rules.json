@@ -1,5 +1,13 @@
 {
   "rules": {
+    "clubs": {
+      ".read": "auth != null",
+      ".write": "auth != null && auth.token.superAdmin === true"
+    },
+    "leagueConfigs": {
+      ".read": "auth != null",
+      ".write": "auth != null && auth.token.superAdmin === true"
+    },
     "koc_s3": {
       ".read": false,
       ".write": false,

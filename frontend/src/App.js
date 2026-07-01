@@ -4,6 +4,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { onValue, ref, set, get, update } from 'firebase/database';
 import { db, ensureAuth, PATHS } from './firebase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ClubProvider } from './contexts/ClubContext';
 import { ROLES, hasRole } from './utils/roles';
 import { buildInitialTeams, canonicalizeTeamsData, canonicalTeamIdentityUpdates, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERS, normalizeAdminUsername } from './data/initialTeams';
 import { buildUtrRatingsTable } from './data/utrRatings';
@@ -499,8 +500,10 @@ function ProtectedAdmin({ children }) {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Shell />
-    </AuthProvider>
+    <ClubProvider>
+      <AuthProvider>
+        <Shell />
+      </AuthProvider>
+    </ClubProvider>
   );
 }
