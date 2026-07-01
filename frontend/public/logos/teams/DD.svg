@@ -1,10 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="48" fill="#1a0000" stroke="#cc0000" stroke-width="2"/>
-  <ellipse cx="50" cy="52" rx="18" ry="22" fill="#330000" stroke="#cc0000" stroke-width="1.5"/>
-  <ellipse cx="44" cy="46" rx="4" ry="5" fill="#cc0000"/>
-  <ellipse cx="56" cy="46" rx="4" ry="5" fill="#cc0000"/>
-  <path d="M42,60 Q50,66 58,60" stroke="#cc0000" stroke-width="2" fill="none" stroke-linecap="round"/>
-  <path d="M36,34 L42,26 L46,32" fill="#cc0000"/>
-  <path d="M64,34 L58,26 L54,32" fill="#cc0000"/>
-  <text x="50" y="85" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="9" font-weight="900" fill="#ff2200">DEUCE DEVILS</text>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#dc2626"/>
+      <stop offset="100%" stop-color="#450a0a"/>
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+  <!-- Devil horns -->
+  <path d="M30,30 L22,14 L38,26" fill="#b91c1c" stroke="#fca5a5" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M70,30 L78,14 L62,26" fill="#b91c1c" stroke="#fca5a5" stroke-width="1.5" stroke-linejoin="round"/>
+  <!-- Devil face -->
+  <ellipse cx="50" cy="50" rx="22" ry="24" fill="#dc2626"/>
+  <!-- Eyes -->
+  <ellipse cx="41" cy="46" rx="4" ry="4.5" fill="#111"/>
+  <ellipse cx="59" cy="46" rx="4" ry="4.5" fill="#111"/>
+  <circle cx="42" cy="44.5" r="1.5" fill="#fef3c7"/>
+  <circle cx="60" cy="44.5" r="1.5" fill="#fef3c7"/>
+  <!-- Evil grin -->
+  <path d="M36,57 Q50,67 64,57" fill="#b91c1c" stroke="#fca5a5" stroke-width="2" stroke-linecap="round"/>
+  <!-- Fangs -->
+  <polygon points="43,57 40,64 46,64" fill="#fef3c7"/>
+  <polygon points="57,57 54,64 60,64" fill="#fef3c7"/>
+  <!-- Trident -->
+  <line x1="50" y1="73" x2="50" y2="88" stroke="#fca5a5" stroke-width="3" stroke-linecap="round"/>
+  <line x1="44" y1="73" x2="44" y2="81" stroke="#fca5a5" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="56" y1="73" x2="56" y2="81" stroke="#fca5a5" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="44" y1="73" x2="56" y2="73" stroke="#fca5a5" stroke-width="2.5"/>
 </svg>

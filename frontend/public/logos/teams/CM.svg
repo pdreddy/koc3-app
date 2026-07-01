@@ -1,9 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="48" fill="#001020" stroke="#2288cc" stroke-width="2"/>
-  <rect x="32" y="30" width="36" height="36" rx="6" fill="#002244" stroke="#2288cc" stroke-width="1.5"/>
-  <circle cx="44" cy="44" rx="5" ry="5" fill="#2288cc" cx="44" cy="44" r="5"/>
-  <circle cx="56" cy="44" r="5" fill="#2288cc"/>
-  <rect x="40" y="55" width="20" height="6" rx="3" fill="#2288cc"/>
-  <text x="50" y="84" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="8" font-weight="900" fill="#2288cc">COURT</text>
-  <text x="50" y="93" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="8" font-weight="900" fill="#2288cc">MASTERS</text>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f766e"/>
+      <stop offset="100%" stop-color="#134e4a"/>
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+  <!-- Tennis court top view -->
+  <!-- Court outline -->
+  <rect x="18" y="24" width="64" height="48" rx="2" fill="none" stroke="#99f6e4" stroke-width="2.5"/>
+  <!-- Net -->
+  <line x1="18" y1="48" x2="82" y2="48" stroke="#fbbf24" stroke-width="2.5"/>
+  <!-- Center service line -->
+  <line x1="50" y1="24" x2="50" y2="72" stroke="#99f6e4" stroke-width="1.5"/>
+  <!-- Service boxes -->
+  <line x1="18" y1="36" x2="82" y2="36" stroke="#99f6e4" stroke-width="1.2"/>
+  <line x1="18" y1="60" x2="82" y2="60" stroke="#99f6e4" stroke-width="1.2"/>
+  <!-- Ball on center -->
+  <circle cx="50" cy="48" r="5" fill="#84cc16" stroke="#65a30d" stroke-width="1.5"/>
+  <path d="M45,48 Q48,44 51,48 Q54,52 57,48" fill="none" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>
+  <text x="50" y="86" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="9" font-weight="900" fill="#99f6e4" letter-spacing="3">CM</text>
 </svg>

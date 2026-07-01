@@ -5,6 +5,7 @@ const TEAM_LOGO_MAP = {
   KC: '/logos/teams/KC.svg',
   SK: '/logos/teams/SK.svg',
   KOCCH: '/logos/teams/KOCCH.svg',
+  KOCC: '/logos/teams/KOCC.svg',
   RS: '/logos/teams/RS.svg',
   POSH: '/logos/teams/POSH.svg',
   CT: '/logos/teams/CT.svg',

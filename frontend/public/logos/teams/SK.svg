@@ -1,9 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="48" fill="#001a00" stroke="#22cc44" stroke-width="2"/>
-  <circle cx="50" cy="55" r="20" fill="#004400" stroke="#22cc44" stroke-width="2"/>
-  <circle cx="50" cy="55" r="12" fill="none" stroke="#22cc44" stroke-width="1"/>
-  <line x1="30" y1="55" x2="70" y2="55" stroke="#22cc44" stroke-width="1.5"/>
-  <path d="M34,32 L40,18 L50,14 L60,18 L66,32" fill="#f5d060" stroke="#c9a227" stroke-width="1.5" stroke-linejoin="round"/>
-  <text x="50" y="26" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="9" font-weight="900" fill="#001a00">SPIN</text>
-  <text x="50" y="86" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="13" font-weight="900" fill="#22cc44">SPIN KINGS</text>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#5b21b6"/>
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+  <!-- Crown -->
+  <path d="M22,58 L22,42 L34,52 L50,28 L66,52 L78,42 L78,58 Z" fill="#fbbf24" stroke="#f59e0b" stroke-width="1.5" stroke-linejoin="round"/>
+  <rect x="22" y="57" width="56" height="10" rx="3" fill="#f59e0b"/>
+  <!-- Gems on crown -->
+  <circle cx="50" cy="44" r="4" fill="#ef4444"/>
+  <circle cx="34" cy="52" r="3" fill="#34d399"/>
+  <circle cx="66" cy="52" r="3" fill="#60a5fa"/>
+  <text x="50" y="82" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="9" font-weight="900" fill="#fef3c7" letter-spacing="3">SK</text>
 </svg>

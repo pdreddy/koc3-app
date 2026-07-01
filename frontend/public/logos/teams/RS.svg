@@ -1,7 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="48" fill="#1a0a00" stroke="#ff6600" stroke-width="2"/>
-  <ellipse cx="50" cy="52" rx="22" ry="28" fill="#2a1000" stroke="#ff6600" stroke-width="1.5"/>
-  <line x1="38" y1="30" x2="62" y2="74" stroke="#ff6600" stroke-width="2" stroke-linecap="round"/>
-  <line x1="38" y1="74" x2="62" y2="30" stroke="#ff4400" stroke-width="1.5" stroke-linecap="round"/>
-  <text x="50" y="88" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="11" font-weight="900" fill="#ff6600">RALLY SQUAD</text>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ea580c"/>
+      <stop offset="100%" stop-color="#c2410c"/>
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+  <!-- Tennis ball -->
+  <circle cx="50" cy="44" r="22" fill="#84cc16" stroke="#65a30d" stroke-width="2"/>
+  <!-- Ball seam curves -->
+  <path d="M28,44 Q36,32 44,44 Q52,56 60,44 Q68,32 72,44" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M28,44 Q36,56 44,44 Q52,32 60,44 Q68,56 72,44" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Speed lines -->
+  <line x1="16" y1="38" x2="28" y2="38" stroke="#fef3c7" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="14" y1="44" x2="26" y2="44" stroke="#fef3c7" stroke-width="2" stroke-linecap="round"/>
+  <line x1="16" y1="50" x2="28" y2="50" stroke="#fef3c7" stroke-width="2.5" stroke-linecap="round"/>
+  <text x="50" y="82" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="9" font-weight="900" fill="#fef3c7" letter-spacing="3">RS</text>
 </svg>

@@ -1,6 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="48" fill="#1a0000" stroke="#cc2200" stroke-width="2"/>
-  <polygon points="50,12 60,35 85,35 65,52 73,77 50,62 27,77 35,52 15,35 40,35" fill="#cc2200" opacity="0.3"/>
-  <text x="50" y="45" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="22" font-weight="900" fill="#ff4422">KARNA'S</text>
-  <text x="50" y="68" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="18" font-weight="900" fill="#ff6644">CRUSADERS</text>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="100%" stop-color="#1e40af"/>
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+  <!-- Shield -->
+  <path d="M50,14 L72,22 L72,50 Q72,70 50,82 Q28,70 28,50 L28,22 Z" fill="#1d4ed8" stroke="#fbbf24" stroke-width="2.5"/>
+  <!-- Sword -->
+  <line x1="50" y1="24" x2="50" y2="68" stroke="#fef3c7" stroke-width="4" stroke-linecap="round"/>
+  <line x1="42" y1="46" x2="58" y2="46" stroke="#fbbf24" stroke-width="3.5" stroke-linecap="round"/>
+  <polygon points="50,22 53,30 50,28 47,30" fill="#fbbf24"/>
+  <rect x="47" y="67" width="6" height="7" rx="1.5" fill="#fbbf24"/>
+  <text x="50" y="96" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="9" font-weight="900" fill="#fbbf24" letter-spacing="3">KC</text>
 </svg>

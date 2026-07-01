@@ -1,12 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="48" fill="#1a1000" stroke="#ffcc00" stroke-width="2"/>
-  <path d="M34,30 L40,16 L50,12 L60,16 L66,30" fill="#ffcc00" stroke="#cc9900" stroke-width="1.5" stroke-linejoin="round"/>
-  <ellipse cx="50" cy="52" rx="20" ry="16" fill="#ffcc00" opacity="0.9"/>
-  <ellipse cx="50" cy="52" rx="13" ry="10" fill="#cc9900"/>
-  <ellipse cx="44" cy="49" rx="3" ry="3.5" fill="#1a0800"/>
-  <ellipse cx="56" cy="49" rx="3" ry="3.5" fill="#1a0800"/>
-  <path d="M30,44 Q20,32 28,24 Q36,32 34,44 Z" fill="#ffcc00"/>
-  <path d="M70,44 Q80,32 72,24 Q64,32 66,44 Z" fill="#ffcc00"/>
-  <text x="50" y="82" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="7" font-weight="900" fill="#ffcc00">CHILL SUPER</text>
-  <text x="50" y="91" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="7" font-weight="900" fill="#ffcc00">KINGS</text>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ca8a04"/>
+      <stop offset="100%" stop-color="#713f12"/>
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+  <!-- Crown base -->
+  <path d="M20,60 L20,40 L34,52 L50,22 L66,52 L80,40 L80,60 Z" fill="#fbbf24" stroke="#fef3c7" stroke-width="1.5" stroke-linejoin="round"/>
+  <rect x="20" y="59" width="60" height="10" rx="3" fill="#f59e0b"/>
+  <!-- Snowflake inside crown -->
+  <line x1="50" y1="32" x2="50" y2="54" stroke="#e0f2fe" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="39" y1="43" x2="61" y2="43" stroke="#e0f2fe" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="42" y1="35" x2="58" y2="51" stroke="#e0f2fe" stroke-width="2" stroke-linecap="round"/>
+  <line x1="58" y1="35" x2="42" y2="51" stroke="#e0f2fe" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="50" cy="43" r="3.5" fill="#fff"/>
+  <!-- Gems on crown tips -->
+  <polygon points="50,22 52.5,29 50,27 47.5,29" fill="#fff"/>
+  <polygon points="20,40 23,47 20,45 17,47" fill="#60a5fa"/>
+  <polygon points="80,40 83,47 80,45 77,47" fill="#60a5fa"/>
+  <text x="50" y="83" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="9" font-weight="900" fill="#fef3c7" letter-spacing="1.5">CSK</text>
 </svg>

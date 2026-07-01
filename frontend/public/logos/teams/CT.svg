@@ -1,5 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="48" fill="#001a1a" stroke="#22ccaa" stroke-width="2"/>
-  <path d="M50,18 L62,28 L62,22 L68,22 L68,32 L74,32 L66,48 L58,44 L58,78 L42,78 L42,44 L34,48 L26,32 L32,32 L32,22 L38,22 L38,28 Z" fill="#22ccaa" opacity="0.8"/>
-  <text x="50" y="90" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="10" font-weight="900" fill="#22ccaa">CHILL TITANS</text>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0891b2"/>
+      <stop offset="100%" stop-color="#0e7490"/>
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+  <!-- Snowflake -->
+  <line x1="50" y1="18" x2="50" y2="72" stroke="#e0f7fa" stroke-width="3.5" stroke-linecap="round"/>
+  <line x1="18" y1="45" x2="82" y2="45" stroke="#e0f7fa" stroke-width="3.5" stroke-linecap="round"/>
+  <line x1="27" y1="22" x2="73" y2="68" stroke="#e0f7fa" stroke-width="3.5" stroke-linecap="round"/>
+  <line x1="73" y1="22" x2="27" y2="68" stroke="#e0f7fa" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- Snowflake arms -->
+  <line x1="50" y1="18" x2="44" y2="25" stroke="#e0f7fa" stroke-width="2" stroke-linecap="round"/>
+  <line x1="50" y1="18" x2="56" y2="25" stroke="#e0f7fa" stroke-width="2" stroke-linecap="round"/>
+  <line x1="50" y1="72" x2="44" y2="65" stroke="#e0f7fa" stroke-width="2" stroke-linecap="round"/>
+  <line x1="50" y1="72" x2="56" y2="65" stroke="#e0f7fa" stroke-width="2" stroke-linecap="round"/>
+  <line x1="18" y1="45" x2="24" y2="39" stroke="#e0f7fa" stroke-width="2" stroke-linecap="round"/>
+  <line x1="18" y1="45" x2="24" y2="51" stroke="#e0f7fa" stroke-width="2" stroke-linecap="round"/>
+  <line x1="82" y1="45" x2="76" y2="39" stroke="#e0f7fa" stroke-width="2" stroke-linecap="round"/>
+  <line x1="82" y1="45" x2="76" y2="51" stroke="#e0f7fa" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="50" cy="45" r="5" fill="#fff" stroke="#0891b2" stroke-width="1.5"/>
+  <text x="50" y="90" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="9" font-weight="900" fill="#e0f7fa" letter-spacing="3">CT</text>
 </svg>

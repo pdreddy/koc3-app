@@ -1,11 +1,32 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="48" fill="#1a1000" stroke="#ffaa00" stroke-width="2"/>
-  <ellipse cx="50" cy="48" rx="20" ry="16" fill="#ffaa00" opacity="0.9"/>
-  <ellipse cx="50" cy="48" rx="13" ry="10" fill="#cc7700"/>
-  <path d="M30,42 Q20,30 28,22 Q36,30 34,42 Z" fill="#ffaa00"/>
-  <path d="M70,42 Q80,30 72,22 Q64,30 66,42 Z" fill="#ffaa00"/>
-  <ellipse cx="44" cy="46" rx="3" ry="3.5" fill="#1a0800"/>
-  <ellipse cx="56" cy="46" rx="3" ry="3.5" fill="#1a0800"/>
-  <path d="M44,54 Q50,58 56,54" stroke="#1a0800" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-  <text x="50" y="82" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="10" font-weight="900" fill="#ffaa00">MEGA LIONS</text>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d97706"/>
+      <stop offset="100%" stop-color="#92400e"/>
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+  <!-- Lion mane -->
+  <circle cx="50" cy="46" r="26" fill="#b45309"/>
+  <!-- Lion face -->
+  <circle cx="50" cy="46" r="18" fill="#fbbf24"/>
+  <!-- Eyes -->
+  <ellipse cx="43" cy="42" rx="3.5" ry="4" fill="#1c1917"/>
+  <ellipse cx="57" cy="42" rx="3.5" ry="4" fill="#1c1917"/>
+  <circle cx="44" cy="41" r="1.2" fill="#fff"/>
+  <circle cx="58" cy="41" r="1.2" fill="#fff"/>
+  <!-- Nose -->
+  <ellipse cx="50" cy="48" rx="3" ry="2" fill="#c2410c"/>
+  <!-- Mouth -->
+  <path d="M44,52 Q50,57 56,52" fill="none" stroke="#92400e" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="50" y1="50" x2="50" y2="53" stroke="#92400e" stroke-width="1.5"/>
+  <!-- Whiskers -->
+  <line x1="30" y1="47" x2="44" y2="48" stroke="#92400e" stroke-width="1.2" stroke-linecap="round"/>
+  <line x1="30" y1="51" x2="44" y2="51" stroke="#92400e" stroke-width="1.2" stroke-linecap="round"/>
+  <line x1="56" y1="48" x2="70" y2="47" stroke="#92400e" stroke-width="1.2" stroke-linecap="round"/>
+  <line x1="56" y1="51" x2="70" y2="51" stroke="#92400e" stroke-width="1.2" stroke-linecap="round"/>
+  <!-- Ears -->
+  <polygon points="32,28 26,18 40,24" fill="#fbbf24"/>
+  <polygon points="68,28 74,18 60,24" fill="#fbbf24"/>
+  <text x="50" y="82" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="9" font-weight="900" fill="#fef3c7" letter-spacing="3">ML</text>
 </svg>

@@ -1,14 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="48" fill="#0a0a0a" stroke="#c9a227" stroke-width="2"/>
-  <circle cx="50" cy="50" r="42" fill="none" stroke="#888" stroke-width="1.5"/>
-  <text x="50" y="62" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="52" font-weight="900" fill="url(#rr-gold)">R</text>
   <defs>
-    <linearGradient id="rr-gold" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#f5d060"/>
-      <stop offset="50%" stop-color="#c9a227"/>
-      <stop offset="100%" stop-color="#8b6914"/>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#dc2626"/>
+      <stop offset="100%" stop-color="#991b1b"/>
     </linearGradient>
   </defs>
-  <line x1="22" y1="68" x2="40" y2="58" stroke="#c9a227" stroke-width="2" stroke-linecap="round"/>
-  <line x1="22" y1="72" x2="38" y2="64" stroke="#c9a227" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="50" cy="50" r="50" fill="url(#bg)"/>
+  <ellipse cx="50" cy="40" rx="17" ry="20" fill="none" stroke="#fef3c7" stroke-width="3.5"/>
+  <line x1="50" y1="20" x2="50" y2="60" stroke="#fef3c7" stroke-width="1.2" opacity=".6"/>
+  <line x1="33" y1="40" x2="67" y2="40" stroke="#fef3c7" stroke-width="1.2" opacity=".6"/>
+  <line x1="35" y1="29" x2="65" y2="29" stroke="#fef3c7" stroke-width="1" opacity=".45"/>
+  <line x1="35" y1="51" x2="65" y2="51" stroke="#fef3c7" stroke-width="1" opacity=".45"/>
+  <line x1="39" y1="22" x2="39" y2="58" stroke="#fef3c7" stroke-width="1" opacity=".45"/>
+  <line x1="61" y1="22" x2="61" y2="58" stroke="#fef3c7" stroke-width="1" opacity=".45"/>
+  <rect x="47.5" y="59" width="5" height="18" rx="2.5" fill="#fef3c7"/>
+  <rect x="42" y="73" width="16" height="4" rx="2" fill="#fbbf24"/>
+  <circle cx="50" cy="59" r="3.5" fill="#fef3c7"/>
+  <text x="50" y="96" text-anchor="middle" font-family="Arial Black,sans-serif" font-size="9" font-weight="900" fill="#fef3c7" letter-spacing="3">RR</text>
 </svg>
