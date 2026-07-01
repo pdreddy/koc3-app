@@ -12,19 +12,23 @@
 //  - scheduling.* documents the shape consumed by utils/roundRobin.js's
 //    buildScheduleFromGroups(); buildScheduleFor8x2 (KOC's actual seeding path) still
 //    supplies these as literals rather than reading this object.
-//  - lineupSlots is NOT wired anywhere. The real match-day format is 1 singles line + a
-//    4-line doubles "cross-pairing" round robin between each team's two doubles pairs
-//    (see pages/ScoreEntry.js COURT_TEMPLATES / buildLineupCourts) — a more specific
-//    tournament-format concept than a flat line list, and it's validated in three places
-//    that must move together (ScoreEntry.js, quickScoreParser.js, and the lineup-lock
-//    Cloud Function in functions/index.js, which can't be verified outside a deploy).
-//    Generalizing it is intentionally deferred to its own phase rather than guessed at here.
+//  - matchStructure IS consumed by pages/ScoreEntry.js (COURT_TEMPLATES, buildLineupCourts,
+//    LINEUP_ROLE_SLOTS all derive from utils/matchStructure.js with the default structure)
+//    — this covers the post-reveal *scoring* side. The pre-match *lineup submission* UI
+//    (pages/Home.js buildDashboardLineupLines) and the lineup-lock Cloud Function
+//    (functions/index.js) still hardcode the S1/D1/D2 shape rather than reading this —
+//    that half needs a real Firebase deploy to verify and is deferred to its own phase.
+//    Because DEFAULT_MATCH_STRUCTURE reproduces that same S1/D1/D2 5-slot shape, the two
+//    stay compatible as long as a club uses the default structure.
+//  - lineupSlots below documents the pre-match submission shape (NOT wired anywhere —
+//    Home.js and the Cloud Function still hardcode it, per the note above).
 //  - eligibility is already config-driven at runtime via settings.eligibilityRules in RTDB
 //    (see utils/eligibilityRules.js) — these are just the same fallback defaults mirrored
 //    here for visibility.
 //  - branding, playoffs.type are not wired into any component yet.
 
 import { DEFAULT_MATCH_FORMAT } from '../utils/tennisScoreRules';
+import { DEFAULT_MATCH_STRUCTURE } from '../utils/matchStructure';
 
 export const DEFAULT_LEAGUE_CONFIG = {
   season: {
@@ -43,6 +47,10 @@ export const DEFAULT_LEAGUE_CONFIG = {
   // Set/game/tiebreak scoring rules — see utils/tennisScoreRules.js DEFAULT_MATCH_FORMAT
   // (this is a re-export, not a duplicate, so the two can't drift apart).
   matchFormat: DEFAULT_MATCH_FORMAT,
+
+  // Match-day line structure (singles/doubles line count and cross-pairing) — see
+  // utils/matchStructure.js DEFAULT_MATCH_STRUCTURE (re-export, not a duplicate).
+  matchStructure: DEFAULT_MATCH_STRUCTURE,
 
   // Pre-match lineup submission slots (validated by the Cloud Function before lineups are
   // revealed). NOT wired anywhere yet — see the file header note above.

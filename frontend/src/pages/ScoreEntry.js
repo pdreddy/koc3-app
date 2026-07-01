@@ -11,18 +11,15 @@ import { resolveMatchTeams } from '../utils/matchTeams';
 import { DEFAULT_ELIGIBILITY_RULES, normalizeEligibilityRules } from '../utils/eligibilityRules';
 import { parseQuickScore } from '../utils/quickScoreParser';
 import { regularSetWinner, validateLineScore } from '../utils/tennisScoreRules';
+import { buildCourtTemplates, buildCourtsFromNames, buildLineupRoleSlots } from '../utils/matchStructure';
 import TeamLogo from '../components/TeamLogo';
 
 // Quick Paste is kept as a legacy/migration parser path only; Score Entry mounts the form workflow by default.
 const QUICK_PASTE_ENABLED = false;
 
-const COURT_TEMPLATES = [
-  { label: 'Singles', type: 'singles', setCount: 5 },
-  { label: 'Doubles 1', type: 'doubles', setCount: 3 },
-  { label: 'Doubles 1 Reverse', type: 'doubles', setCount: 3 },
-  { label: 'Doubles 2', type: 'doubles', setCount: 3 },
-  { label: 'Doubles 2 Reverse', type: 'doubles', setCount: 3 }
-];
+// Derived from utils/matchStructure.js's DEFAULT_MATCH_STRUCTURE, which reproduces this
+// exact 5-line shape (1 singles + 2 doubles pairs, each playing both opposing pairs).
+const COURT_TEMPLATES = buildCourtTemplates();
 
 
 function getQuickTemplate(teams) {
@@ -107,13 +104,7 @@ function getQuickGuidance(text, parsed, teams) {
 }
 
 
-const LINEUP_ROLE_SLOTS = [
-  { code: 'S', label: 'Singles' },
-  { code: 'D1', label: 'Doubles 1 player A' },
-  { code: 'D1', label: 'Doubles 1 player B' },
-  { code: 'D2', label: 'Doubles 2 player A' },
-  { code: 'D2', label: 'Doubles 2 player B' }
-];
+const LINEUP_ROLE_SLOTS = buildLineupRoleSlots();
 
 function normalizeLineupSelection(selected = []) {
   return Array.from({ length: LINEUP_ROLE_SLOTS.length }, (_, idx) => selected[idx] || '');
@@ -124,17 +115,10 @@ function selectedNamesFromIndexes(team, indexes) {
 }
 
 export function buildLineupCourts(team1Names, team2Names) {
-  const templates = COURT_TEMPLATES.map(t => newCourt(t.label, t.type, t.setCount));
-  if (team1Names.length < 5 || team2Names.length < 5) return templates;
-  const [s1a, d1a, d1b, d2a, d2b] = team1Names;
-  const [s1b, od1a, od1b, od2a, od2b] = team2Names;
-  return templates.map((court, idx) => {
-    if (idx === 0) return { ...court, p1: [s1a], p2: [s1b] };
-    if (idx === 1) return { ...court, p1: [d1a, d1b], p2: [od1a, od1b] };
-    if (idx === 2) return { ...court, p1: [d1a, d1b], p2: [od2a, od2b] };
-    if (idx === 3) return { ...court, p1: [d2a, d2b], p2: [od2a, od2b] };
-    return { ...court, p1: [d2a, d2b], p2: [od1a, od1b] };
-  });
+  return buildCourtsFromNames(team1Names, team2Names).map(court => ({
+    ...newCourt(court.label, court.type, court.setCount),
+    ...(court.p1 ? { p1: court.p1, p2: court.p2 } : {}),
+  }));
 }
 
 function buildQuickLineupText(team1, team2, team1Names, team2Names) {
