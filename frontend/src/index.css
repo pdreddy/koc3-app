@@ -4149,3 +4149,131 @@ table.std { min-width: 420px !important; }
   place-items: center;
   width: 1.8rem;
 }
+
+/* KOC × PPRC co-branding: keep both logos visible on every screen, including phones. */
+.app-header .brand {
+  align-items: center !important;
+  display: inline-flex !important;
+  flex-shrink: 0 !important;
+  gap: .55rem !important;
+  min-width: 0 !important;
+}
+
+.header-logo-badge {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid rgba(191, 219, 254, .95);
+  border-radius: 16px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, .10), inset 0 1px 0 rgba(255,255,255,.9);
+  display: inline-flex;
+  height: 46px;
+  justify-content: center;
+  padding: .24rem;
+  width: 46px;
+}
+
+.header-logo-badge.pprc-mark {
+  border-color: rgba(250, 204, 21, .75);
+  box-shadow: 0 8px 18px rgba(245, 158, 11, .14), inset 0 1px 0 rgba(255,255,255,.9);
+}
+
+.header-logo-badge .header-logo-img {
+  display: block !important;
+  height: 100% !important;
+  max-height: 38px !important;
+  max-width: 38px !important;
+  object-fit: contain !important;
+  width: 100% !important;
+}
+
+.header-collab-wordmark {
+  align-items: center;
+  display: inline-flex;
+  gap: .32rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.header-collab-wordmark span {
+  color: #f59e0b;
+  font-size: .85rem;
+  font-weight: 950;
+  transform: translateY(-1px);
+}
+
+.lx-form-logo-pair {
+  align-items: center;
+  background: linear-gradient(135deg, #ffffff, #eff6ff);
+  border: 1px solid rgba(191,219,254,.95);
+  border-radius: 18px;
+  box-shadow: 0 8px 20px rgba(37,99,235,.10);
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: .35rem;
+  padding: .35rem .48rem;
+}
+
+.lx-form-logo-pair img {
+  display: block;
+  filter: drop-shadow(0 2px 6px rgba(15,23,42,.12));
+  height: 42px;
+  object-fit: contain;
+  width: 42px;
+}
+
+.lx-form-logo-pair span {
+  color: #f59e0b;
+  font-weight: 950;
+}
+
+@media (max-width: 640px) {
+  .app-header {
+    gap: .55rem !important;
+  }
+
+  .app-header .brand {
+    gap: .38rem !important;
+  }
+
+  .header-logo-badge {
+    border-radius: 13px;
+    height: 38px;
+    min-width: 38px;
+    width: 38px;
+  }
+
+  .header-logo-badge .header-logo-img {
+    max-height: 32px !important;
+    max-width: 32px !important;
+  }
+
+  .header-collab-wordmark {
+    gap: .2rem;
+  }
+
+  .header-collab-wordmark strong,
+  .app-header .brand strong {
+    font-size: .88rem !important;
+  }
+
+  .brand-copy small {
+    display: block !important;
+    font-size: .52rem !important;
+    letter-spacing: .04em !important;
+  }
+
+  .lx-form-header {
+    align-items: center;
+  }
+
+  .lx-form-logo-pair {
+    border-radius: 15px;
+    gap: .25rem;
+    padding: .3rem .38rem;
+  }
+
+  .lx-form-logo-pair img {
+    height: 34px;
+    width: 34px;
+  }
+}

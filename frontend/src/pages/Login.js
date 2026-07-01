@@ -100,8 +100,10 @@ export default function Login({ teams, adminConfig }) {
         <div className="lx-form-wrap" data-testid="login-card">
 
           <div className="lx-form-header">
-            <div className="lx-form-logo-sm">
+            <div className="lx-form-logo-pair" aria-label="KOC and PPRC">
               <img src="/logos/koc-logo.svg" alt="KOC" />
+              <span>×</span>
+              <img src="/logos/pprc-logo.svg" alt="PPRC" />
             </div>
             <div>
               <div className="lx-form-title">Sign in</div>
