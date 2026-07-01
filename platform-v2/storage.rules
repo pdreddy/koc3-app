@@ -1,0 +1,44 @@
+rules_version = '2';
+
+// Mirrors firestore.rules' isTournamentAdmin() using Cloud Storage's cross-service access
+// to Firestore (firestore.get()/firestore.exists()) instead of custom claims — same
+// reasoning as the Firestore rules file's header comment: a same-request document read
+// can't drift out of sync with reality the way an unset custom claim silently did in the
+// koc3-app v1 RTDB rules.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() &&
+        firestore.exists(/databases/(default)/documents/superAdmins/$(request.auth.uid));
+    }
+
+    function isTournamentAdmin(tournamentId) {
+      return isSignedIn() && (
+        isSuperAdmin() ||
+        (firestore.exists(/databases/(default)/documents/tournaments/$(tournamentId)/permissions/$(request.auth.uid)) &&
+         firestore.get(/databases/(default)/documents/tournaments/$(tournamentId)/permissions/$(request.auth.uid)).data.role in ['TOURNAMENT_ADMIN', 'ORGANIZER'])
+      );
+    }
+
+    function isValidImage() {
+      return request.resource.size < 5 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*');
+    }
+
+    // tournaments/{tournamentId}/branding|sponsors|gallery/... — every uploaded image lives
+    // under its owning tournament (see services/storageService.ts), publicly readable (the
+    // same images a public tournament site already shows via pasted URLs), admin-write-only.
+    match /tournaments/{tournamentId}/{allPaths=**} {
+      allow read: if true;
+      // Split from a single `write` rule because `request.resource` (and therefore
+      // isValidImage()) doesn't exist on a delete request.
+      allow create, update: if isTournamentAdmin(tournamentId) && isValidImage();
+      allow delete: if isTournamentAdmin(tournamentId);
+    }
+  }
+}

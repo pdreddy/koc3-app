@@ -38,7 +38,10 @@ end-to-end. Treat this as "should work, being verified," not "verified."
   `src/services/matchLines.ts`), enter set scores validated against `config.scoring`
   (`src/services/scoringEngine.ts` — same config-driven design as the koc3-app PR's
   `tennisScoreRules.js`), save → writes a `Match` doc and marks the schedule entry `PLAYED`.
-  **No admin-approval step yet** — a captain's submitted score is immediately `APPROVED`.
+  An admin's own entry goes straight to `APPROVED`; a captain's submission is
+  `PENDING_APPROVAL` until an admin reviews it at `/admin/tournaments/{id}/approve-scores`
+  (`pages/admin/ApproveScores.tsx`) — approving or rejecting also notifies both teams (see
+  Notifications below).
 - **Public site** (`/t/{slug}`): Home, Schedule, Standings (computed client-side from
   matches via `src/services/standingsEngine.ts`, driven by `config.standings.tiebreakOrder`
   — same design as the koc3-app PR's `standingsRanking.js`), Teams, Rules.
@@ -50,8 +53,11 @@ end-to-end. Treat this as "should work, being verified," not "verified."
   instead of Firebase Auth custom claims (deliberately — see the file's header comment).
   The tournament creator is bootstrapped as `TOURNAMENT_ADMIN` automatically. Captains can
   update their own team's scheduled matches (score entry) and create/update matches their
-  team is part of, but can't touch an already-`APPROVED` match. Platform-wide `SUPER_ADMIN`
-  is an explicit TODO — `isSuperAdmin()` always returns `false`.
+  team is part of, but can only ever submit `PENDING_APPROVAL` — only an admin can approve.
+  Platform-wide `SUPER_ADMIN` is a top-level `superAdmins/{uid}` allowlist collection (see
+  `services/superAdminService.ts`, `/admin/super-admins`); every per-tournament role check
+  ORs against it, so a super admin has admin access to every tournament without a
+  `permissions/{uid}` doc in each one.
 - **Signup + role invites** — this is what actually connects "a captain" to "a screen they
   can see": `/admin/signup` lets anyone self-register a Firebase Auth account (no admin
   console needed anymore). Admins use **Team Roles** (`/admin/tournaments/{id}/roles`) to
@@ -82,7 +88,20 @@ end-to-end. Treat this as "should work, being verified," not "verified."
   `performedByUserId == request.auth.uid`).
 - **Announcements / Sponsors / Gallery** (`/admin/tournaments/{id}/content` to manage,
   `/t/{slug}/announcements|sponsors|gallery` to view): simple admin-managed content lists.
-  No file upload — images are pasted URLs (this project has no Firebase Storage wired up).
+  Branding/sponsor/gallery images can be uploaded directly to Firebase Storage
+  (`services/storageService.ts`, `components/ImageUploadField.tsx`, `storage.rules`) or
+  still pasted as an already-hosted URL — both write the same plain URL string field.
+- **Knockout/playoff brackets** (`/admin/tournaments/{id}/generate-playoffs` to generate,
+  `/t/{slug}/playoffs` to view): single-elimination bracket (QUARTERFINAL → SEMIFINAL →
+  FINAL, up to 8 entrants, optional third-place match) seeded from group standings via
+  `services/playoffBracketGenerator.ts`. Score Entry offers ready bracket slots alongside
+  scheduled group matches; winners only advance once a score is `APPROVED`.
+- **CSV export**: Standings, History, and the admin roster (Team Roles) each have an
+  "Export CSV" button (`services/csvExport.ts`) — client-side only, no backend involved.
+- **In-app notifications**: a broadcast-board inbox (`tournaments/{id}/notifications`, not a
+  per-user Firestore inbox — see `types/notification.ts` for why) triggered by score
+  submission/approval/rejection, playoff bracket generation, and new announcements. Bell
+  icon with an unread badge (tracked client-side in localStorage) in the public site header.
 - **PWA**: installable manifest + icons (placeholder solid-color squares — there's no
   shared app-shell logo since branding is per-tournament, not per-app), a minimal
   hand-written service worker (network-first, offline app-shell fallback, production-only),
@@ -90,13 +109,13 @@ end-to-end. Treat this as "should work, being verified," not "verified."
 
 ### What's NOT implemented
 
-- Admin approval workflow for submitted scores (see Score Entry note above).
-- Un-inviting / changing someone's role once claimed (Team Roles only creates invites, no
-  edit/revoke UI yet — do it directly in Firestore for now).
+- Consolation-draw bracket (a second bracket for early playoff losers) — only the main
+  single-elimination bracket + an optional third-place match exist.
+- Real push/email notifications — the in-app notification inbox is broadcast-based (role/
+  team audience, not per-recipient), with no email/push delivery layer.
+- Analytics dashboard.
 - Manual/drag-drop team assignment, group generation as its own separate step (currently
-  folded into team generation — see `teamGenerator.ts`'s `groupLabelFor`), knockout/playoff
-  bracket generation, real push/email notifications, CSV export, analytics dashboards, file
-  uploads (Storage isn't configured), platform-wide SUPER_ADMIN.
+  folded into team generation — see `teamGenerator.ts`'s `groupLabelFor`).
 - Full manual/browser testing — this is in progress now; expect rough edges.
 
 ## Setup
@@ -111,13 +130,16 @@ npm run dev                  # http://localhost:5173
 
 You'll also need, in the Firebase project you point `.env.local` at:
 - Firestore enabled (Native mode)
+- Storage enabled (for branding/sponsor/gallery image uploads — optional if you only ever
+  paste already-hosted URLs)
 - Authentication → Email/Password provider enabled. First account: use `/admin/signup` in
   the app itself (or create one directly in the Firebase console, same effect) — whoever
   creates a tournament automatically becomes its admin, no manual role assignment needed
   for that first account.
-- `firestore.rules` deployed (`firebase deploy --only firestore:rules` from a machine with
-  the Firebase CLI and credentials for that project — not available in the session that
-  wrote this) — redeploy any time this file changes, including this update.
+- `firestore.rules` and `storage.rules` deployed (`firebase deploy --only
+  firestore:rules,storage` from a machine with the Firebase CLI and credentials for that
+  project, using the `firebase.json` in this directory — not available in the session that
+  wrote this) — redeploy any time either file changes.
 
 ## Commands
 

@@ -9,6 +9,7 @@ import { TournamentProvider, useTournament } from '@/contexts/TournamentContext'
 import { useAuth } from '@/contexts/AuthContext';
 import type { Announcement, GalleryImage, Sponsor } from '@/types';
 import { notify } from '@/services/notificationService';
+import { ImageUploadField } from '@/components/ImageUploadField';
 
 function AnnouncementsTab() {
   const { tournament, repo } = useTournament();
@@ -58,7 +59,7 @@ function AnnouncementsTab() {
 }
 
 function SponsorsTab() {
-  const { repo } = useTournament();
+  const { tournament, repo } = useTournament();
   const [items, setItems] = useState<Sponsor[]>([]);
   const [name, setName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
@@ -66,6 +67,8 @@ function SponsorsTab() {
   const [tier, setTier] = useState<Sponsor['tier']>('PARTNER');
 
   useEffect(() => { repo<Sponsor>('sponsors').list().then(setItems); }, [repo]);
+
+  if (!tournament) return null;
 
   const handleAdd = async () => {
     if (!name.trim() || !logoUrl.trim()) return;
@@ -81,9 +84,12 @@ function SponsorsTab() {
 
   return (
     <Stack spacing={2}>
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="flex-start">
         <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} />
-        <TextField label="Logo URL" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} sx={{ minWidth: 220 }} />
+        <ImageUploadField
+          label="Logo URL" value={logoUrl} onChange={setLogoUrl} tournamentId={tournament.id}
+          storagePath={`sponsors/${name.trim() || 'new'}-${Date.now()}`}
+        />
         <TextField label="Website" value={website} onChange={(e) => setWebsite(e.target.value)} />
         <Select value={tier} onChange={(e) => setTier(e.target.value as Sponsor['tier'])}>
           {(['TITLE', 'GOLD', 'SILVER', 'BRONZE', 'PARTNER'] as const).map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
@@ -101,13 +107,15 @@ function SponsorsTab() {
 }
 
 function GalleryTab() {
-  const { repo } = useTournament();
+  const { tournament, repo } = useTournament();
   const { user } = useAuth();
   const [items, setItems] = useState<GalleryImage[]>([]);
   const [url, setUrl] = useState('');
   const [caption, setCaption] = useState('');
 
   useEffect(() => { repo<GalleryImage>('gallery').list().then((g) => setItems(g.sort((a, b) => b.uploadedAt - a.uploadedAt))); }, [repo]);
+
+  if (!tournament) return null;
 
   const handleAdd = async () => {
     if (!url.trim()) return;
@@ -123,9 +131,11 @@ function GalleryTab() {
 
   return (
     <Stack spacing={2}>
-      <Alert severity="info">No file upload yet — paste a URL to an already-hosted image (Firebase Storage isn't wired up in this project).</Alert>
-      <Stack direction="row" spacing={1}>
-        <TextField label="Image URL" value={url} onChange={(e) => setUrl(e.target.value)} sx={{ minWidth: 260 }} />
+      <Stack direction="row" spacing={1} alignItems="flex-start">
+        <ImageUploadField
+          label="Image URL" value={url} onChange={setUrl} tournamentId={tournament.id}
+          storagePath={`gallery/${Date.now()}`}
+        />
         <TextField label="Caption" value={caption} onChange={(e) => setCaption(e.target.value)} />
         <Button variant="outlined" onClick={handleAdd} disabled={!url.trim()}>Add Photo</Button>
       </Stack>

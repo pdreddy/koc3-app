@@ -67,7 +67,7 @@ function TournamentSettingsContent() {
         {tab === 7 && <PlayoffsEditor value={draft.playoffs} onChange={(p) => patch('playoffs', p)} />}
         {tab === 8 && <RegistrationEditor value={draft.registration} onChange={(p) => patch('registration', p)} />}
         {tab === 9 && <VisibilityEditor value={draft.visibility} onChange={(next) => setField('visibility', next)} />}
-        {tab === 10 && <BrandingEditor value={draft.branding} onChange={(p) => patch('branding', p)} />}
+        {tab === 10 && <BrandingEditor value={draft.branding} onChange={(p) => patch('branding', p)} tournamentId={tournament.id} />}
       </Box>
 
       {saved && <Alert severity="success" onClose={() => setSaved(false)}>Saved.</Alert>}
