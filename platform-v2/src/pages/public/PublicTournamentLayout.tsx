@@ -1,9 +1,14 @@
 import { useParams, Outlet, Link as RouterLink, useLocation } from 'react-router-dom';
-import { AppBar, Avatar, Box, Button, Chip, Container, Stack, Tab, Tabs, Toolbar, Typography, Alert } from '@mui/material';
+import {
+  AppBar, Avatar, Badge, Box, Button, Chip, Container, IconButton, Stack, Tab, Tabs, Toolbar,
+  Typography, Alert,
+} from '@mui/material';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 import { TournamentProvider, useTournament } from '@/contexts/TournamentContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTournamentRole } from '@/hooks/useTournamentRole';
 import { useClaimPendingInvite } from '@/hooks/useClaimPendingInvite';
+import { useNotifications } from '@/hooks/useNotifications';
 import { BottomNav } from '@/components/layout/BottomNav';
 
 // Primary nav stays short (koc3-app collapses secondary pages into a "More" screen rather
@@ -47,6 +52,19 @@ function AccountStatus() {
   );
 }
 
+function NotificationsBell({ basePath }: { basePath: string }) {
+  const { user } = useAuth();
+  const { unreadCount } = useNotifications();
+  if (!user) return null;
+  return (
+    <IconButton component={RouterLink} to={`${basePath}/notifications`} size="small">
+      <Badge badgeContent={unreadCount} color="error" max={9}>
+        <NotificationsIcon fontSize="small" />
+      </Badge>
+    </IconButton>
+  );
+}
+
 function PublicHeader() {
   const { tournament } = useTournament();
   const location = useLocation();
@@ -60,6 +78,7 @@ function PublicHeader() {
       <Toolbar>
         {branding.logoUrl && <Avatar src={branding.logoUrl} sx={{ mr: 1.5 }} variant="rounded" />}
         <Typography variant="h6" sx={{ flexGrow: 1 }}>{info.name}</Typography>
+        <NotificationsBell basePath={basePath} />
         <AccountStatus />
       </Toolbar>
       <Tabs value={currentTab} variant="scrollable" scrollButtons="auto" sx={{ display: { xs: 'none', sm: 'flex' } }}>

@@ -6,6 +6,7 @@ import type { Match, PlayoffMatch, Team } from '@/types';
 import { computeStandings, groupStandings } from '@/services/standingsEngine';
 import { generatePlayoffBracket } from '@/services/playoffBracketGenerator';
 import { writeAuditLog } from '@/services/auditService';
+import { notify } from '@/services/notificationService';
 import { useAuth } from '@/contexts/AuthContext';
 
 function GeneratePlayoffsContent() {
@@ -57,7 +58,10 @@ function GeneratePlayoffsContent() {
     const bracket = generatePlayoffBracket(qualified, tournament.config.playoffs, now);
     const playoffRepo = repo<PlayoffMatch>('playoffMatches');
     await Promise.all(bracket.map((m) => playoffRepo.setWithId(m.id, m)));
-    if (user) await writeAuditLog(tournament.id, 'PLAYOFFS_GENERATED', { uid: user.uid, email: user.email }, 'tournament', tournament.id, { entrants: qualified.length });
+    if (user) {
+      await writeAuditLog(tournament.id, 'PLAYOFFS_GENERATED', { uid: user.uid, email: user.email }, 'tournament', tournament.id, { entrants: qualified.length });
+      await notify(repo, 'ALL', 'PLAYOFFS_GENERATED', 'Playoff bracket is set', `The ${bracket.length}-match playoff bracket has been generated.`, `/t/${tournament.slug}/playoffs`, user.uid);
+    }
     setExisting(bracket);
     setGenerating(false);
     setResult(`Generated a ${bracket.length}-match bracket from ${qualified.length} qualified teams.`);

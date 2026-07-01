@@ -30,6 +30,7 @@ import ScoreEntry from '@/pages/public/ScoreEntry';
 import LineupSubmission from '@/pages/public/LineupSubmission';
 import History from '@/pages/public/History';
 import Playoffs from '@/pages/public/Playoffs';
+import Notifications from '@/pages/public/Notifications';
 import Matchups from '@/pages/public/Matchups';
 import Ratings from '@/pages/public/Ratings';
 import More from '@/pages/public/More';
@@ -76,6 +77,7 @@ export default function App() {
         <Route path="lineup" element={<LineupSubmission />} />
         <Route path="history" element={<History />} />
         <Route path="playoffs" element={<Playoffs />} />
+        <Route path="notifications" element={<Notifications />} />
         <Route path="matchups" element={<Matchups />} />
         <Route path="ratings" element={<Ratings />} />
         <Route path="more" element={<More />} />

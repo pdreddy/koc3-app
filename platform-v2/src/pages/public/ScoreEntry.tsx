@@ -13,6 +13,7 @@ import { buildLineSpecs, type LineSpec } from '@/services/matchLines';
 import { validateLine, lineWinner } from '@/services/scoringEngine';
 import { advancePlayoffWinner } from '@/services/playoffBracketGenerator';
 import { writeAuditLog } from '@/services/auditService';
+import { notify } from '@/services/notificationService';
 
 // Unifies a group-stage ScheduleEntry and a ready playoffMatches bracket slot into one
 // pickable "what am I entering a score for" target — see targetsFor() below. Playoff
@@ -288,6 +289,13 @@ function ScoreEntryContent() {
         }
       }
       if (user) await writeAuditLog(tournament.id, 'SCORE_SAVED', { uid: user.uid, email: user.email }, 'match', match.id, { winnerTeamId, status: match.status });
+      if (!isAdminEntry && user) {
+        await notify(
+          repo, 'ADMIN', 'SCORE_SUBMITTED', 'Score awaiting approval',
+          `${team1.name} vs ${team2.name} needs review.`,
+          `/admin/tournaments/${tournament.id}/approve-scores`, user.uid
+        );
+      }
       setSuccess(true);
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : String(e));

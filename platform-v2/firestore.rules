@@ -69,6 +69,20 @@ service cloud.firestore {
       );
     }
 
+    // Notifications are a broadcast board (one doc, many recipients), not a personal inbox
+    // — see types/notification.ts for why there's no per-recipient fan-out or read field.
+    function hasAnyRole(tournamentId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/tournaments/$(tournamentId)/permissions/$(request.auth.uid));
+    }
+
+    function canReadNotification(tournamentId, audience) {
+      return isSuperAdmin() ||
+        (audience == 'ALL' && hasAnyRole(tournamentId)) ||
+        (audience == 'ADMIN' && isTournamentAdmin(tournamentId)) ||
+        (hasAnyRole(tournamentId) && audience == 'TEAM_' + permissionDoc(tournamentId).data.teamId);
+    }
+
     // Blind-lineup reveal, with no Cloud Function: a lineup doc (id ==
     // `${scheduleEntryId}__${teamId}`, see types/lineup.ts lineupDocId()) is only readable
     // by the OTHER team once both teams' lineups have lockedAt set. This cross-document
@@ -267,6 +281,17 @@ service cloud.firestore {
         // Immutable once written: no update, and delete is admin-only (e.g. to prune).
         allow read: if isTournamentAdmin(tournamentId);
         allow create: if isSignedIn() && request.resource.data.performedByUserId == request.auth.uid;
+        allow update: if false;
+        allow delete: if isTournamentAdmin(tournamentId);
+      }
+
+      match /notifications/{notificationId} {
+        allow read: if canReadNotification(tournamentId, resource.data.audience);
+        // Self-attributed writer, same convention as auditLogs above: any signed-in
+        // tournament participant may post one (e.g. a captain's ScoreEntry.tsx submission
+        // notifying admins it needs approval) — nothing sensitive lives here, so misuse is
+        // just noise, not a security hole.
+        allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
         allow update: if false;
         allow delete: if isTournamentAdmin(tournamentId);
       }

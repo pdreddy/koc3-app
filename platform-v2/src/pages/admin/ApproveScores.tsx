@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { Match, PlayoffMatch, ScheduleEntry, Team } from '@/types';
 import { writeAuditLog } from '@/services/auditService';
 import { advancePlayoffWinner } from '@/services/playoffBracketGenerator';
+import { notify } from '@/services/notificationService';
 
 function setScoreLabel(set: { team1: number; team2: number; tiebreak?: { team1: number; team2: number }; matchTiebreak?: { team1: number; team2: number } }): string {
   if (set.matchTiebreak) return `[${set.matchTiebreak.team1}-${set.matchTiebreak.team2}]`;
@@ -46,6 +47,13 @@ function ApproveScoresContent() {
       if (playoffMatch) await advancePlayoffWinner(repo, playoffMatch, match.winnerTeamId, match.id);
     }
     await writeAuditLog(tournament.id, 'SCORE_APPROVED', { uid: user?.uid ?? 'unknown', email: user?.email ?? null }, 'match', match.id, {});
+    if (user) {
+      const label = `${teams[match.team1Id]?.name ?? match.team1Id} vs ${teams[match.team2Id]?.name ?? match.team2Id}`;
+      await Promise.all([
+        notify(repo, `TEAM_${match.team1Id}`, 'SCORE_APPROVED', 'Score approved', `${label} — score approved.`, null, user.uid),
+        notify(repo, `TEAM_${match.team2Id}`, 'SCORE_APPROVED', 'Score approved', `${label} — score approved.`, null, user.uid),
+      ]);
+    }
     setBusyId(null);
     reload();
   };
@@ -62,6 +70,13 @@ function ApproveScoresContent() {
       await repo<PlayoffMatch>('playoffMatches').update(match.playoffMatchId, { matchId: null });
     }
     await writeAuditLog(tournament.id, 'SCORE_REJECTED', { uid: user?.uid ?? 'unknown', email: user?.email ?? null }, 'match', match.id, {});
+    if (user) {
+      const label = `${teams[match.team1Id]?.name ?? match.team1Id} vs ${teams[match.team2Id]?.name ?? match.team2Id}`;
+      await Promise.all([
+        notify(repo, `TEAM_${match.team1Id}`, 'SCORE_REJECTED', 'Score rejected', `${label} — score rejected, please resubmit.`, null, user.uid),
+        notify(repo, `TEAM_${match.team2Id}`, 'SCORE_REJECTED', 'Score rejected', `${label} — score rejected, please resubmit.`, null, user.uid),
+      ]);
+    }
     setBusyId(null);
     reload();
   };

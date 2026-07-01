@@ -12,3 +12,4 @@ export * from './auditLog';
 export * from './content';
 export * from './superAdmin';
 export * from './playoff';
+export * from './notification';

@@ -8,9 +8,10 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { TournamentProvider, useTournament } from '@/contexts/TournamentContext';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Announcement, GalleryImage, Sponsor } from '@/types';
+import { notify } from '@/services/notificationService';
 
 function AnnouncementsTab() {
-  const { repo } = useTournament();
+  const { tournament, repo } = useTournament();
   const { user } = useAuth();
   const [items, setItems] = useState<Announcement[]>([]);
   const [title, setTitle] = useState('');
@@ -22,6 +23,9 @@ function AnnouncementsTab() {
     if (!title.trim()) return;
     const created = await repo<Announcement>('announcements').create({ title, body, publishedAt: Date.now(), createdBy: user?.uid ?? 'unknown' });
     setItems((prev) => [created, ...prev]);
+    if (user && tournament) {
+      await notify(repo, 'ALL', 'ANNOUNCEMENT', title, body.slice(0, 140), `/t/${tournament.slug}/announcements`, user.uid);
+    }
     setTitle(''); setBody('');
   };
 

@@ -40,7 +40,8 @@ export function PlayerConfigEditor({ value, onChange }: { value: PlayerConfig; o
 const PAGE_LABELS: Record<string, string> = {
   home: 'Home', schedule: 'Schedule', standings: 'Standings', teams: 'Teams', gallery: 'Gallery',
   rules: 'Rules', announcements: 'Announcements', sponsors: 'Sponsors', history: 'History',
-  playoffs: 'Playoffs', matchups: 'Matchups', ratings: 'Player Ratings', more: 'More', playerProfiles: 'Player Profiles',
+  playoffs: 'Playoffs', notifications: 'Notifications', matchups: 'Matchups', ratings: 'Player Ratings',
+  more: 'More', playerProfiles: 'Player Profiles',
   captainDashboard: 'Captain Dashboard', scoreEntry: 'Score Entry', lineupSubmission: 'Lineup Submission',
   adminDashboard: 'Admin Dashboard', playerImport: 'Player Import', tournamentSettings: 'Tournament Settings',
   auditLogs: 'Audit Logs',

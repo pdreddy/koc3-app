@@ -12,4 +12,5 @@ export const TOURNAMENTS_COLLECTION = 'tournaments';
 // what repo() will construct) so the two can't drift apart.
 export type TournamentSubcollection =
   | 'teams' | 'players' | 'matches' | 'schedules' | 'standings' | 'permissions' | 'invites'
-  | 'lineups' | 'auditLogs' | 'announcements' | 'sponsors' | 'gallery' | 'playoffMatches';
+  | 'lineups' | 'auditLogs' | 'announcements' | 'sponsors' | 'gallery' | 'playoffMatches'
+  | 'notifications';
