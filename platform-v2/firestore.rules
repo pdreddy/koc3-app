@@ -1,16 +1,23 @@
 rules_version = '2';
 
 // Tournament isolation model: every read/write below is scoped to a single
-// platform/tournaments/{tournamentId} subtree, and role is resolved by reading a
-// permissions document stored IN that same subtree (platform/tournaments/{tournamentId}/permissions/{uid})
+// tournaments/{tournamentId} subtree, and role is resolved by reading a permissions
+// document stored IN that same subtree (tournaments/{tournamentId}/permissions/{uid})
 // rather than relying on Firebase Auth custom claims. This sidesteps a real bug found
 // while building the koc3-app multi-club PR: RTDB rules there gated writes on custom
 // claims that nothing in that codebase ever set, silently breaking admin/write flows.
 // Reading a same-request Firestore document instead needs no separate claims-issuing
 // Cloud Function and can't drift out of sync with reality the same way.
 //
+// Tournaments live directly at the top level (no "platform/" namespace prefix) because
+// Firestore document paths must strictly alternate collection/document/collection/document
+// — "platform/tournaments" would be 2 segments (collection "platform", DOCUMENT
+// "tournaments"), not a namespaced collection, which broke every query at runtime
+// ("Invalid collection reference... must have an odd number of segments"). See
+// src/services/firestorePaths.ts.
+//
 // STATUS: skeleton, not deployed or tested against a real project — see
-// platform-v2/README (once written) / memory/MULTI_CLUB_SAAS_PLAN.md follow-up notes.
+// platform-v2/README.md / memory/MULTI_CLUB_SAAS_PLAN.md follow-up notes.
 // SUPER_ADMIN (platform-wide, can manage any tournament) still needs a real mechanism —
 // left as a TODO below rather than guessed at.
 
@@ -21,17 +28,17 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // TODO: platform-wide super admin check. Candidates: a platform/superAdmins/{uid}
-    // allowlist document (readable only by Cloud Functions), or a custom claim set by a
-    // trusted server after out-of-band verification. Not implemented — every rule below
-    // currently only recognizes per-tournament roles, so there is no "manage any
-    // tournament" escape hatch yet. Do not assume this exists until it's built and tested.
+    // TODO: platform-wide super admin check. Candidates: a superAdmins/{uid} allowlist
+    // document (readable only by Cloud Functions), or a custom claim set by a trusted
+    // server after out-of-band verification. Not implemented — every rule below currently
+    // only recognizes per-tournament roles, so there is no "manage any tournament" escape
+    // hatch yet. Do not assume this exists until it's built and tested.
     function isSuperAdmin() {
       return false;
     }
 
     function permissionDoc(tournamentId) {
-      return get(/databases/$(database)/documents/platform/tournaments/$(tournamentId)/permissions/$(request.auth.uid));
+      return get(/databases/$(database)/documents/tournaments/$(tournamentId)/permissions/$(request.auth.uid));
     }
 
     function hasRole(tournamentId, roles) {
@@ -53,7 +60,7 @@ service cloud.firestore {
       );
     }
 
-    match /platform/tournaments/{tournamentId} {
+    match /tournaments/{tournamentId} {
       // Tournament doc itself: publicly readable once published (so /t/{slug} works for
       // guests), otherwise admin-only. Writes always admin-only.
       allow read: if resource.data.status == 'PUBLISHED' || isTournamentAdmin(tournamentId);
@@ -73,7 +80,7 @@ service cloud.firestore {
         allow create: if isTournamentAdmin(tournamentId) ||
           (isSignedIn() &&
            request.auth.uid == userId &&
-           request.auth.uid == get(/databases/$(database)/documents/platform/tournaments/$(tournamentId)).data.createdBy &&
+           request.auth.uid == get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.createdBy &&
            request.resource.data.role == 'TOURNAMENT_ADMIN');
         allow update, delete: if isTournamentAdmin(tournamentId);
       }

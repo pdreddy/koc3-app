@@ -17,8 +17,9 @@ import { db } from '@/firebase/config';
 import { identityConverter } from './firestoreConverters';
 import type { Tournament, TournamentConfig } from '@/types';
 import { buildDefaultTournamentConfig } from './defaultTournamentConfig';
+import { TOURNAMENTS_COLLECTION } from './firestorePaths';
 
-const tournamentsCollection = collection(db, 'platform', 'tournaments').withConverter(identityConverter<Tournament>());
+const tournamentsCollection = collection(db, TOURNAMENTS_COLLECTION).withConverter(identityConverter<Tournament>());
 
 function slugify(input: string): string {
   return input
@@ -87,7 +88,7 @@ export const TournamentService = {
     // since permission docs are the *only* thing those rules check (see the rules file's
     // header comment for why custom claims were deliberately avoided). The rule allowing
     // this specific self-write checks that the caller matches the tournament's createdBy.
-    await setDoc(doc(db, 'platform', 'tournaments', ref.id, 'permissions', params.createdBy), {
+    await setDoc(doc(db, TOURNAMENTS_COLLECTION, ref.id, 'permissions', params.createdBy), {
       userId: params.createdBy,
       tournamentId: ref.id,
       role: 'TOURNAMENT_ADMIN',

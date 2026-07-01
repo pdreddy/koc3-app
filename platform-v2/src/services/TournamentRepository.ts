@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { identityConverter } from './firestoreConverters';
+import { TOURNAMENTS_COLLECTION } from './firestorePaths';
 
 // Every read/write in this platform goes through a repository built by this factory, so
 // no component or service ever writes a Firestore path by hand — the tournamentId scoping
@@ -25,7 +26,7 @@ export class TournamentScopedRepository<T extends { id: string }> {
 
   constructor(tournamentId: string, subcollection: string) {
     if (!tournamentId) throw new Error('TournamentScopedRepository requires a non-empty tournamentId');
-    this.collectionRef = collection(db, 'platform', 'tournaments', tournamentId, subcollection).withConverter(
+    this.collectionRef = collection(db, TOURNAMENTS_COLLECTION, tournamentId, subcollection).withConverter(
       identityConverter<T>()
     );
   }

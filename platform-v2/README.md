@@ -20,7 +20,7 @@ end-to-end. Treat this as "should work, being verified," not "verified."
   from the spec (info, structure, match types, scoring, standings, playoffs, registration,
   per-page visibility, branding).
 - **Tournament-scoped data access**: `TournamentScopedRepository` roots every read/write at
-  `platform/tournaments/{tournamentId}/{collection}` — no hand-written Firestore path
+  `tournaments/{tournamentId}/{collection}` — no hand-written Firestore path
   anywhere. `TournamentService` handles tournament-level CRUD (create/list/publish/
   archive/duplicate/delete).
 - **Admin flow**: sign in → Tournament Manager → Create Tournament wizard (Steps 1-3: info,

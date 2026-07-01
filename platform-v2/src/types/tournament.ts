@@ -196,7 +196,7 @@ export interface TournamentConfig {
   branding: BrandingConfig;
 }
 
-// ── The Tournament document itself (platform/tournaments/{tournamentId}) ──────────────
+// ── The Tournament document itself (tournaments/{tournamentId}) ───────────────────────
 export interface Tournament {
   id: string;
   slug: string; // public URL: /t/{slug}
