@@ -1,9 +1,5 @@
-"""Minimal stub. This app uses Firebase Realtime Database directly from frontend (no Python backend logic)."""
-from fastapi import FastAPI
+"""ASGI entrypoint kept for platform compatibility."""
 
-app = FastAPI()
+from backend.app.main import app
 
-
-@app.get("/api/health")
-def health():
-    return {"status": "ok", "note": "Frontend uses Firebase RTDB directly"}
+__all__ = ["app"]
